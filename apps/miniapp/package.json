@@ -1,0 +1,30 @@
+{
+  "name": "@unicorn/miniapp",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "taro build --type weapp --watch",
+    "build": "taro build --type weapp",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "echo 'TODO: add miniapp tests'",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "format": "echo 'TODO: format miniapp'",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@tarojs/components": "^4.2.0",
+    "@tarojs/react": "^4.2.0",
+    "@tarojs/runtime": "^4.2.0",
+    "@tarojs/taro": "^4.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@tarojs/cli": "^4.2.0",
+    "@tarojs/plugin-platform-weapp": "^4.2.0",
+    "@types/node": "^22.15.30",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "~5.7.3"
+  }
+}

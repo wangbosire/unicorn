@@ -1,0 +1,24 @@
+.DS_Store
+node_modules
+.turbo
+dist
+coverage
+.env
+.env.local
+.env.*.local
+.pnpm-store
+.idea
+.vscode
+.tools/
+
+
+# Nest / Prisma
+apps/api/prisma/dev.db
+apps/api/prisma/dev.db-journal
+
+# Taro
+apps/miniapp/dist
+
+# Logs
+*.log
+

@@ -1,0 +1,581 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// 后台用户状态。
+enum AdminUserStatus {
+  /// 可正常登录并参与后台操作。
+  ACTIVE
+  /// 已停用，不允许继续登录。
+  DISABLED
+}
+
+/// 角色状态。
+enum RoleStatus {
+  /// 角色可正常分配与生效。
+  ENABLED
+  /// 角色已停用，不再参与权限计算。
+  DISABLED
+}
+
+/// 权限类型。
+enum PermissionType {
+  /// 页面访问类权限。
+  PAGE
+  /// 页面内动作类权限。
+  ACTION
+}
+
+/// 会员状态。
+enum MemberStatus {
+  /// 会员可正常登录和领取藏品。
+  ACTIVE
+  /// 会员被冻结，不允许继续执行关键操作。
+  FROZEN
+}
+
+/// 微信渠道类型。
+enum WechatChannelType {
+  /// 微信小程序。
+  MINIAPP
+  /// 微信公众号。
+  MP
+}
+
+/// 系列状态。
+enum SeriesStatus {
+  /// 系列可正常用于发行批次和后台展示。
+  ENABLED
+  /// 系列已停用，不允许继续新增有效发行动作。
+  DISABLED
+}
+
+/// 发行批次状态。
+enum IssuanceBatchStatus {
+  /// 批次可正常生成和发放激活码。
+  ENABLED
+  /// 批次已停用，不允许继续生成激活码。
+  DISABLED
+}
+
+/// 激活码状态。
+enum ActivationCodeStatus {
+  /// 已创建但尚未正式发放。
+  UNISSUED
+  /// 已发放给渠道或用户，但尚未使用。
+  ISSUED
+  /// 已被会员成功使用。
+  USED
+  /// 已被人工或系统作废。
+  VOIDED
+  /// 已超过有效期失效。
+  EXPIRED
+}
+
+/// 藏品资产状态。
+enum CollectionStatus {
+  /// 已生成但尚未被会员领取。
+  PENDING_CLAIM
+  /// 已被会员领取并归属到当前持有人。
+  OWNED
+  /// 资产被冻结，不允许继续流转或编辑。
+  FROZEN
+}
+
+/// 藏品内容编辑状态。
+enum CollectionContentEditStatus {
+  /// 草稿态，可继续编辑。
+  DRAFT
+  /// 已提交审核，暂不可编辑。
+  UNDER_REVIEW
+  /// 审核拒绝，允许继续修改后重提。
+  REJECTED
+  /// 审核通过，内容可作为已确认版本使用。
+  APPROVED
+}
+
+/// 藏品内容公开状态。
+enum CollectionContentPublishStatus {
+  /// 尚未对外公开展示。
+  UNPUBLISHED
+  /// 已公开展示。
+  PUBLISHED
+  /// 已下架，不再对外展示。
+  TAKEDOWN
+}
+
+/// 藏品内容审核阶段。
+enum CollectionContentReviewStage {
+  /// 机器审核阶段。
+  MACHINE
+  /// 人工审核阶段。
+  MANUAL
+}
+
+/// 藏品内容审核状态。
+enum CollectionContentReviewStatus {
+  /// 待机器审核。
+  PENDING_MACHINE
+  /// 机器审核通过。
+  MACHINE_APPROVED
+  /// 机器审核拒绝。
+  MACHINE_REJECTED
+  /// 待人工审核。
+  PENDING_MANUAL
+  /// 人工审核通过。
+  MANUAL_APPROVED
+  /// 人工审核拒绝。
+  MANUAL_REJECTED
+}
+
+/// 藏品内容审核来源。
+enum CollectionContentReviewSource {
+  /// 由系统自动执行审核。
+  SYSTEM
+  /// 由后台管理员执行审核。
+  ADMIN
+}
+
+/// 健康检查种子表。
+model HealthcheckSeed {
+  /// 自增主键。
+  id        Int      @id @default(autoincrement())
+  /// 健康检查作用域标识。
+  scope     String
+  /// 创建时间。
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("healthcheck_seeds")
+}
+
+/// 后台用户。
+model AdminUser {
+  /// 后台用户主键。
+  id            String                          @id @default(cuid())
+  /// 对外展示和审计使用的后台账号编号。
+  accountNo     String                          @unique @map("account_no")
+  /// 登录用户名。
+  username      String                          @unique
+  /// 展示名称。
+  displayName   String                          @map("display_name")
+  /// 密码哈希值。
+  passwordHash  String                          @map("password_hash")
+  /// 用户状态。
+  status        AdminUserStatus                 @default(ACTIVE)
+  /// 最近一次登录时间。
+  lastLoginAt   DateTime?                       @map("last_login_at")
+  /// 创建时间。
+  createdAt     DateTime                        @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt     DateTime                        @updatedAt @map("updated_at")
+  /// 后台用户拥有的角色关系。
+  roles         AdminUserRole[]
+  /// 该管理员审核过的内容记录。
+  reviewedItems CollectionContentReviewRecord[]
+
+  @@map("admin_users")
+}
+
+/// 角色定义。
+model Role {
+  /// 角色主键。
+  id          String           @id @default(cuid())
+  /// 角色唯一标识。
+  roleKey     String           @unique @map("role_key")
+  /// 角色名称。
+  roleName    String           @map("role_name")
+  /// 角色状态。
+  status      RoleStatus       @default(ENABLED)
+  /// 创建时间。
+  createdAt   DateTime         @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  /// 被分配该角色的后台用户关系。
+  users       AdminUserRole[]
+  /// 该角色拥有的权限关系。
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+/// 权限定义。
+model Permission {
+  /// 权限主键。
+  id             String           @id @default(cuid())
+  /// 权限唯一标识。
+  permissionKey  String           @unique @map("permission_key")
+  /// 权限显示名称。
+  permissionName String           @map("permission_name")
+  /// 权限类别。
+  permissionType PermissionType   @map("permission_type")
+  /// 创建时间。
+  createdAt      DateTime         @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  /// 拥有该权限的角色关系。
+  roles          RolePermission[]
+
+  @@map("permissions")
+}
+
+/// 后台用户与角色关系表。
+model AdminUserRole {
+  /// 关系主键。
+  id          String    @id @default(cuid())
+  /// 后台用户外键。
+  adminUserId String    @map("admin_user_id")
+  /// 角色外键。
+  roleId      String    @map("role_id")
+  /// 建立关联的时间。
+  createdAt   DateTime  @default(now()) @map("created_at")
+  /// 后台用户实体。
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id])
+  /// 角色实体。
+  role        Role      @relation(fields: [roleId], references: [id])
+
+  /// 同一后台用户与同一角色只允许建立一条关系。
+  @@unique([adminUserId, roleId])
+  @@map("admin_user_roles")
+}
+
+/// 角色与权限关系表。
+model RolePermission {
+  /// 关系主键。
+  id           String     @id @default(cuid())
+  /// 角色外键。
+  roleId       String     @map("role_id")
+  /// 权限外键。
+  permissionId String     @map("permission_id")
+  /// 建立关联的时间。
+  createdAt    DateTime   @default(now()) @map("created_at")
+  /// 角色实体。
+  role         Role       @relation(fields: [roleId], references: [id])
+  /// 权限实体。
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  /// 同一角色与同一权限只允许建立一条关系。
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+/// 会员主账户。
+model Member {
+  /// 会员主键。
+  id                    String                     @id @default(cuid())
+  /// 对外展示和跨系统追踪使用的会员编号。
+  memberNo              String                     @unique @map("member_no")
+  /// 会员昵称。
+  nickname              String
+  /// 会员头像地址。
+  avatarUrl             String?                    @map("avatar_url")
+  /// 会员手机号，可能为空。
+  mobile                String?
+  /// 会员状态。
+  status                MemberStatus               @default(ACTIVE)
+  /// 注册时间。
+  registeredAt          DateTime                   @default(now()) @map("registered_at")
+  /// 创建时间。
+  createdAt             DateTime                   @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt             DateTime                   @updatedAt @map("updated_at")
+  /// 微信渠道绑定关系。
+  wechatBindings        MemberWechatBinding[]
+  /// 当前名下持有的藏品。
+  ownedCollections      Collection[]               @relation("CollectionCurrentOwner")
+  /// 该会员已使用过的激活码。
+  usedActivationCodes   ActivationCode[]           @relation("ActivationCodeUsedByMember")
+  /// 由该会员创建的内容版本。
+  createdContentVersion CollectionContentVersion[]
+
+  /// 支撑按手机号检索会员的后台查询场景。
+  @@index([mobile])
+  @@map("members")
+}
+
+/// 会员微信绑定关系。
+model MemberWechatBinding {
+  /// 绑定关系主键。
+  id          String            @id @default(cuid())
+  /// 会员外键。
+  memberId    String            @map("member_id")
+  /// 渠道类型，小程序或公众号。
+  channelType WechatChannelType @map("channel_type")
+  /// 渠道内唯一 openid。
+  openid      String
+  /// 可用于账号归并的 unionid。
+  unionid     String?
+  /// 绑定时间。
+  boundAt     DateTime          @default(now()) @map("bound_at")
+  /// 创建时间。
+  createdAt   DateTime          @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  /// 关联会员实体。
+  member      Member            @relation(fields: [memberId], references: [id])
+
+  /// 保证同一渠道下的 openid 只能绑定到一个会员。
+  @@unique([channelType, openid])
+  /// 支撑通过 unionid 做账号归并或补绑查询。
+  @@index([unionid])
+  /// 支撑按会员查询其全部微信绑定关系。
+  @@index([memberId])
+  @@map("member_wechat_bindings")
+}
+
+/// 藏品系列定义。
+model Series {
+  /// 系列主键。
+  id          String          @id @default(cuid())
+  /// 对外展示的系列编号。
+  seriesNo    String          @unique @map("series_no")
+  /// 系列名称。
+  name        String
+  /// 系列描述。
+  description String
+  /// 系列状态。
+  status      SeriesStatus    @default(ENABLED)
+  /// 创建人标识，当前阶段先使用字符串存储。
+  createdBy   String?         @map("created_by")
+  /// 更新人标识，当前阶段先使用字符串存储。
+  updatedBy   String?         @map("updated_by")
+  /// 创建时间。
+  createdAt   DateTime        @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  /// 该系列下的发行批次。
+  batches     IssuanceBatch[]
+  /// 该系列下已生成的藏品资产。
+  collections Collection[]
+
+  /// 支撑后台按状态筛选系列列表。
+  @@index([status])
+  @@map("series")
+}
+
+/// 发行批次定义。
+model IssuanceBatch {
+  /// 批次主键。
+  id                String              @id @default(cuid())
+  /// 对外展示的批次编号。
+  batchNo           String              @unique @map("batch_no")
+  /// 所属系列外键。
+  seriesId          String              @map("series_id")
+  /// 批次名称。
+  name              String
+  /// 计划发行数量。
+  quantity          Int
+  /// 激活有效开始时间。
+  activateValidFrom DateTime            @map("activate_valid_from")
+  /// 激活有效结束时间。
+  activateValidTo   DateTime            @map("activate_valid_to")
+  /// 批次状态。
+  status            IssuanceBatchStatus @default(ENABLED)
+  /// 运营备注。
+  remark            String?
+  /// 创建人标识，当前阶段先使用字符串存储。
+  createdBy         String?             @map("created_by")
+  /// 更新人标识，当前阶段先使用字符串存储。
+  updatedBy         String?             @map("updated_by")
+  /// 创建时间。
+  createdAt         DateTime            @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  /// 所属系列实体。
+  series            Series              @relation(fields: [seriesId], references: [id])
+  /// 该批次下生成的藏品资产。
+  collections       Collection[]
+  /// 该批次下生成的激活码。
+  activationCodes   ActivationCode[]
+
+  /// 支撑按所属系列查询批次列表。
+  @@index([seriesId])
+  /// 支撑后台按状态筛选批次列表。
+  @@index([status])
+  @@map("issuance_batches")
+}
+
+/// 藏品主实体。
+/// 表示数字资产本体，不等同于可公开展示的内容版本。
+model Collection {
+  /// 藏品主键。
+  id                   String                          @id @default(cuid())
+  /// 对外展示的藏品编号。
+  collectionNo         String                          @unique @map("collection_no")
+  /// 所属系列外键。
+  seriesId             String                          @map("series_id")
+  /// 所属批次外键。
+  batchId              String                          @map("batch_id")
+  /// 当前藏品资产状态。
+  status               CollectionStatus                @default(PENDING_CLAIM)
+  /// 当前拥有者会员外键，未领取时为空。
+  currentOwnerMemberId String?                         @map("current_owner_member_id")
+  /// 实际领取时间。
+  claimedAt            DateTime?                       @map("claimed_at")
+  /// 创建时间。
+  createdAt            DateTime                        @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt            DateTime                        @updatedAt @map("updated_at")
+  /// 所属系列实体。
+  series               Series                          @relation(fields: [seriesId], references: [id])
+  /// 所属发行批次实体。
+  batch                IssuanceBatch                   @relation(fields: [batchId], references: [id])
+  /// 当前持有人会员实体。
+  currentOwnerMember   Member?                         @relation("CollectionCurrentOwner", fields: [currentOwnerMemberId], references: [id])
+  /// 与该藏品一一对应的激活码。
+  activationCode       ActivationCode?
+  /// 藏品下的内容版本列表。
+  contentVersions      CollectionContentVersion[]
+  /// 藏品下的审核记录列表。
+  reviewRecords        CollectionContentReviewRecord[]
+
+  /// 支撑按所属系列聚合或筛选藏品。
+  @@index([seriesId])
+  /// 支撑按发行批次查询生成结果与审核范围。
+  @@index([batchId])
+  /// 支撑按当前持有人查询我的藏品列表。
+  @@index([currentOwnerMemberId])
+  /// 支撑按藏品资产状态筛选。
+  @@index([status])
+  @@map("collections")
+}
+
+/// 激活码实体。
+/// 每个激活码和藏品一一对应。
+model ActivationCode {
+  /// 激活码主键。
+  id             String               @id @default(cuid())
+  /// 会员输入的唯一激活码。
+  code           String               @unique
+  /// 所属批次外键。
+  batchId        String               @map("batch_id")
+  /// 对应藏品外键，一码一藏品。
+  /// 字段级唯一约束保证一个藏品只能对应一个激活码。
+  collectionId   String               @unique @map("collection_id")
+  /// 激活码状态。
+  status         ActivationCodeStatus @default(UNISSUED)
+  /// 发放渠道标识。
+  issuedChannel  String?              @map("issued_channel")
+  /// 发放时间。
+  issuedAt       DateTime?            @map("issued_at")
+  /// 使用该激活码的会员外键。
+  usedByMemberId String?              @map("used_by_member_id")
+  /// 实际使用时间。
+  usedAt         DateTime?            @map("used_at")
+  /// 失效时间。
+  expiredAt      DateTime?            @map("expired_at")
+  /// 作废时间。
+  voidedAt       DateTime?            @map("voided_at")
+  /// 创建时间。
+  createdAt      DateTime             @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  /// 所属发行批次实体。
+  batch          IssuanceBatch        @relation(fields: [batchId], references: [id])
+  /// 一一对应的藏品实体。
+  collection     Collection           @relation(fields: [collectionId], references: [id])
+  /// 实际使用该激活码的会员实体。
+  usedByMember   Member?              @relation("ActivationCodeUsedByMember", fields: [usedByMemberId], references: [id])
+
+  /// 支撑按批次查询激活码列表与生成统计。
+  @@index([batchId])
+  /// 支撑按激活码状态筛选后台列表。
+  @@index([status])
+  /// 支撑按使用会员追踪激活记录。
+  @@index([usedByMemberId])
+  @@map("activation_codes")
+}
+
+/// 藏品内容版本。
+/// 同一藏品可以拥有多个编辑版本，公开页始终指向当前生效版本。
+model CollectionContentVersion {
+  /// 内容版本主键。
+  id                String                          @id @default(cuid())
+  /// 所属藏品外键。
+  collectionId      String                          @map("collection_id")
+  /// 单藏品内递增版本号。
+  versionNo         Int                             @map("version_no")
+  /// 展示标题。
+  title             String                          @default("")
+  /// 展示摘要。
+  summary           String                          @default("")
+  /// 封面图地址。
+  coverImageUrl     String?                         @map("cover_image_url")
+  /// 结构化内容载荷，一期使用 JSON 承载。
+  contentPayload    Json                            @default("{}") @map("content_payload")
+  /// 当前编辑状态。
+  editStatus        CollectionContentEditStatus     @default(DRAFT) @map("edit_status")
+  /// 当前公开发布状态。
+  publishStatus     CollectionContentPublishStatus  @default(UNPUBLISHED) @map("publish_status")
+  /// 提交审核时间。
+  submittedAt       DateTime?                       @map("submitted_at")
+  /// 实际发布时间。
+  publishedAt       DateTime?                       @map("published_at")
+  /// 创建该内容版本的会员外键。
+  createdByMemberId String?                         @map("created_by_member_id")
+  /// 创建时间。
+  createdAt         DateTime                        @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt         DateTime                        @updatedAt @map("updated_at")
+  /// 所属藏品实体。
+  collection        Collection                      @relation(fields: [collectionId], references: [id])
+  /// 创建该版本的会员实体。
+  createdByMember   Member?                         @relation(fields: [createdByMemberId], references: [id])
+  /// 该版本关联的审核记录。
+  reviewRecords     CollectionContentReviewRecord[]
+
+  /// 保证同一藏品下的版本号唯一且单调递增。
+  @@unique([collectionId, versionNo])
+  /// 支撑按藏品读取内容版本列表与最新版本。
+  @@index([collectionId])
+  /// 支撑按编辑状态筛选待处理内容。
+  @@index([editStatus])
+  /// 支撑按公开状态筛选内容展示结果。
+  @@index([publishStatus])
+  @@map("collection_content_versions")
+}
+
+/// 藏品内容审核记录。
+/// 记录机审和人工复核过程，不直接等同于公开状态。
+model CollectionContentReviewRecord {
+  /// 审核记录主键。
+  id                    String                        @id @default(cuid())
+  /// 所属藏品外键。
+  collectionId          String                        @map("collection_id")
+  /// 对应内容版本外键。
+  contentVersionId      String                        @map("content_version_id")
+  /// 审核阶段，机审或人工。
+  reviewStage           CollectionContentReviewStage  @map("review_stage")
+  /// 审核结果状态。
+  reviewStatus          CollectionContentReviewStatus @map("review_status")
+  /// 审核来源，系统或管理员。
+  reviewSource          CollectionContentReviewSource @map("review_source")
+  /// 审核原因或备注。
+  reviewReason          String?                       @map("review_reason")
+  /// 执行人工审核的后台用户外键。
+  reviewedByAdminUserId String?                       @map("reviewed_by_admin_user_id")
+  /// 审核完成时间。
+  reviewedAt            DateTime?                     @map("reviewed_at")
+  /// 审核记录创建时间。
+  createdAt             DateTime                      @default(now()) @map("created_at")
+  /// 所属藏品实体。
+  collection            Collection                    @relation(fields: [collectionId], references: [id])
+  /// 对应内容版本实体。
+  contentVersion        CollectionContentVersion      @relation(fields: [contentVersionId], references: [id])
+  /// 执行人工审核的后台用户实体。
+  reviewedByAdminUser   AdminUser?                    @relation(fields: [reviewedByAdminUserId], references: [id])
+
+  /// 支撑按藏品追溯全部审核历史。
+  @@index([collectionId])
+  /// 支撑按内容版本查询对应审核记录。
+  @@index([contentVersionId])
+  /// 支撑后台按审核状态查询审核队列。
+  @@index([reviewStatus])
+  /// 支撑区分机审与人工审核阶段的处理队列。
+  @@index([reviewStage])
+  @@map("collection_content_review_records")
+}

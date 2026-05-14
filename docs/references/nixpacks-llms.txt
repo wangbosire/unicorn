@@ -1,0 +1,25 @@
+面向 LLM 的 Nixpacks 参考笔记
+
+用途
+- 以仓库内可复用的形式沉淀部署打包假设、约束和后续待确认事项。
+
+当前仓库背景
+- 当前仓库是 `pnpm workspace` Monorepo，并由 Turborepo 编排任务。
+- 根脚本已暴露 `dev`、`build`、`lint`、`test`、`typecheck`、`format`、`clean`，本质上都通过 `turbo run ...` 执行。
+- 当前最可能独立部署的服务是 `apps/api`，前端后续可能根据宿主平台采用不同部署路径。
+
+仓库内结论
+- 未来如果使用 Nixpacks 或类似构建打包方案，应默认从仓库根目录完成 Monorepo 安装，而不是先假设每个 app 都能独立安装。
+- 构建命令应优先复用仓库已有根脚本，因为这些脚本已经编码了 Turborepo 的任务编排方式。
+- 打包决策应明确区分“构建整个 Monorepo”和“只构建某个可部署目标应用”。
+
+使用建议
+- 只记录团队后续在构建或部署服务时会反复复用的信息。
+- 优先记录与本仓库直接相关的结论，而不是粘贴供应商文档。
+
+建议后续补充的内容
+- 哪些应用实际上需要 Nixpacks 构建
+- `apps/api` 所需的环境变量、构建命令和启动命令
+- 部署时应执行 `pnpm build`、带过滤条件的 turbo 构建，还是 app 局部构建命令
+- Monorepo 下的 install、prune、cache、start 约定
+- `pnpm workspace`、Turborepo、Prisma 与部署打包组合时的已知注意事项
