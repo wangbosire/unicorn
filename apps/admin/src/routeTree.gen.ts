@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ClerkRouteRouteImport } from './routes/clerk/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedTransfersRouteImport } from './routes/_authenticated/transfers'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedMembersRouteImport } from './routes/_authenticated/members'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
@@ -34,11 +37,20 @@ import { Route as AuthenticatedAppsIndexRouteImport } from './routes/_authentica
 import { Route as ClerkAuthenticatedUserManagementRouteImport } from './routes/clerk/_authenticated/user-management'
 import { Route as ClerkauthSignUpRouteImport } from './routes/clerk/(auth)/sign-up'
 import { Route as ClerkauthSignInRouteImport } from './routes/clerk/(auth)/sign-in'
+import { Route as AuthenticatedSystemRolesRouteImport } from './routes/_authenticated/system/roles'
+import { Route as AuthenticatedSystemAdminUsersRouteImport } from './routes/_authenticated/system/admin-users'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
+import { Route as AuthenticatedIssuanceSeriesRouteImport } from './routes/_authenticated/issuance/series'
+import { Route as AuthenticatedIssuanceBatchesRouteImport } from './routes/_authenticated/issuance/batches'
+import { Route as AuthenticatedIssuanceActivationCodesRouteImport } from './routes/_authenticated/issuance/activation-codes'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as AuthenticatedCommentsReviewsRouteImport } from './routes/_authenticated/comments/reviews'
+import { Route as AuthenticatedCommentsListRouteImport } from './routes/_authenticated/comments/list'
+import { Route as AuthenticatedCollectionsReviewsRouteImport } from './routes/_authenticated/collections/reviews'
+import { Route as AuthenticatedCollectionsListRouteImport } from './routes/_authenticated/collections/list'
 
 const ClerkRouteRoute = ClerkRouteRouteImport.update({
   id: '/clerk',
@@ -52,6 +64,22 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTransfersRoute = AuthenticatedTransfersRouteImport.update({
+  id: '/transfers',
+  path: '/transfers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedNotificationsRoute =
+  AuthenticatedNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedMembersRoute = AuthenticatedMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const errors503Route = errors503RouteImport.update({
@@ -166,6 +194,18 @@ const ClerkauthSignInRoute = ClerkauthSignInRouteImport.update({
   path: '/sign-in',
   getParentRoute: () => ClerkauthRouteRoute,
 } as any)
+const AuthenticatedSystemRolesRoute =
+  AuthenticatedSystemRolesRouteImport.update({
+    id: '/system/roles',
+    path: '/system/roles',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSystemAdminUsersRoute =
+  AuthenticatedSystemAdminUsersRouteImport.update({
+    id: '/system/admin-users',
+    path: '/system/admin-users',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsNotificationsRoute =
   AuthenticatedSettingsNotificationsRouteImport.update({
     id: '/notifications',
@@ -190,10 +230,52 @@ const AuthenticatedSettingsAccountRoute =
     path: '/account',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedIssuanceSeriesRoute =
+  AuthenticatedIssuanceSeriesRouteImport.update({
+    id: '/issuance/series',
+    path: '/issuance/series',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedIssuanceBatchesRoute =
+  AuthenticatedIssuanceBatchesRouteImport.update({
+    id: '/issuance/batches',
+    path: '/issuance/batches',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedIssuanceActivationCodesRoute =
+  AuthenticatedIssuanceActivationCodesRouteImport.update({
+    id: '/issuance/activation-codes',
+    path: '/issuance/activation-codes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedErrorsErrorRoute =
   AuthenticatedErrorsErrorRouteImport.update({
     id: '/errors/$error',
     path: '/errors/$error',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCommentsReviewsRoute =
+  AuthenticatedCommentsReviewsRouteImport.update({
+    id: '/comments/reviews',
+    path: '/comments/reviews',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCommentsListRoute =
+  AuthenticatedCommentsListRouteImport.update({
+    id: '/comments/list',
+    path: '/comments/list',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCollectionsReviewsRoute =
+  AuthenticatedCollectionsReviewsRouteImport.update({
+    id: '/collections/reviews',
+    path: '/collections/reviews',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCollectionsListRoute =
+  AuthenticatedCollectionsListRouteImport.update({
+    id: '/collections/list',
+    path: '/collections/list',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
@@ -211,11 +293,23 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/members': typeof AuthenticatedMembersRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/transfers': typeof AuthenticatedTransfersRoute
+  '/collections/list': typeof AuthenticatedCollectionsListRoute
+  '/collections/reviews': typeof AuthenticatedCollectionsReviewsRoute
+  '/comments/list': typeof AuthenticatedCommentsListRoute
+  '/comments/reviews': typeof AuthenticatedCommentsReviewsRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/issuance/activation-codes': typeof AuthenticatedIssuanceActivationCodesRoute
+  '/issuance/batches': typeof AuthenticatedIssuanceBatchesRoute
+  '/issuance/series': typeof AuthenticatedIssuanceSeriesRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/system/admin-users': typeof AuthenticatedSystemAdminUsersRoute
+  '/system/roles': typeof AuthenticatedSystemRolesRoute
   '/clerk/sign-in': typeof ClerkauthSignInRoute
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
@@ -238,12 +332,24 @@ export interface FileRoutesByTo {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/members': typeof AuthenticatedMembersRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/transfers': typeof AuthenticatedTransfersRoute
   '/': typeof AuthenticatedIndexRoute
+  '/collections/list': typeof AuthenticatedCollectionsListRoute
+  '/collections/reviews': typeof AuthenticatedCollectionsReviewsRoute
+  '/comments/list': typeof AuthenticatedCommentsListRoute
+  '/comments/reviews': typeof AuthenticatedCommentsReviewsRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/issuance/activation-codes': typeof AuthenticatedIssuanceActivationCodesRoute
+  '/issuance/batches': typeof AuthenticatedIssuanceBatchesRoute
+  '/issuance/series': typeof AuthenticatedIssuanceSeriesRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/system/admin-users': typeof AuthenticatedSystemAdminUsersRoute
+  '/system/roles': typeof AuthenticatedSystemRolesRoute
   '/clerk/sign-in': typeof ClerkauthSignInRoute
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
@@ -271,12 +377,24 @@ export interface FileRoutesById {
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
+  '/_authenticated/members': typeof AuthenticatedMembersRoute
+  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
+  '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/collections/list': typeof AuthenticatedCollectionsListRoute
+  '/_authenticated/collections/reviews': typeof AuthenticatedCollectionsReviewsRoute
+  '/_authenticated/comments/list': typeof AuthenticatedCommentsListRoute
+  '/_authenticated/comments/reviews': typeof AuthenticatedCommentsReviewsRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/_authenticated/issuance/activation-codes': typeof AuthenticatedIssuanceActivationCodesRoute
+  '/_authenticated/issuance/batches': typeof AuthenticatedIssuanceBatchesRoute
+  '/_authenticated/issuance/series': typeof AuthenticatedIssuanceSeriesRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/_authenticated/system/admin-users': typeof AuthenticatedSystemAdminUsersRoute
+  '/_authenticated/system/roles': typeof AuthenticatedSystemRolesRoute
   '/clerk/(auth)/sign-in': typeof ClerkauthSignInRoute
   '/clerk/(auth)/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/_authenticated/user-management': typeof ClerkAuthenticatedUserManagementRoute
@@ -303,11 +421,23 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/members'
+    | '/notifications'
+    | '/transfers'
+    | '/collections/list'
+    | '/collections/reviews'
+    | '/comments/list'
+    | '/comments/reviews'
     | '/errors/$error'
+    | '/issuance/activation-codes'
+    | '/issuance/batches'
+    | '/issuance/series'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
+    | '/system/admin-users'
+    | '/system/roles'
     | '/clerk/sign-in'
     | '/clerk/sign-up'
     | '/clerk/user-management'
@@ -330,12 +460,24 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/members'
+    | '/notifications'
+    | '/transfers'
     | '/'
+    | '/collections/list'
+    | '/collections/reviews'
+    | '/comments/list'
+    | '/comments/reviews'
     | '/errors/$error'
+    | '/issuance/activation-codes'
+    | '/issuance/batches'
+    | '/issuance/series'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
+    | '/system/admin-users'
+    | '/system/roles'
     | '/clerk/sign-in'
     | '/clerk/sign-up'
     | '/clerk/user-management'
@@ -362,12 +504,24 @@ export interface FileRouteTypes {
     | '/(errors)/404'
     | '/(errors)/500'
     | '/(errors)/503'
+    | '/_authenticated/members'
+    | '/_authenticated/notifications'
+    | '/_authenticated/transfers'
     | '/_authenticated/'
+    | '/_authenticated/collections/list'
+    | '/_authenticated/collections/reviews'
+    | '/_authenticated/comments/list'
+    | '/_authenticated/comments/reviews'
     | '/_authenticated/errors/$error'
+    | '/_authenticated/issuance/activation-codes'
+    | '/_authenticated/issuance/batches'
+    | '/_authenticated/issuance/series'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/display'
     | '/_authenticated/settings/notifications'
+    | '/_authenticated/system/admin-users'
+    | '/_authenticated/system/roles'
     | '/clerk/(auth)/sign-in'
     | '/clerk/(auth)/sign-up'
     | '/clerk/_authenticated/user-management'
@@ -415,6 +569,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/transfers': {
+      id: '/_authenticated/transfers'
+      path: '/transfers'
+      fullPath: '/transfers'
+      preLoaderRoute: typeof AuthenticatedTransfersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/members': {
+      id: '/_authenticated/members'
+      path: '/members'
+      fullPath: '/members'
+      preLoaderRoute: typeof AuthenticatedMembersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/(errors)/503': {
@@ -571,6 +746,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClerkauthSignInRouteImport
       parentRoute: typeof ClerkauthRouteRoute
     }
+    '/_authenticated/system/roles': {
+      id: '/_authenticated/system/roles'
+      path: '/system/roles'
+      fullPath: '/system/roles'
+      preLoaderRoute: typeof AuthenticatedSystemRolesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/system/admin-users': {
+      id: '/_authenticated/system/admin-users'
+      path: '/system/admin-users'
+      fullPath: '/system/admin-users'
+      preLoaderRoute: typeof AuthenticatedSystemAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings/notifications': {
       id: '/_authenticated/settings/notifications'
       path: '/notifications'
@@ -599,11 +788,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/issuance/series': {
+      id: '/_authenticated/issuance/series'
+      path: '/issuance/series'
+      fullPath: '/issuance/series'
+      preLoaderRoute: typeof AuthenticatedIssuanceSeriesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/issuance/batches': {
+      id: '/_authenticated/issuance/batches'
+      path: '/issuance/batches'
+      fullPath: '/issuance/batches'
+      preLoaderRoute: typeof AuthenticatedIssuanceBatchesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/issuance/activation-codes': {
+      id: '/_authenticated/issuance/activation-codes'
+      path: '/issuance/activation-codes'
+      fullPath: '/issuance/activation-codes'
+      preLoaderRoute: typeof AuthenticatedIssuanceActivationCodesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/errors/$error': {
       id: '/_authenticated/errors/$error'
       path: '/errors/$error'
       fullPath: '/errors/$error'
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/comments/reviews': {
+      id: '/_authenticated/comments/reviews'
+      path: '/comments/reviews'
+      fullPath: '/comments/reviews'
+      preLoaderRoute: typeof AuthenticatedCommentsReviewsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/comments/list': {
+      id: '/_authenticated/comments/list'
+      path: '/comments/list'
+      fullPath: '/comments/list'
+      preLoaderRoute: typeof AuthenticatedCommentsListRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/collections/reviews': {
+      id: '/_authenticated/collections/reviews'
+      path: '/collections/reviews'
+      fullPath: '/collections/reviews'
+      preLoaderRoute: typeof AuthenticatedCollectionsReviewsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/collections/list': {
+      id: '/_authenticated/collections/list'
+      path: '/collections/list'
+      fullPath: '/collections/list'
+      preLoaderRoute: typeof AuthenticatedCollectionsListRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
   }
@@ -634,8 +872,20 @@ const AuthenticatedSettingsRouteRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedMembersRoute: typeof AuthenticatedMembersRoute
+  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
+  AuthenticatedTransfersRoute: typeof AuthenticatedTransfersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedCollectionsListRoute: typeof AuthenticatedCollectionsListRoute
+  AuthenticatedCollectionsReviewsRoute: typeof AuthenticatedCollectionsReviewsRoute
+  AuthenticatedCommentsListRoute: typeof AuthenticatedCommentsListRoute
+  AuthenticatedCommentsReviewsRoute: typeof AuthenticatedCommentsReviewsRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
+  AuthenticatedIssuanceActivationCodesRoute: typeof AuthenticatedIssuanceActivationCodesRoute
+  AuthenticatedIssuanceBatchesRoute: typeof AuthenticatedIssuanceBatchesRoute
+  AuthenticatedIssuanceSeriesRoute: typeof AuthenticatedIssuanceSeriesRoute
+  AuthenticatedSystemAdminUsersRoute: typeof AuthenticatedSystemAdminUsersRoute
+  AuthenticatedSystemRolesRoute: typeof AuthenticatedSystemRolesRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
@@ -645,8 +895,21 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedMembersRoute: AuthenticatedMembersRoute,
+  AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
+  AuthenticatedTransfersRoute: AuthenticatedTransfersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedCollectionsListRoute: AuthenticatedCollectionsListRoute,
+  AuthenticatedCollectionsReviewsRoute: AuthenticatedCollectionsReviewsRoute,
+  AuthenticatedCommentsListRoute: AuthenticatedCommentsListRoute,
+  AuthenticatedCommentsReviewsRoute: AuthenticatedCommentsReviewsRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
+  AuthenticatedIssuanceActivationCodesRoute:
+    AuthenticatedIssuanceActivationCodesRoute,
+  AuthenticatedIssuanceBatchesRoute: AuthenticatedIssuanceBatchesRoute,
+  AuthenticatedIssuanceSeriesRoute: AuthenticatedIssuanceSeriesRoute,
+  AuthenticatedSystemAdminUsersRoute: AuthenticatedSystemAdminUsersRoute,
+  AuthenticatedSystemRolesRoute: AuthenticatedSystemRolesRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,

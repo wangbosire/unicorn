@@ -1,9 +1,7 @@
 import './styles/app.css';
 
-import type { PropsWithChildren } from 'react';
-
-function App({ children }: PropsWithChildren) {
-  return children;
+function App(props) {
+  return props.children ?? null;
 }
 
 export default App;

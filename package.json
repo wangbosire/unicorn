@@ -12,6 +12,12 @@
     "format": "turbo run format",
     "clean": "turbo run clean"
   },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.2.14",
+      "@types/react-dom": "19.2.3"
+    }
+  },
   "devDependencies": {
     "turbo": "^2.5.5"
   }
