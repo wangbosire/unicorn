@@ -11,6 +11,7 @@
 ## 当前条目
 
 - [DB Schema](./db-schema.md)
+- [移动端 UI 稿 V1](./mobile-ui-v1/README.md)
 
 ## 后续补充建议
 

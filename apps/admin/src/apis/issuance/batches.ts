@@ -1,4 +1,6 @@
 import type {
+  CreateIssuanceBatchRequest,
+  CreateIssuanceBatchResponseData,
   ListIssuanceBatchesQuery,
   ListIssuanceBatchesResponseData,
 } from '@contracts/admin/issuance-batches'
@@ -14,4 +16,14 @@ export async function listIssuanceBatches(
   return apiClient.get('/admin-api/issuance-batches', {
     params: query,
   })
+}
+
+/**
+ * 创建发行批次。
+ * 供 M1 后台最小发行闭环使用，创建成功后可继续进入激活码生成。
+ */
+export async function createIssuanceBatch(
+  payload: CreateIssuanceBatchRequest
+): Promise<CreateIssuanceBatchResponseData> {
+  return apiClient.post('/admin-api/issuance-batches', payload)
 }

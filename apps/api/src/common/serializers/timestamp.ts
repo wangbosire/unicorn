@@ -1,4 +1,4 @@
-import * as dayjs from 'dayjs'
+import dayjs from 'dayjs'
 
 /**
  * 将 Date 转为毫秒时间戳。

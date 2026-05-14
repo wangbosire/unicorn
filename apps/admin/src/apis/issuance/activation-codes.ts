@@ -1,4 +1,6 @@
 import type {
+  GenerateActivationCodesRequest,
+  GenerateActivationCodesResponseData,
   ListActivationCodesQuery,
   ListActivationCodesResponseData,
 } from '@contracts/admin/activation-codes'
@@ -14,4 +16,14 @@ export async function listActivationCodes(
   return apiClient.get('/admin-api/activation-codes', {
     params: query,
   })
+}
+
+/**
+ * 批量生成激活码。
+ * 生成过程中会同步创建待领取藏品，用于打通 M1 后台发行主链路。
+ */
+export async function generateActivationCodes(
+  payload: GenerateActivationCodesRequest
+): Promise<GenerateActivationCodesResponseData> {
+  return apiClient.post('/admin-api/activation-codes/generate', payload)
 }

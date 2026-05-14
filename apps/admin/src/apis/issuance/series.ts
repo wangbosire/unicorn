@@ -1,4 +1,6 @@
 import type {
+  CreateSeriesRequest,
+  CreateSeriesResponseData,
   ListSeriesQuery,
   ListSeriesResponseData,
 } from '@contracts/admin/series'
@@ -14,4 +16,14 @@ export async function listSeries(
   return apiClient.get('/admin-api/series', {
     params: query,
   })
+}
+
+/**
+ * 创建系列。
+ * 供 M1 后台最小发行闭环使用，创建成功后可继续进入批次配置。
+ */
+export async function createSeries(
+  payload: CreateSeriesRequest
+): Promise<CreateSeriesResponseData> {
+  return apiClient.post('/admin-api/series', payload)
 }

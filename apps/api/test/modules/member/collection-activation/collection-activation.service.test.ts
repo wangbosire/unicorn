@@ -249,3 +249,74 @@ test('CollectionActivationService.activateCollection rejects already used activa
       error instanceof BizError && error.code === 'ACTIVATION_CODE_USED',
   );
 });
+
+test('CollectionActivationService.activateCollection rejects invalid activation code', async () => {
+  const { prisma } = createCollectionActivationPrismaMock();
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new CollectionActivationService(
+    prisma as never,
+    memberContextService,
+  );
+
+  await assert.rejects(
+    () =>
+      service.activateCollection(
+        {
+          memberId: 'mem_1',
+        },
+        {
+          activationCode: 'INVALID-CODE',
+        },
+      ),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ACTIVATION_CODE_INVALID',
+  );
+});
+
+test('CollectionActivationService.activateCollection rejects expired activation code', async () => {
+  const { prisma, activationCode } = createCollectionActivationPrismaMock();
+  activationCode.expiredAt = new Date('2026-05-01T00:00:00.000Z');
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new CollectionActivationService(
+    prisma as never,
+    memberContextService,
+  );
+
+  await assert.rejects(
+    () =>
+      service.activateCollection(
+        {
+          memberId: 'mem_1',
+        },
+        {
+          activationCode: 'ABCD-EFGH-IJKL',
+        },
+      ),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ACTIVATION_CODE_EXPIRED',
+  );
+});
+
+test('CollectionActivationService.activateCollection rejects voided activation code', async () => {
+  const { prisma, activationCode } = createCollectionActivationPrismaMock();
+  activationCode.status = ActivationCodeStatus.VOIDED;
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new CollectionActivationService(
+    prisma as never,
+    memberContextService,
+  );
+
+  await assert.rejects(
+    () =>
+      service.activateCollection(
+        {
+          memberId: 'mem_1',
+        },
+        {
+          activationCode: 'ABCD-EFGH-IJKL',
+        },
+      ),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ACTIVATION_CODE_VOIDED',
+  );
+});

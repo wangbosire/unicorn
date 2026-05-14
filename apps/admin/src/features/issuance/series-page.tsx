@@ -1,38 +1,66 @@
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import type { SeriesListItem } from '@contracts/admin/series'
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { CreateSeriesRequest } from '@contracts/admin/series'
+import { toast } from 'sonner'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { listSeries } from './series-api'
+import { createSeries, listSeries } from '@/apis/issuance/series'
+import { ApiError } from '@/lib/api-error'
+import { CreateSeriesDialog } from './components/create-series-dialog'
+import { SeriesTable } from './components/series-table'
 
 export function SeriesPage() {
-  const [keyword, setKeyword] = useState('')
-  const trimmedKeyword = keyword.trim()
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [seriesName, setSeriesName] = useState('')
+  const [seriesDescription, setSeriesDescription] = useState('')
+  const queryClient = useQueryClient()
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['admin', 'series', trimmedKeyword],
+    queryKey: ['admin', 'series'],
     queryFn: () =>
       listSeries({
         page: 1,
         pageSize: 20,
-        ...(trimmedKeyword ? { keyword: trimmedKeyword } : {}),
       }),
   })
-  const rows = useMemo(() => data?.items ?? [], [data])
+  const createSeriesMutation = useMutation({
+    mutationFn: (payload: CreateSeriesRequest) => createSeries(payload),
+    onSuccess: async (createdSeries) => {
+      toast.success(`系列 ${createdSeries.name} 创建成功`)
+      setIsCreateDialogOpen(false)
+      setSeriesName('')
+      setSeriesDescription('')
+      await queryClient.invalidateQueries({
+        queryKey: ['admin', 'series'],
+      })
+    },
+    onError: (error: unknown) => {
+      if (error instanceof ApiError) {
+        toast.error(mapCreateSeriesErrorMessage(error))
+        return
+      }
+
+      toast.error('系列创建失败，请稍后重试')
+    },
+  })
+
+  function handleCreateSeries() {
+    const payload = {
+      name: seriesName.trim(),
+      description: seriesDescription.trim(),
+    } satisfies CreateSeriesRequest
+
+    if (!payload.name || !payload.description) {
+      toast.error('请完整填写系列名称和系列描述')
+      return
+    }
+
+    createSeriesMutation.mutate(payload)
+  }
 
   return (
     <>
@@ -53,113 +81,66 @@ export function SeriesPage() {
               维护数字藏品系列定义、状态和发行规模基线。
             </p>
           </div>
-          <Button>新增系列</Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>新增系列</Button>
         </div>
 
         <Card className='mb-4'>
           <CardHeader>
-            <CardTitle>筛选条件</CardTitle>
+            <CardTitle>系列总览</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className='grid gap-3 md:grid-cols-3'>
-              <Input
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder='搜索系列名称或编号'
-              />
-            </div>
+            <p className='text-sm text-muted-foreground'>
+              当前共 {data?.total ?? 0} 个系列。列表筛选、排序和字段显隐统一走
+              data-table 组件。
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>系列列表</CardTitle>
-            <p className='text-sm text-muted-foreground'>
-              当前共 {data?.total ?? 0} 个系列。
-            </p>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>系列编号</TableHead>
-                  <TableHead>系列名称</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>系列描述</TableHead>
-                  <TableHead>创建时间</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className='text-center text-muted-foreground'>
-                      正在加载系列数据...
-                    </TableCell>
-                  </TableRow>
-                ) : isError ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className='text-center text-destructive'>
-                      系列数据加载失败，请稍后重试。
-                    </TableCell>
-                  </TableRow>
-                ) : rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className='text-center text-muted-foreground'>
-                      暂无符合条件的系列。
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  rows.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell className='font-medium'>{row.seriesNo}</TableCell>
-                      <TableCell>{row.name}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={row.status === 'ENABLED' ? 'default' : 'secondary'}
-                        >
-                          {toSeriesStatusLabel(row.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className='max-w-[320px] truncate'>
-                        {row.description}
-                      </TableCell>
-                      <TableCell>{formatTimestamp(row.createdAt)}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            {isLoading ? (
+              <div className='py-8 text-center text-muted-foreground'>
+                正在加载系列数据...
+              </div>
+            ) : isError ? (
+              <div className='py-8 text-center text-destructive'>
+                系列数据加载失败，请稍后重试。
+              </div>
+            ) : (
+              <SeriesTable data={data?.items ?? []} />
+            )}
           </CardContent>
         </Card>
       </Main>
+
+      <CreateSeriesDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        seriesName={seriesName}
+        onSeriesNameChange={setSeriesName}
+        seriesDescription={seriesDescription}
+        onSeriesDescriptionChange={setSeriesDescription}
+        onSubmit={handleCreateSeries}
+        mutation={createSeriesMutation}
+      />
     </>
   )
 }
 
 /**
- * 将后端返回的系列状态转换为后台展示文案。
+ * 将创建系列错误转换为更适合后台操作的提示。
  */
-function toSeriesStatusLabel(status: SeriesListItem['status']): string {
-  if (status === 'ENABLED') {
-    return '启用'
+function mapCreateSeriesErrorMessage(error: ApiError): string {
+  if (error.code === 'SERIES_NAME_DUPLICATED') {
+    return '系列名称已存在，请更换后重试'
   }
 
-  if (status === 'DISABLED') {
-    return '停用'
+  if (error.code === 'VALIDATION_ERROR') {
+    return '系列信息校验失败，请检查输入内容'
   }
 
-  return status
-}
-
-/**
- * 将毫秒时间戳格式化为本地可读时间。
- */
-function formatTimestamp(timestamp: number): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(timestamp)
+  return error.message || '系列创建失败，请稍后重试'
 }
