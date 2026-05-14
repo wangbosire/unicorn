@@ -9,8 +9,10 @@ import { BizError } from '../../../common/http/biz-error';
 import { toTimestamp } from '../../../common/serializers/timestamp';
 import { MemberContextService } from '../auth/member-context.service';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
-import { ActivateCollectionRequestDto } from './dto/activate-collection.request';
-import { ActivateCollectionResponseDataDto } from './dto/activate-collection.response';
+import type {
+  ActivateCollectionRequest,
+  ActivateCollectionResponseData,
+} from '@contracts/member/collection-activation';
 
 /**
  * 会员激活藏品服务。
@@ -32,8 +34,8 @@ export class CollectionActivationService {
       memberId?: string;
       authorization?: string;
     },
-    payload: ActivateCollectionRequestDto,
-  ): Promise<ActivateCollectionResponseDataDto> {
+    payload: ActivateCollectionRequest,
+  ): Promise<ActivateCollectionResponseData> {
     const member = await this.memberContextService.getCurrentActiveMember(authContext);
     const activationCodeValue = payload.activationCode?.trim();
 

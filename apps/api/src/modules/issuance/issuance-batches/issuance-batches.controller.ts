@@ -1,20 +1,14 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
-import { CreateIssuanceBatchRequestDto } from './dto/create-issuance-batch.request';
-import { ListIssuanceBatchesQueryDto } from './dto/list-issuance-batches.query';
-import { UpdateIssuanceBatchRequestDto } from './dto/update-issuance-batch.request';
-import { UpdateIssuanceBatchStatusRequestDto } from './dto/update-issuance-batch-status.request';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import type {
+  CreateIssuanceBatchRequest,
+  ListIssuanceBatchesQuery,
+  UpdateIssuanceBatchRequest,
+  UpdateIssuanceBatchStatusRequest,
+} from '@contracts/admin/issuance-batches';
 import { IssuanceBatchesService } from './issuance-batches.service';
 
 /**
- * 发行批次管理控制器。
+ * 发行批次管理接口。
  * 当前挂载在后台接口边界下，对应 `admin-api/issuance-batches`。
  */
 @Controller('admin-api/issuance-batches')
@@ -25,7 +19,7 @@ export class IssuanceBatchesController {
    * 查询发行批次列表。
    */
   @Get()
-  async listIssuanceBatches(@Query() query: ListIssuanceBatchesQueryDto) {
+  listIssuanceBatches(@Query() query: ListIssuanceBatchesQuery) {
     return this.issuanceBatchesService.listIssuanceBatches(query);
   }
 
@@ -33,7 +27,7 @@ export class IssuanceBatchesController {
    * 查询发行批次详情。
    */
   @Get(':batchId')
-  async getIssuanceBatchById(@Param('batchId') batchId: string) {
+  getIssuanceBatch(@Param('batchId') batchId: string) {
     return this.issuanceBatchesService.getIssuanceBatchById(batchId);
   }
 
@@ -41,7 +35,7 @@ export class IssuanceBatchesController {
    * 创建发行批次。
    */
   @Post()
-  async createIssuanceBatch(@Body() body: CreateIssuanceBatchRequestDto) {
+  createIssuanceBatch(@Body() body: CreateIssuanceBatchRequest) {
     return this.issuanceBatchesService.createIssuanceBatch(body);
   }
 
@@ -49,9 +43,9 @@ export class IssuanceBatchesController {
    * 编辑发行批次。
    */
   @Patch(':batchId')
-  async updateIssuanceBatch(
+  updateIssuanceBatch(
     @Param('batchId') batchId: string,
-    @Body() body: UpdateIssuanceBatchRequestDto,
+    @Body() body: UpdateIssuanceBatchRequest,
   ) {
     return this.issuanceBatchesService.updateIssuanceBatch(batchId, body);
   }
@@ -60,9 +54,9 @@ export class IssuanceBatchesController {
    * 更新发行批次状态。
    */
   @Patch(':batchId/status')
-  async updateIssuanceBatchStatus(
+  updateIssuanceBatchStatus(
     @Param('batchId') batchId: string,
-    @Body() body: UpdateIssuanceBatchStatusRequestDto,
+    @Body() body: UpdateIssuanceBatchStatusRequest,
   ) {
     return this.issuanceBatchesService.updateIssuanceBatchStatus(batchId, body);
   }

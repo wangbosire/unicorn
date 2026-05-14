@@ -5,7 +5,17 @@ import { BizError } from '../../../../src/common/http/biz-error';
 import { IssuanceBatchesService } from '../../../../src/modules/issuance/issuance-batches/issuance-batches.service';
 
 function createIssuanceBatchesPrismaMock() {
-  const series = [
+  const series: Array<{
+    id: string;
+    seriesNo: string;
+    name: string;
+    description: string;
+    status: SeriesStatus;
+    createdBy: null;
+    updatedBy: null;
+    createdAt: Date;
+    updatedAt: Date;
+  }> = [
     {
       id: 'ser_1',
       seriesNo: 'SER-20260514-AAAA',
@@ -37,6 +47,7 @@ function createIssuanceBatchesPrismaMock() {
       series: {
         id: 'ser_1',
         name: '星辉远征',
+        status: SeriesStatus.ENABLED,
       },
       _count: {
         activationCodes: 12,
@@ -120,7 +131,7 @@ function createIssuanceBatchesPrismaMock() {
     $transaction: async (operations: Promise<unknown>[]) => Promise.all(operations),
   };
 
-  return { prisma };
+  return { prisma, series };
 }
 
 function filterBatches(
@@ -186,6 +197,7 @@ test('IssuanceBatchesService.listIssuanceBatches returns paginated list with tim
   assert.equal(result.total, 1);
   assert.equal(result.items.length, 1);
   assert.equal(result.items[0]?.seriesName, '星辉远征');
+  assert.equal(result.items[0]?.seriesStatus, 'ENABLED');
   assert.equal(
     result.items[0]?.activateValidFrom,
     new Date('2026-05-14T00:00:00.000Z').getTime(),
@@ -193,6 +205,31 @@ test('IssuanceBatchesService.listIssuanceBatches returns paginated list with tim
   assert.equal(
     result.items[0]?.activateValidTo,
     new Date('2026-06-14T00:00:00.000Z').getTime(),
+  );
+});
+
+test('IssuanceBatchesService.getIssuanceBatchById returns detail with seriesStatus', async () => {
+  const { prisma } = createIssuanceBatchesPrismaMock();
+  const service = new IssuanceBatchesService(prisma as never);
+
+  const result = await service.getIssuanceBatchById('bat_1');
+
+  assert.equal(result.id, 'bat_1');
+  assert.equal(result.seriesName, '星辉远征');
+  assert.equal(result.seriesStatus, 'ENABLED');
+  assert.equal(result.generatedCount, 12);
+  assert.equal(result.remark, '首发批次');
+  assert.equal(result.activateValidFrom, new Date('2026-05-14T00:00:00.000Z').getTime());
+});
+
+test('IssuanceBatchesService.getIssuanceBatchById rejects missing batch', async () => {
+  const { prisma } = createIssuanceBatchesPrismaMock();
+  const service = new IssuanceBatchesService(prisma as never);
+
+  await assert.rejects(
+    () => service.getIssuanceBatchById('bat_missing'),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ISSUANCE_BATCH_NOT_FOUND',
   );
 });
 
@@ -232,5 +269,44 @@ test('IssuanceBatchesService.createIssuanceBatch validates positive quantity thr
       }),
     (error: unknown) =>
       error instanceof BizError && error.code === 'VALIDATION_ERROR',
+  );
+});
+
+test('IssuanceBatchesService.createIssuanceBatch rejects when series is disabled', async () => {
+  const { prisma, series } = createIssuanceBatchesPrismaMock();
+  series[0]!.status = SeriesStatus.DISABLED;
+  const service = new IssuanceBatchesService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.createIssuanceBatch({
+        seriesId: 'ser_1',
+        name: '批次 A',
+        quantity: 10,
+        activateValidFrom: '2026-05-14T00:00:00.000Z',
+        activateValidTo: '2026-06-14T00:00:00.000Z',
+        remark: 'series disabled',
+      }),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'SERIES_DISABLED',
+  );
+});
+
+test('IssuanceBatchesService.createIssuanceBatch rejects when series does not exist', async () => {
+  const { prisma } = createIssuanceBatchesPrismaMock();
+  const service = new IssuanceBatchesService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.createIssuanceBatch({
+        seriesId: 'ser_missing',
+        name: '批次 A',
+        quantity: 10,
+        activateValidFrom: '2026-05-14T00:00:00.000Z',
+        activateValidTo: '2026-06-14T00:00:00.000Z',
+        remark: 'unknown series',
+      }),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'SERIES_NOT_FOUND',
   );
 });

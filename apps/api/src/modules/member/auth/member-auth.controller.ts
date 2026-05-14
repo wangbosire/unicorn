@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
+import type { WechatMiniappLoginRequest } from '@contracts/member/auth';
 import { MemberAuthService } from './member-auth.service';
-import { WechatMiniappLoginRequestDto } from './dto/wechat-miniapp-login.request';
 
 /**
  * 会员认证控制器。
@@ -15,7 +15,7 @@ export class MemberAuthController {
    * 当前返回 mock token，用于初始化阶段的前后端联调。
    */
   @Post('wechat-miniapp')
-  async loginWithWechatMiniapp(@Body() body: WechatMiniappLoginRequestDto) {
+  async loginWithWechatMiniapp(@Body() body: WechatMiniappLoginRequest) {
     return this.memberAuthService.loginWithWechatMiniapp(body);
   }
 

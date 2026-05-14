@@ -236,6 +236,7 @@ export * from './view-models'
 
 ## 实施注意事项
 
+- **NestJS `apps/api` 边界层应以本包类型为对外契约单源**：Controller / Service 的入参、出参优先 `import type` 自 `@contracts/...`，避免平行维护 `*Dto` 镜像类型；校验可继续用 zod schema 等与运行时框架解耦的手段。
 - 不要把后端内部 Entity 直接当作响应类型导出
 - 不要让前端页面表单类型直接反向主导接口契约
 - 接口契约变更要同步更新文档和调用方

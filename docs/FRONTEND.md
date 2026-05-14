@@ -29,3 +29,20 @@
 - 小程序端接口按用户侧领域划分，例如 `apps/miniapp/src/apis/member/member-api.ts`
 - feature 页面、组件、弹窗只引用 `src/apis/` 中的接口封装，不直接在 feature 目录下新建 `*-api.ts`
 - 如果接口封装同时承担会话注入、错误壳解包或端侧上下文拼装，也仍然优先放在 `src/apis/` 下，而不是放入通用 `lib/`
+
+## 测试文件约定
+
+- 前端工程测试文件规范与后端保持一致，统一采用 `src/` 与 `test/` 镜像目录，而不是默认把测试文件放在源码同级
+- `apps/admin` 中，源码放在 `apps/admin/src/...`，对应测试放在 `apps/admin/test/...`
+- `apps/miniapp` 中，源码放在 `apps/miniapp/src/...`，对应测试放在 `apps/miniapp/test/...`
+- 镜像规则按相对路径保持一致，便于快速定位实现与测试的对应关系
+
+推荐示例：
+
+- `apps/admin/src/features/issuance/components/create-series-dialog.tsx`
+- `apps/admin/test/features/issuance/components/create-series-dialog.test.tsx`
+
+- `apps/miniapp/src/pages/activate/index.tsx`
+- `apps/miniapp/test/pages/activate/index.test.tsx`
+
+- 旧测试如果仍在源码同级，后续改动到对应模块时优先顺手迁移到镜像测试目录

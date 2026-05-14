@@ -1,7 +1,8 @@
 /**
- * 创建系列返回结构。
+ * 系列详情。
+ * 与后台「系列详情」接口 data 字段对齐。
  */
-export type CreateSeriesResponseData = {
+export type SeriesDetail = {
   /** 系列主键。 */
   id: string
   /** 对外展示的系列编号。 */
@@ -12,10 +13,8 @@ export type CreateSeriesResponseData = {
   description: string
   /** 系列状态。 */
   status: string
+  /** 创建时间戳，单位毫秒。 */
+  createdAt: number
+  /** 更新时间戳，单位毫秒。 */
+  updatedAt: number
 }
-
-/**
- * 创建或更新系列后的统一摘要（与创建返回结构一致）。
- */
-export type SeriesMutationResponseData = CreateSeriesResponseData
-

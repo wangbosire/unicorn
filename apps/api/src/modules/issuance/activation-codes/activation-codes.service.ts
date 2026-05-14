@@ -4,6 +4,7 @@ import {
   CollectionStatus,
   IssuanceBatchStatus,
   Prisma,
+  SeriesStatus,
 } from '@prisma/client';
 import { BizError } from '../../../common/http/biz-error';
 import {
@@ -24,14 +25,14 @@ import {
 import { parseWithSchema } from '../../../common/validation/schema';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { z } from 'zod';
-import {
-  ActivationCodeListItemDto,
-  GenerateActivationCodesResponseDataDto,
-  GeneratedActivationCodeDto,
-  ListActivationCodesResponseDataDto,
-} from './dto/activation-code.response';
-import { GenerateActivationCodesRequestDto } from './dto/generate-activation-codes.request';
-import { ListActivationCodesQueryDto } from './dto/list-activation-codes.query';
+import type {
+  ActivationCodeListItem,
+  GenerateActivationCodesRequest,
+  GenerateActivationCodesResponseData,
+  GeneratedActivationCode,
+  ListActivationCodesQuery,
+  ListActivationCodesResponseData,
+} from '@contracts/admin/activation-codes';
 
 const generateActivationCodesSchema = z.object({
   batchId: requiredIdField('issuance batch'),
@@ -51,9 +52,12 @@ export class ActivationCodesService {
    * 查询激活码列表。
    */
   async listActivationCodes(
-    query: ListActivationCodesQueryDto,
-  ): Promise<ListActivationCodesResponseDataDto> {
-    const pagination = parsePaginationQuery(query);
+    query: ListActivationCodesQuery,
+  ): Promise<ListActivationCodesResponseData> {
+    const pagination = parsePaginationQuery({
+      page: query.page,
+      pageSize: query.pageSize,
+    });
     const keyword = query.keyword?.trim();
     const status = this.parseActivationCodeStatus(query.status);
 
@@ -97,8 +101,8 @@ export class ActivationCodesService {
    * 该操作会在一个事务中同步创建待领取藏品和激活码，确保一一对应关系成立。
    */
   async generateActivationCodes(
-    payload: GenerateActivationCodesRequestDto,
-  ): Promise<GenerateActivationCodesResponseDataDto> {
+    payload: GenerateActivationCodesRequest,
+  ): Promise<GenerateActivationCodesResponseData> {
     const parsedPayload = parseWithSchema(generateActivationCodesSchema, payload);
     const batch = await this.ensureBatchCanGenerate(parsedPayload.batchId);
     const count = parsedPayload.count;
@@ -116,7 +120,7 @@ export class ActivationCodesService {
         });
       }
 
-      const items: GeneratedActivationCodeDto[] = [];
+      const items: GeneratedActivationCode[] = [];
 
       for (let index = 0; index < count; index += 1) {
         const collectionNo = await this.generateCollectionNo(tx);
@@ -171,7 +175,7 @@ export class ActivationCodesService {
         collection: true;
       };
     }>,
-  ): ActivationCodeListItemDto {
+  ): ActivationCodeListItem {
     return {
       id: activationCode.id,
       code: activationCode.code,
@@ -197,6 +201,11 @@ export class ActivationCodesService {
 
     const batch = await this.prisma.issuanceBatch.findUnique({
       where: { id: batchId },
+      include: {
+        series: {
+          select: { id: true, status: true },
+        },
+      },
     });
 
     if (!batch) {
@@ -211,6 +220,13 @@ export class ActivationCodesService {
       throw new BizError({
         code: 'ISSUANCE_BATCH_DISABLED',
         message: 'issuance batch is disabled',
+      });
+    }
+
+    if (batch.series.status !== SeriesStatus.ENABLED) {
+      throw new BizError({
+        code: 'SERIES_DISABLED',
+        message: 'series is disabled',
       });
     }
 

@@ -18,13 +18,13 @@ import {
 } from '../../../common/serializers/timestamp';
 import { parseOptionalEnumValue } from '../../../common/validation/enum';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
-import { ApproveCollectionReviewRequestDto } from './dto/approve-collection-review.request';
-import { ApproveCollectionReviewResponseDataDto } from './dto/approve-collection-review.response';
-import {
-  CollectionReviewListItemDto,
-  ListCollectionReviewsResponseDataDto,
-} from './dto/collection-review.response';
-import { ListCollectionReviewsQueryDto } from './dto/list-collection-reviews.query';
+import type {
+  ApproveCollectionReviewRequest,
+  ApproveCollectionReviewResponseData,
+  CollectionReviewListItem,
+  ListCollectionReviewsQuery,
+  ListCollectionReviewsResponseData,
+} from '@contracts/admin/collection-reviews';
 
 /**
  * 藏品内容审核服务。
@@ -38,9 +38,12 @@ export class CollectionReviewsService {
    * 查询藏品内容审核列表。
    */
   async listCollectionReviews(
-    query: ListCollectionReviewsQueryDto,
-  ): Promise<ListCollectionReviewsResponseDataDto> {
-    const pagination = parsePaginationQuery(query);
+    query: ListCollectionReviewsQuery,
+  ): Promise<ListCollectionReviewsResponseData> {
+    const pagination = parsePaginationQuery({
+      page: query.page,
+      pageSize: query.pageSize,
+    });
     const reviewStatus = this.parseReviewStatus(query.reviewStatus);
 
     const where: Prisma.CollectionContentReviewRecordWhereInput = {
@@ -77,8 +80,8 @@ export class CollectionReviewsService {
    */
   async approveCollectionReview(
     reviewId: string,
-    payload: ApproveCollectionReviewRequestDto,
-  ): Promise<ApproveCollectionReviewResponseDataDto> {
+    payload: ApproveCollectionReviewRequest,
+  ): Promise<ApproveCollectionReviewResponseData> {
     const normalizedReviewId = reviewId?.trim();
     const reviewComment = payload.comment?.trim() ?? null;
 
@@ -156,7 +159,7 @@ export class CollectionReviewsService {
         contentVersion: true;
       };
     }>,
-  ): CollectionReviewListItemDto {
+  ): CollectionReviewListItem {
     return {
       reviewId: reviewRecord.id,
       collectionId: reviewRecord.collectionId,

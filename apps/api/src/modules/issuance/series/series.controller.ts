@@ -7,10 +7,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { CreateSeriesRequestDto } from './dto/create-series.request';
-import { ListSeriesQueryDto } from './dto/list-series.query';
-import { UpdateSeriesRequestDto } from './dto/update-series.request';
-import { UpdateSeriesStatusRequestDto } from './dto/update-series-status.request';
+import type {
+  CreateSeriesRequest,
+  ListSeriesQuery,
+  UpdateSeriesRequest,
+  UpdateSeriesStatusRequest,
+} from '@contracts/admin/series';
 import { SeriesService } from './series.service';
 
 /**
@@ -25,7 +27,7 @@ export class SeriesController {
    * 查询系列列表。
    */
   @Get()
-  async listSeries(@Query() query: ListSeriesQueryDto) {
+  async listSeries(@Query() query: ListSeriesQuery) {
     return this.seriesService.listSeries(query);
   }
 
@@ -41,7 +43,7 @@ export class SeriesController {
    * 创建系列。
    */
   @Post()
-  async createSeries(@Body() body: CreateSeriesRequestDto) {
+  async createSeries(@Body() body: CreateSeriesRequest) {
     return this.seriesService.createSeries(body);
   }
 
@@ -51,7 +53,7 @@ export class SeriesController {
   @Patch(':seriesId')
   async updateSeries(
     @Param('seriesId') seriesId: string,
-    @Body() body: UpdateSeriesRequestDto,
+    @Body() body: UpdateSeriesRequest,
   ) {
     return this.seriesService.updateSeries(seriesId, body);
   }
@@ -62,7 +64,7 @@ export class SeriesController {
   @Patch(':seriesId/status')
   async updateSeriesStatus(
     @Param('seriesId') seriesId: string,
-    @Body() body: UpdateSeriesStatusRequestDto,
+    @Body() body: UpdateSeriesStatusRequest,
   ) {
     return this.seriesService.updateSeriesStatus(seriesId, body);
   }

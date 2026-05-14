@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { GenerateActivationCodesRequest } from '@contracts/admin/activation-codes'
-import type { IssuanceBatchListItem } from '@contracts/admin/issuance-batches'
 import { toast } from 'sonner'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -42,7 +41,10 @@ export function ActivationCodesPage() {
       }),
   })
   const batchOptions = useMemo(
-    () => (batchesData?.items ?? []).filter((item) => item.status === 'ENABLED'),
+    () =>
+      (batchesData?.items ?? []).filter(
+        (item) => item.status === 'ENABLED' && item.seriesStatus === 'ENABLED'
+      ),
     [batchesData]
   )
   const generateActivationCodesMutation = useMutation({
@@ -71,8 +73,14 @@ export function ActivationCodesPage() {
   function handleOpenGenerateDialog(open: boolean) {
     setIsGenerateDialogOpen(open)
 
-    if (open && !batchId && batchOptions[0]) {
-      setBatchId(batchOptions[0].id)
+    if (open) {
+      const first = batchOptions[0]
+      if (first && (!batchId || !batchOptions.some((b) => b.id === batchId))) {
+        setBatchId(first.id)
+      }
+      if (!first) {
+        setBatchId('')
+      }
     }
   }
 
@@ -144,7 +152,7 @@ export function ActivationCodesPage() {
       <GenerateActivationCodesDialog
         open={isGenerateDialogOpen}
         onOpenChange={handleOpenGenerateDialog}
-        batchOptions={batchOptions as IssuanceBatchListItem[]}
+        batchOptions={batchOptions}
         batchId={batchId}
         onBatchIdChange={setBatchId}
         count={count}
@@ -170,8 +178,24 @@ function mapGenerateActivationCodesErrorMessage(error: ApiError): string {
     return '所选批次已停用，请更换启用中的批次'
   }
 
+  if (error.code === 'SERIES_DISABLED') {
+    return '该批次所属系列已停用，无法继续生成激活码，请先启用系列或更换批次'
+  }
+
+  if (error.code === 'ISSUANCE_BATCH_ID_REQUIRED') {
+    return '请选择要生成激活码的批次'
+  }
+
   if (error.code === 'ACTIVATION_CODE_GENERATION_EXCEEDS_BATCH_QUANTITY') {
     return '生成数量超过批次可用额度，请调整后重试'
+  }
+
+  if (error.code === 'COLLECTION_NO_GENERATION_FAILED') {
+    return '藏品编号生成失败，请稍后重试'
+  }
+
+  if (error.code === 'ACTIVATION_CODE_GENERATION_FAILED') {
+    return '激活码生成失败（唯一性冲突），请稍后重试'
   }
 
   if (error.code === 'VALIDATION_ERROR') {

@@ -13,7 +13,11 @@
     "strict": true,
     "skipLibCheck": true,
     "moduleResolution": "node",
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@contracts/*": ["../../packages/api-contracts/src/*"]
+    }
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "dist"]

@@ -5,7 +5,7 @@ import type {
   ListMyCollectionsQuery,
   ListMyCollectionsResponseData,
   MyCollectionListItem,
-} from '../../../../../packages/api-contracts/src/member/my-collections'
+} from '@contracts/member/my-collections'
 import { requestMemberApi } from '../../apis/member/member-api'
 import { PageShell } from '../../components/page-shell'
 import { StatusCard } from '../../components/status-card'

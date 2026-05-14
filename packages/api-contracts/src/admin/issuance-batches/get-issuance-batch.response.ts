@@ -1,9 +1,7 @@
-import type { PaginatedData } from '../../common'
-
 /**
- * 发行批次列表项。
+ * 发行批次详情。
  */
-export type IssuanceBatchListItem = {
+export type IssuanceBatchDetail = {
   /** 批次主键。 */
   id: string
   /** 对外展示的批次编号。 */
@@ -26,9 +24,10 @@ export type IssuanceBatchListItem = {
   activateValidFrom: number
   /** 激活有效结束时间戳，单位毫秒。 */
   activateValidTo: number
+  /** 运营备注。 */
+  remark: string | null
+  /** 创建时间戳，单位毫秒。 */
+  createdAt: number
+  /** 更新时间戳，单位毫秒。 */
+  updatedAt: number
 }
-
-/**
- * 查询发行批次列表返回结构。
- */
-export type ListIssuanceBatchesResponseData = PaginatedData<IssuanceBatchListItem>

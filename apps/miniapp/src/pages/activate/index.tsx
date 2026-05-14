@@ -4,7 +4,7 @@ import Taro from '@tarojs/taro'
 import type {
   ActivateCollectionRequest,
   ActivateCollectionResponseData,
-} from '../../../../../packages/api-contracts/src/member/collection-activation'
+} from '@contracts/member/collection-activation'
 import { MemberApiError, requestMemberApi } from '../../apis/member/member-api'
 import { PageShell } from '../../components/page-shell'
 import { StatusCard } from '../../components/status-card'
@@ -128,7 +128,7 @@ export default function ActivatePage() {
             lineHeight: '1.7',
           }}
         >
-          当前使用联调阶段会员身份。后续接入真实微信登录后，这里的会员上下文会自动替换。
+          默认联调会员 mem_1；可在本地存储写入 unicorn_member_id 覆盖。接入微信登录后将自动使用登录态。
         </Text>
 
         <Button
@@ -179,8 +179,12 @@ function mapActivationErrorMessage(code?: string, fallbackMessage?: string): str
       return '该激活码已过期'
     case 'ACTIVATION_CODE_VOIDED':
       return '该激活码已作废'
+    case 'ACTIVATION_CODE_REQUIRED':
+      return '请输入激活码'
     case 'UNAUTHORIZED':
       return '会员登录状态已失效，请重新进入页面'
+    case 'MEMBER_ACCOUNT_FROZEN':
+      return '当前会员账号已冻结，暂无法激活'
     default:
       return fallbackMessage || '激活失败，请稍后重试'
   }

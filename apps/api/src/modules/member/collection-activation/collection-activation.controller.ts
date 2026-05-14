@@ -1,5 +1,5 @@
 import { Body, Controller, Headers, Post } from '@nestjs/common';
-import { ActivateCollectionRequestDto } from './dto/activate-collection.request';
+import type { ActivateCollectionRequest } from '@contracts/member/collection-activation';
 import { CollectionActivationService } from './collection-activation.service';
 
 /**
@@ -20,7 +20,7 @@ export class CollectionActivationController {
   async activateCollection(
     @Headers('x-member-id') memberId: string | undefined,
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: ActivateCollectionRequestDto,
+    @Body() body: ActivateCollectionRequest,
   ) {
     return this.collectionActivationService.activateCollection(
       {

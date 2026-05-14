@@ -2,13 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { Member, MemberStatus, Prisma, WechatChannelType } from '@prisma/client';
 import { BizError } from '../../../common/http/biz-error';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
+import type {
+  CurrentMember,
+  GetCurrentMemberResponseData,
+  WechatMiniappLoginRequest,
+  WechatMiniappLoginResponseData,
+} from '@contracts/member/auth';
 import { MemberContextService } from './member-context.service';
-import { WechatMiniappLoginRequestDto } from './dto/wechat-miniapp-login.request';
-import {
-  CurrentMemberDto,
-  GetCurrentMemberResponseDataDto,
-  WechatMiniappLoginResponseDataDto,
-} from './dto/member-auth.response';
 
 /**
  * 会员认证服务。
@@ -26,8 +26,8 @@ export class MemberAuthService {
    * 当前阶段会将 code 映射为稳定 openid，以便前后端先完成联调闭环。
    */
   async loginWithWechatMiniapp(
-    payload: WechatMiniappLoginRequestDto,
-  ): Promise<WechatMiniappLoginResponseDataDto> {
+    payload: WechatMiniappLoginRequest,
+  ): Promise<WechatMiniappLoginResponseData> {
     const loginCode = payload.code?.trim();
 
     if (!loginCode) {
@@ -94,7 +94,7 @@ export class MemberAuthService {
   async getCurrentMember(authContext: {
     memberId?: string;
     authorization?: string;
-  }): Promise<GetCurrentMemberResponseDataDto> {
+  }): Promise<GetCurrentMemberResponseData> {
     const member = await this.memberContextService.getCurrentActiveMember(authContext);
     return this.toCurrentMember(member);
   }
@@ -154,7 +154,7 @@ export class MemberAuthService {
   /**
    * 转换为会员接口统一视图。
    */
-  private toCurrentMember(member: Member): CurrentMemberDto {
+  private toCurrentMember(member: Member): CurrentMember {
     return {
       id: member.id,
       memberNo: member.memberNo,

@@ -27,20 +27,18 @@ import { parseWithSchema } from '../../../common/validation/schema';
 import { z } from 'zod';
 import { MemberContextService } from '../auth/member-context.service';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
-import { GetCollectionContentParamsDto } from './dto/get-collection-content.params';
-import {
-  CollectionContentVersionViewDto,
-  GetCollectionContentResponseDataDto,
-} from './dto/get-collection-content.response';
-import { ListMyCollectionsQueryDto } from './dto/list-my-collections.query';
-import {
-  ListMyCollectionsResponseDataDto,
-  MyCollectionListItemDto,
-} from './dto/my-collections.response';
-import { SaveCollectionDraftRequestDto } from './dto/save-collection-draft.request';
-import { SaveCollectionDraftResponseDataDto } from './dto/save-collection-draft.response';
-import { SubmitCollectionContentRequestDto } from './dto/submit-collection-content.request';
-import { SubmitCollectionContentResponseDataDto } from './dto/submit-collection-content.response';
+import type {
+  CollectionContentVersionView,
+  GetCollectionContentParams,
+  GetCollectionContentResponseData,
+  ListMyCollectionsQuery,
+  ListMyCollectionsResponseData,
+  MyCollectionListItem,
+  SaveCollectionDraftRequest,
+  SaveCollectionDraftResponseData,
+  SubmitCollectionContentRequest,
+  SubmitCollectionContentResponseData,
+} from '@contracts/member/my-collections';
 
 /**
  * 保存草稿请求校验 schema。
@@ -79,10 +77,13 @@ export class MyCollectionsService {
       memberId?: string;
       authorization?: string;
     },
-    query: ListMyCollectionsQueryDto,
-  ): Promise<ListMyCollectionsResponseDataDto> {
+    query: ListMyCollectionsQuery,
+  ): Promise<ListMyCollectionsResponseData> {
     const member = await this.memberContextService.getCurrentActiveMember(authContext);
-    const pagination = parsePaginationQuery(query);
+    const pagination = parsePaginationQuery({
+      page: query.page,
+      pageSize: query.pageSize,
+    });
     const status = this.parseCollectionStatus(query.status);
 
     const where: Prisma.CollectionWhereInput = {
@@ -124,8 +125,8 @@ export class MyCollectionsService {
       memberId?: string;
       authorization?: string;
     },
-    params: GetCollectionContentParamsDto,
-  ): Promise<GetCollectionContentResponseDataDto> {
+    params: GetCollectionContentParams,
+  ): Promise<GetCollectionContentResponseData> {
     const member = await this.memberContextService.getCurrentActiveMember(authContext);
     const collection = await this.getOwnedCollectionWithLatestVersion(member.id, params);
 
@@ -154,9 +155,9 @@ export class MyCollectionsService {
       memberId?: string;
       authorization?: string;
     },
-    params: GetCollectionContentParamsDto,
-    payload: SaveCollectionDraftRequestDto,
-  ): Promise<SaveCollectionDraftResponseDataDto> {
+    params: GetCollectionContentParams,
+    payload: SaveCollectionDraftRequest,
+  ): Promise<SaveCollectionDraftResponseData> {
     const member = await this.memberContextService.getCurrentActiveMember(authContext);
     const collection = await this.getOwnedCollectionWithLatestVersion(member.id, params);
     const currentVersion = collection.contentVersions[0];
@@ -225,9 +226,9 @@ export class MyCollectionsService {
       memberId?: string;
       authorization?: string;
     },
-    params: GetCollectionContentParamsDto,
-    payload: SubmitCollectionContentRequestDto,
-  ): Promise<SubmitCollectionContentResponseDataDto> {
+    params: GetCollectionContentParams,
+    payload: SubmitCollectionContentRequest,
+  ): Promise<SubmitCollectionContentResponseData> {
     const member = await this.memberContextService.getCurrentActiveMember(authContext);
     const collection = await this.getOwnedCollectionWithLatestVersion(member.id, params);
     const versionId = parseWithSchema(submitCollectionContentSchema, payload).versionId;
@@ -300,7 +301,7 @@ export class MyCollectionsService {
         contentVersions: true;
       };
     }>,
-  ): MyCollectionListItemDto {
+  ): MyCollectionListItem {
     const currentVersion = collection.contentVersions[0];
 
     return {
@@ -319,7 +320,7 @@ export class MyCollectionsService {
    */
   private toCollectionContentVersionView(
     currentVersion: Prisma.CollectionContentVersionGetPayload<Record<string, never>>,
-  ): CollectionContentVersionViewDto {
+  ): CollectionContentVersionView {
     return {
       id: currentVersion.id,
       versionNo: currentVersion.versionNo,
@@ -337,7 +338,7 @@ export class MyCollectionsService {
    */
   private toSaveCollectionDraftResponse(
     currentVersion: Prisma.CollectionContentVersionGetPayload<Record<string, never>>,
-  ): SaveCollectionDraftResponseDataDto {
+  ): SaveCollectionDraftResponseData {
     return {
       versionId: currentVersion.id,
       versionNo: currentVersion.versionNo,
@@ -353,7 +354,7 @@ export class MyCollectionsService {
   private toSubmitCollectionContentResponse(
     currentVersion: Prisma.CollectionContentVersionGetPayload<Record<string, never>>,
     fallbackSubmittedAt: number,
-  ): SubmitCollectionContentResponseDataDto {
+  ): SubmitCollectionContentResponseData {
     return {
       versionId: currentVersion.id,
       editStatus: currentVersion.editStatus,
@@ -367,7 +368,7 @@ export class MyCollectionsService {
    */
   private async getOwnedCollectionWithLatestVersion(
     memberId: string,
-    params: GetCollectionContentParamsDto,
+    params: GetCollectionContentParams,
   ) {
     const collectionId = params.collectionId?.trim();
 
@@ -411,7 +412,7 @@ export class MyCollectionsService {
   /**
    * 规范化草稿提交内容。
    */
-  private normalizeDraftPayload(payload: SaveCollectionDraftRequestDto) {
+  private normalizeDraftPayload(payload: SaveCollectionDraftRequest) {
     const parsedPayload = parseWithSchema(saveCollectionDraftSchema, payload);
     return {
       title: parsedPayload.title,

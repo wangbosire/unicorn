@@ -1,5 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, SeriesStatus } from '@prisma/client';
+import type {
+  CreateSeriesRequest,
+  ListSeriesQuery,
+  ListSeriesResponseData,
+  SeriesDetail,
+  SeriesListItem,
+  SeriesMutationResponseData,
+  UpdateSeriesRequest,
+  UpdateSeriesStatusRequest,
+} from '@contracts/admin/series';
 import { BizError } from '../../../common/http/biz-error';
 import { generatePrefixedCode } from '../../../common/identity/code-generator';
 import {
@@ -15,16 +25,6 @@ import {
 import { parseWithSchema } from '../../../common/validation/schema';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { z } from 'zod';
-import { CreateSeriesRequestDto } from './dto/create-series.request';
-import { ListSeriesQueryDto } from './dto/list-series.query';
-import {
-  ListSeriesResponseDataDto,
-  SeriesDetailDto,
-  SeriesListItemDto,
-  SeriesMutationResponseDataDto,
-} from './dto/series.response';
-import { UpdateSeriesRequestDto } from './dto/update-series.request';
-import { UpdateSeriesStatusRequestDto } from './dto/update-series-status.request';
 
 const createSeriesSchema = z.object({
   name: requiredTextField('series name'),
@@ -57,8 +57,11 @@ export class SeriesService {
   /**
    * 查询系列列表。
    */
-  async listSeries(query: ListSeriesQueryDto): Promise<ListSeriesResponseDataDto> {
-    const pagination = parsePaginationQuery(query);
+  async listSeries(query: ListSeriesQuery): Promise<ListSeriesResponseData> {
+    const pagination = parsePaginationQuery({
+      page: query.page,
+      pageSize: query.pageSize,
+    });
     const keyword = query.keyword?.trim();
     const status = this.parseSeriesStatus(query.status);
 
@@ -95,7 +98,7 @@ export class SeriesService {
   /**
    * 查询系列详情。
    */
-  async getSeriesById(seriesId: string): Promise<SeriesDetailDto> {
+  async getSeriesById(seriesId: string): Promise<SeriesDetail> {
     const series = await this.prisma.series.findUnique({
       where: { id: seriesId },
     });
@@ -122,7 +125,7 @@ export class SeriesService {
   /**
    * 创建系列。
    */
-  async createSeries(payload: CreateSeriesRequestDto): Promise<SeriesMutationResponseDataDto> {
+  async createSeries(payload: CreateSeriesRequest): Promise<SeriesMutationResponseData> {
     const parsedPayload = parseWithSchema(createSeriesSchema, payload);
     const { name, description } = parsedPayload;
 
@@ -155,8 +158,8 @@ export class SeriesService {
    */
   async updateSeries(
     seriesId: string,
-    payload: UpdateSeriesRequestDto,
-  ): Promise<SeriesMutationResponseDataDto> {
+    payload: UpdateSeriesRequest,
+  ): Promise<SeriesMutationResponseData> {
     const series = await this.prisma.series.findUnique({
       where: { id: seriesId },
     });
@@ -206,8 +209,8 @@ export class SeriesService {
    */
   async updateSeriesStatus(
     seriesId: string,
-    payload: UpdateSeriesStatusRequestDto,
-  ): Promise<SeriesMutationResponseDataDto> {
+    payload: UpdateSeriesStatusRequest,
+  ): Promise<SeriesMutationResponseData> {
     const status = parseWithSchema(updateSeriesStatusSchema, payload).status;
 
     const series = await this.prisma.series.findUnique({
@@ -233,7 +236,7 @@ export class SeriesService {
   /**
    * 将查询结果转换为列表项视图，避免直接暴露 Prisma 实体。
    */
-  private toSeriesListItem(series: Prisma.SeriesGetPayload<object>): SeriesListItemDto {
+  private toSeriesListItem(series: Prisma.SeriesGetPayload<object>): SeriesListItem {
     return {
       id: series.id,
       seriesNo: series.seriesNo,
@@ -249,7 +252,7 @@ export class SeriesService {
    */
   private toSeriesMutationResponse(
     series: Prisma.SeriesGetPayload<object>,
-  ): SeriesMutationResponseDataDto {
+  ): SeriesMutationResponseData {
     return {
       id: series.id,
       seriesNo: series.seriesNo,
@@ -285,10 +288,10 @@ export class SeriesService {
         errorMessage: 'failed to generate unique series number',
       },
       async (candidate) => {
-      const existingSeries = await this.prisma.series.findUnique({
-        where: { seriesNo: candidate },
-        select: { id: true },
-      });
+        const existingSeries = await this.prisma.series.findUnique({
+          where: { seriesNo: candidate },
+          select: { id: true },
+        });
 
         return !existingSeries;
       },

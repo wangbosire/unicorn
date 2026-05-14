@@ -10,7 +10,11 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "types": ["@tarojs/taro", "node"]
+    "types": ["@tarojs/taro", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@contracts/*": ["../../packages/api-contracts/src/*"]
+    }
   },
   "include": ["src/**/*", "config/**/*"]
 }

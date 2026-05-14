@@ -1,9 +1,11 @@
 import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
-import { GetCollectionContentParamsDto } from './dto/get-collection-content.params';
-import { ListMyCollectionsQueryDto } from './dto/list-my-collections.query';
+import type {
+  GetCollectionContentParams,
+  ListMyCollectionsQuery,
+  SaveCollectionDraftRequest,
+  SubmitCollectionContentRequest,
+} from '@contracts/member/my-collections';
 import { MyCollectionsService } from './my-collections.service';
-import { SaveCollectionDraftRequestDto } from './dto/save-collection-draft.request';
-import { SubmitCollectionContentRequestDto } from './dto/submit-collection-content.request';
 
 /**
  * 我的藏品控制器。
@@ -21,7 +23,7 @@ export class MyCollectionsController {
   async listMyCollections(
     @Headers('x-member-id') memberId: string | undefined,
     @Headers('authorization') authorization: string | undefined,
-    @Query() query: ListMyCollectionsQueryDto,
+    @Query() query: ListMyCollectionsQuery,
   ) {
     return this.myCollectionsService.listMyCollections(
       {
@@ -40,7 +42,7 @@ export class MyCollectionsController {
   async getCollectionContent(
     @Headers('x-member-id') memberId: string | undefined,
     @Headers('authorization') authorization: string | undefined,
-    @Param() params: GetCollectionContentParamsDto,
+    @Param() params: GetCollectionContentParams,
   ) {
     return this.myCollectionsService.getCollectionContent(
       {
@@ -59,8 +61,8 @@ export class MyCollectionsController {
   async saveCollectionDraft(
     @Headers('x-member-id') memberId: string | undefined,
     @Headers('authorization') authorization: string | undefined,
-    @Param() params: GetCollectionContentParamsDto,
-    @Body() body: SaveCollectionDraftRequestDto,
+    @Param() params: GetCollectionContentParams,
+    @Body() body: SaveCollectionDraftRequest,
   ) {
     return this.myCollectionsService.saveCollectionDraft(
       {
@@ -80,8 +82,8 @@ export class MyCollectionsController {
   async submitCollectionContent(
     @Headers('x-member-id') memberId: string | undefined,
     @Headers('authorization') authorization: string | undefined,
-    @Param() params: GetCollectionContentParamsDto,
-    @Body() body: SubmitCollectionContentRequestDto,
+    @Param() params: GetCollectionContentParams,
+    @Body() body: SubmitCollectionContentRequest,
   ) {
     return this.myCollectionsService.submitCollectionContent(
       {

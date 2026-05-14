@@ -28,6 +28,26 @@ export const batchesColumns: ColumnDef<IssuanceBatchListItem>[] = [
     enableSorting: false,
   },
   {
+    accessorKey: 'seriesStatus',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='系列状态' />
+    ),
+    enableSorting: false,
+    cell: ({ row }) => {
+      const seriesStatus = String(row.getValue('seriesStatus'))
+
+      return (
+        <Badge variant={seriesStatus === 'ENABLED' ? 'default' : 'secondary'}>
+          {seriesStatus === 'ENABLED'
+            ? '启用'
+            : seriesStatus === 'DISABLED'
+              ? '停用'
+              : seriesStatus}
+        </Badge>
+      )
+    },
+  },
+  {
     accessorKey: 'quantity',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='发行数量' />

@@ -6,3 +6,9 @@ export type CreateIssuanceBatchResponseData = {
   quantity: number
   status: string
 }
+
+/**
+ * 创建或更新批次后的统一摘要（与创建返回结构一致）。
+ */
+export type IssuanceBatchMutationResponseData = CreateIssuanceBatchResponseData
+

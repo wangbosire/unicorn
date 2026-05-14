@@ -1,11 +1,24 @@
 import { test } from 'vitest';
 import * as assert from 'node:assert/strict';
-import { ActivationCodeStatus, CollectionStatus, IssuanceBatchStatus } from '@prisma/client';
+import { ActivationCodeStatus, CollectionStatus, IssuanceBatchStatus, SeriesStatus } from '@prisma/client';
 import { ActivationCodesService } from '../../../../src/modules/issuance/activation-codes/activation-codes.service';
 import { BizError } from '../../../../src/common/http/biz-error';
 
 function createActivationCodesPrismaMock() {
-  const batches = [
+  const batches: Array<{
+    id: string;
+    batchNo: string;
+    seriesId: string;
+    name: string;
+    quantity: number;
+    activateValidFrom: Date;
+    activateValidTo: Date;
+    status: IssuanceBatchStatus;
+    remark: null;
+    createdAt: Date;
+    updatedAt: Date;
+    series: { id: string; status: SeriesStatus };
+  }> = [
     {
       id: 'bat_1',
       batchNo: 'BAT-001',
@@ -18,6 +31,7 @@ function createActivationCodesPrismaMock() {
       remark: null,
       createdAt: new Date('2026-05-14T00:00:00.000Z'),
       updatedAt: new Date('2026-05-14T00:00:00.000Z'),
+      series: { id: 'ser_1', status: SeriesStatus.ENABLED },
     },
   ];
 
@@ -131,7 +145,7 @@ function createActivationCodesPrismaMock() {
     $transaction: async <T>(callback: (client: typeof tx) => Promise<T>) => callback(tx),
   };
 
-  return { prisma, activationCodes, collections };
+  return { prisma, activationCodes, collections, batches };
 }
 
 test('ActivationCodesService.generateActivationCodes creates activation codes and collections in pairs', async () => {
@@ -173,5 +187,55 @@ test('ActivationCodesService.generateActivationCodes rejects when generation exc
     (error: unknown) =>
       error instanceof BizError &&
       error.code === 'ACTIVATION_CODE_GENERATION_EXCEEDS_BATCH_QUANTITY',
+  );
+});
+
+test('ActivationCodesService.generateActivationCodes rejects when issuance batch is disabled', async () => {
+  const { prisma, batches } = createActivationCodesPrismaMock();
+  batches[0]!.status = IssuanceBatchStatus.DISABLED;
+  const service = new ActivationCodesService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.generateActivationCodes({
+        batchId: 'bat_1',
+        count: 1,
+        issuedChannel: 'offline_event',
+      }),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ISSUANCE_BATCH_DISABLED',
+  );
+});
+
+test('ActivationCodesService.generateActivationCodes rejects when parent series is disabled', async () => {
+  const { prisma, batches } = createActivationCodesPrismaMock();
+  batches[0]!.series.status = SeriesStatus.DISABLED;
+  const service = new ActivationCodesService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.generateActivationCodes({
+        batchId: 'bat_1',
+        count: 1,
+        issuedChannel: 'offline_event',
+      }),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'SERIES_DISABLED',
+  );
+});
+
+test('ActivationCodesService.generateActivationCodes rejects when issuance batch does not exist', async () => {
+  const { prisma } = createActivationCodesPrismaMock();
+  const service = new ActivationCodesService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.generateActivationCodes({
+        batchId: 'bat_missing',
+        count: 1,
+        issuedChannel: 'offline_event',
+      }),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ISSUANCE_BATCH_NOT_FOUND',
   );
 });

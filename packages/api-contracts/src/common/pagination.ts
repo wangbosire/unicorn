@@ -1,12 +1,12 @@
 /**
  * 通用分页查询参数。
- * 当前约定页码从 1 开始，未传时由服务端补默认值。
+ * 与 URL / Nest `@Query` 一致时字段为字符串；客户端也可传 number，由 HTTP 客户端序列化。
  */
 export type PaginationQuery = {
   /** 页码，从 1 开始。 */
-  page?: number
+  page?: string | number
   /** 每页条数，未传时由服务端补默认值。 */
-  pageSize?: number
+  pageSize?: string | number
 }
 
 /**

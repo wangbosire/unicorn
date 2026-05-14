@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import type {
+  GenerateActivationCodesRequest,
+  ListActivationCodesQuery,
+} from '@contracts/admin/activation-codes';
 import { ActivationCodesService } from './activation-codes.service';
-import { GenerateActivationCodesRequestDto } from './dto/generate-activation-codes.request';
-import { ListActivationCodesQueryDto } from './dto/list-activation-codes.query';
 
 /**
  * 激活码管理控制器。
@@ -15,7 +17,7 @@ export class ActivationCodesController {
    * 查询激活码列表。
    */
   @Get()
-  async listActivationCodes(@Query() query: ListActivationCodesQueryDto) {
+  async listActivationCodes(@Query() query: ListActivationCodesQuery) {
     return this.activationCodesService.listActivationCodes(query);
   }
 
@@ -23,7 +25,7 @@ export class ActivationCodesController {
    * 批量生成激活码并同步创建待领取藏品。
    */
   @Post('generate')
-  async generateActivationCodes(@Body() body: GenerateActivationCodesRequestDto) {
+  async generateActivationCodes(@Body() body: GenerateActivationCodesRequest) {
     return this.activationCodesService.generateActivationCodes(body);
   }
 }

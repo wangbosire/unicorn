@@ -48,7 +48,7 @@ test('SeriesController.updateSeriesStatus forwards path param and body to servic
     updateSeriesStatus,
   } as never);
 
-  const body = { status: 'DISABLED' };
+  const body = { status: 'DISABLED' as const };
   const result = await controller.updateSeriesStatus('ser_1', body);
 
   assert.deepEqual(result, expectedResult);

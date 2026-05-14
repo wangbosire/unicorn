@@ -162,6 +162,7 @@
         "batchNo": "BAT-001",
         "seriesId": "ser_xxx",
         "seriesName": "星辉远征",
+        "seriesStatus": "ENABLED",
         "name": "第一批",
         "quantity": 100,
         "generatedCount": 40,
@@ -181,6 +182,43 @@
 
 - `UNAUTHORIZED`
 - `FORBIDDEN`
+
+## `GET /admin-api/issuance-batches/:batchId`
+
+### Path DTO
+
+- `batchId`
+
+### 响应 DTO
+
+```json
+{
+  "code": "OK",
+  "message": "success",
+  "data": {
+    "id": "bat_xxx",
+    "batchNo": "BAT-001",
+    "seriesId": "ser_xxx",
+    "seriesName": "星辉远征",
+    "seriesStatus": "ENABLED",
+    "name": "第一批",
+    "quantity": 100,
+    "generatedCount": 40,
+    "status": "ENABLED",
+    "activateValidFrom": 1778620800000,
+    "activateValidTo": 1781308800000,
+    "remark": "线下活动首发",
+    "createdAt": 1778620800000,
+    "updatedAt": 1778620800000
+  }
+}
+```
+
+### 错误码
+
+- `UNAUTHORIZED`
+- `FORBIDDEN`
+- `ISSUANCE_BATCH_NOT_FOUND`
 
 ## `POST /admin-api/issuance-batches`
 
@@ -305,7 +343,11 @@
 - `FORBIDDEN`
 - `ISSUANCE_BATCH_NOT_FOUND`
 - `ISSUANCE_BATCH_DISABLED`
+- `SERIES_DISABLED`
+- `ISSUANCE_BATCH_ID_REQUIRED`
 - `ACTIVATION_CODE_GENERATION_EXCEEDS_BATCH_QUANTITY`
+- `COLLECTION_NO_GENERATION_FAILED`
+- `ACTIVATION_CODE_GENERATION_FAILED`
 
 ## `GET /admin-api/collections`
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Text, View } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
-import type { GetCurrentMemberResponseData } from '../../../../../packages/api-contracts/src/member/auth/get-current-member.response'
+import type { GetCurrentMemberResponseData } from '@contracts/member/auth'
 import { requestMemberApi } from '../../apis/member/member-api'
 import { PageShell } from '../../components/page-shell'
 import { StatusCard } from '../../components/status-card'

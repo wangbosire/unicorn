@@ -55,7 +55,7 @@ export function GenerateActivationCodesDialog(
         <DialogHeader>
           <DialogTitle>批量生成激活码</DialogTitle>
           <DialogDescription>
-            选择批次后批量生成激活码，系统会同步创建一一对应的待领取藏品。
+            选择批次后批量生成激活码，系统会同步创建一一对应的待领取藏品。下拉仅展示「系列启用且批次启用」的批次。
           </DialogDescription>
         </DialogHeader>
 
@@ -64,7 +64,7 @@ export function GenerateActivationCodesDialog(
             <label className='text-sm font-medium text-foreground'>所属批次</label>
             <Select value={props.batchId} onValueChange={props.onBatchIdChange}>
               <SelectTrigger>
-                <SelectValue placeholder='选择一个已启用批次' />
+                <SelectValue placeholder='选择系列与批次均已启用的批次' />
               </SelectTrigger>
               <SelectContent>
                 {props.batchOptions.map((item) => (

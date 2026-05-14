@@ -320,3 +320,111 @@ test('CollectionActivationService.activateCollection rejects voided activation c
       error instanceof BizError && error.code === 'ACTIVATION_CODE_VOIDED',
   );
 });
+
+test('CollectionActivationService.activateCollection rejects empty activation code', async () => {
+  const { prisma } = createCollectionActivationPrismaMock();
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new CollectionActivationService(
+    prisma as never,
+    memberContextService,
+  );
+
+  await assert.rejects(
+    () =>
+      service.activateCollection(
+        {
+          memberId: 'mem_1',
+        },
+        {
+          activationCode: '   ',
+        },
+      ),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ACTIVATION_CODE_REQUIRED',
+  );
+});
+
+test('CollectionActivationService.activateCollection rejects activation code with EXPIRED status', async () => {
+  const { prisma, activationCode } = createCollectionActivationPrismaMock();
+  activationCode.status = ActivationCodeStatus.EXPIRED;
+  activationCode.expiredAt = new Date('2099-01-01T00:00:00.000Z');
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new CollectionActivationService(
+    prisma as never,
+    memberContextService,
+  );
+
+  await assert.rejects(
+    () =>
+      service.activateCollection(
+        {
+          memberId: 'mem_1',
+        },
+        {
+          activationCode: 'ABCD-EFGH-IJKL',
+        },
+      ),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ACTIVATION_CODE_EXPIRED',
+  );
+});
+
+test('CollectionActivationService.activateCollection rejects when member account is not active', async () => {
+  const { prisma } = createCollectionActivationPrismaMock();
+  prisma.member.findUnique = async ({ where }: { where: { id: string } }) =>
+    where.id === 'mem_1'
+      ? {
+          id: 'mem_1',
+          memberNo: 'MEM-001',
+          nickname: '冻结会员',
+          avatarUrl: null,
+          mobile: null,
+          status: MemberStatus.FROZEN,
+          registeredAt: new Date('2026-05-14T00:00:00.000Z'),
+          createdAt: new Date('2026-05-14T00:00:00.000Z'),
+          updatedAt: new Date('2026-05-14T00:00:00.000Z'),
+        }
+      : null;
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new CollectionActivationService(
+    prisma as never,
+    memberContextService,
+  );
+
+  await assert.rejects(
+    () =>
+      service.activateCollection(
+        {
+          memberId: 'mem_1',
+        },
+        {
+          activationCode: 'ABCD-EFGH-IJKL',
+        },
+      ),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'MEMBER_ACCOUNT_FROZEN',
+  );
+});
+
+test('CollectionActivationService.activateCollection rejects when member does not exist', async () => {
+  const { prisma } = createCollectionActivationPrismaMock();
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new CollectionActivationService(
+    prisma as never,
+    memberContextService,
+  );
+
+  await assert.rejects(
+    () =>
+      service.activateCollection(
+        {
+          memberId: 'mem_missing',
+        },
+        {
+          activationCode: 'ABCD-EFGH-IJKL',
+        },
+      ),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'UNAUTHORIZED',
+  );
+});

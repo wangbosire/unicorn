@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { defineConfig } from '@tarojs/cli';
 
 export default defineConfig({
@@ -12,6 +13,10 @@ export default defineConfig({
   framework: 'react',
   compiler: {
     type: 'webpack5',
+  },
+  /** 与 `apps/admin` 一致：通过别名引用 workspace 契约包，避免深层相对路径。 */
+  alias: {
+    '@contracts': path.resolve(__dirname, '..', '..', 'packages', 'api-contracts', 'src'),
   },
   mini: {
     postcss: {

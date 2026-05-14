@@ -1,3 +1,4 @@
+import type { PaginatedData } from '@contracts/common/pagination';
 import { parseWithSchema } from '../validation/schema';
 import { z } from 'zod';
 
@@ -20,10 +21,11 @@ const paginationQuerySchema = z.object({
 
 /**
  * 通用分页输入结构。
+ * 与 URL query 一致时为 string；亦兼容部分调用方传入的 number。
  */
 export type PaginationQueryInput = {
-  page?: string;
-  pageSize?: string;
+  page?: string | number;
+  pageSize?: string | number;
 };
 
 /**
@@ -37,14 +39,9 @@ export type PaginationParams = {
 };
 
 /**
- * 通用分页返回结构。
+ * 分页列表返回结构（与 `@contracts/common/pagination` 中 `PaginatedData` 对齐）。
  */
-export type PaginatedResult<TItem> = {
-  items: TItem[];
-  page: number;
-  pageSize: number;
-  total: number;
-};
+export type PaginatedResult<TItem> = PaginatedData<TItem>;
 
 /**
  * 解析分页参数并补足 skip / take。
@@ -52,7 +49,21 @@ export type PaginatedResult<TItem> = {
 export function parsePaginationQuery(
   query: PaginationQueryInput,
 ): PaginationParams {
-  const parsedQuery = parseWithSchema(paginationQuerySchema, query);
+  const normalized: { page?: string; pageSize?: string } = {
+    page:
+      query.page === undefined
+        ? undefined
+        : typeof query.page === 'number'
+          ? String(query.page)
+          : query.page,
+    pageSize:
+      query.pageSize === undefined
+        ? undefined
+        : typeof query.pageSize === 'number'
+          ? String(query.pageSize)
+          : query.pageSize,
+  };
+  const parsedQuery = parseWithSchema(paginationQuerySchema, normalized);
   const page = parsedQuery.page ?? DEFAULT_PAGE;
   const pageSize = parsedQuery.pageSize ?? DEFAULT_PAGE_SIZE;
 

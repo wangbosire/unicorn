@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApproveCollectionReviewRequestDto } from './dto/approve-collection-review.request';
+import type {
+  ApproveCollectionReviewRequest,
+  ListCollectionReviewsQuery,
+} from '@contracts/admin/collection-reviews';
 import { CollectionReviewsService } from './collection-reviews.service';
-import { ListCollectionReviewsQueryDto } from './dto/list-collection-reviews.query';
 
 /**
  * 藏品内容审核控制器。
@@ -17,7 +19,7 @@ export class CollectionReviewsController {
    * 查询藏品内容审核列表。
    */
   @Get()
-  async listCollectionReviews(@Query() query: ListCollectionReviewsQueryDto) {
+  async listCollectionReviews(@Query() query: ListCollectionReviewsQuery) {
     return this.collectionReviewsService.listCollectionReviews(query);
   }
 
@@ -27,7 +29,7 @@ export class CollectionReviewsController {
   @Post(':reviewId/approve')
   async approveCollectionReview(
     @Param('reviewId') reviewId: string,
-    @Body() body: ApproveCollectionReviewRequestDto,
+    @Body() body: ApproveCollectionReviewRequest,
   ) {
     return this.collectionReviewsService.approveCollectionReview(reviewId, body);
   }

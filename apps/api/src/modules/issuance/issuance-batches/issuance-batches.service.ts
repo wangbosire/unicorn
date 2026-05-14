@@ -1,5 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { IssuanceBatchStatus, Prisma, SeriesStatus } from '@prisma/client';
+import type {
+  CreateIssuanceBatchRequest,
+  IssuanceBatchDetail,
+  IssuanceBatchListItem,
+  IssuanceBatchMutationResponseData,
+  ListIssuanceBatchesQuery,
+  ListIssuanceBatchesResponseData,
+  UpdateIssuanceBatchRequest,
+  UpdateIssuanceBatchStatusRequest,
+} from '@contracts/admin/issuance-batches';
 import { BizError } from '../../../common/http/biz-error';
 import { generatePrefixedCode } from '../../../common/identity/code-generator';
 import {
@@ -19,16 +29,6 @@ import {
 import { parseWithSchema } from '../../../common/validation/schema';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { z } from 'zod';
-import { CreateIssuanceBatchRequestDto } from './dto/create-issuance-batch.request';
-import {
-  IssuanceBatchDetailDto,
-  IssuanceBatchListItemDto,
-  IssuanceBatchMutationResponseDataDto,
-  ListIssuanceBatchesResponseDataDto,
-} from './dto/issuance-batch.response';
-import { ListIssuanceBatchesQueryDto } from './dto/list-issuance-batches.query';
-import { UpdateIssuanceBatchRequestDto } from './dto/update-issuance-batch.request';
-import { UpdateIssuanceBatchStatusRequestDto } from './dto/update-issuance-batch-status.request';
 
 const createIssuanceBatchSchema = z.object({
   seriesId: requiredIdField('series'),
@@ -77,9 +77,12 @@ export class IssuanceBatchesService {
    * 查询发行批次列表。
    */
   async listIssuanceBatches(
-    query: ListIssuanceBatchesQueryDto,
-  ): Promise<ListIssuanceBatchesResponseDataDto> {
-    const pagination = parsePaginationQuery(query);
+    query: ListIssuanceBatchesQuery,
+  ): Promise<ListIssuanceBatchesResponseData> {
+    const pagination = parsePaginationQuery({
+      page: query.page,
+      pageSize: query.pageSize,
+    });
     const keyword = query.keyword?.trim();
     const status = this.parseIssuanceBatchStatus(query.status);
 
@@ -123,7 +126,7 @@ export class IssuanceBatchesService {
   /**
    * 查询发行批次详情。
    */
-  async getIssuanceBatchById(batchId: string): Promise<IssuanceBatchDetailDto> {
+  async getIssuanceBatchById(batchId: string): Promise<IssuanceBatchDetail> {
     const batch = await this.prisma.issuanceBatch.findUnique({
       where: { id: batchId },
       include: {
@@ -147,6 +150,7 @@ export class IssuanceBatchesService {
       batchNo: batch.batchNo,
       seriesId: batch.seriesId,
       seriesName: batch.series.name,
+      seriesStatus: batch.series.status,
       name: batch.name,
       quantity: batch.quantity,
       generatedCount: batch._count.activationCodes,
@@ -163,8 +167,8 @@ export class IssuanceBatchesService {
    * 创建发行批次。
    */
   async createIssuanceBatch(
-    payload: CreateIssuanceBatchRequestDto,
-  ): Promise<IssuanceBatchMutationResponseDataDto> {
+    payload: CreateIssuanceBatchRequest,
+  ): Promise<IssuanceBatchMutationResponseData> {
     const parsedPayload = parseWithSchema(createIssuanceBatchSchema, payload);
     const series = await this.ensureActiveSeriesExists(parsedPayload.seriesId);
     const name = parsedPayload.name;
@@ -195,8 +199,8 @@ export class IssuanceBatchesService {
    */
   async updateIssuanceBatch(
     batchId: string,
-    payload: UpdateIssuanceBatchRequestDto,
-  ): Promise<IssuanceBatchMutationResponseDataDto> {
+    payload: UpdateIssuanceBatchRequest,
+  ): Promise<IssuanceBatchMutationResponseData> {
     const parsedPayload = parseWithSchema(updateIssuanceBatchSchema, payload);
     const batch = await this.prisma.issuanceBatch.findUnique({
       where: { id: batchId },
@@ -260,8 +264,8 @@ export class IssuanceBatchesService {
    */
   async updateIssuanceBatchStatus(
     batchId: string,
-    payload: UpdateIssuanceBatchStatusRequestDto,
-  ): Promise<IssuanceBatchMutationResponseDataDto> {
+    payload: UpdateIssuanceBatchStatusRequest,
+  ): Promise<IssuanceBatchMutationResponseData> {
     const status = parseWithSchema(updateIssuanceBatchStatusSchema, payload).status;
 
     const batch = await this.prisma.issuanceBatch.findUnique({
@@ -294,12 +298,13 @@ export class IssuanceBatchesService {
         _count: { select: { activationCodes: true } };
       };
     }>,
-  ): IssuanceBatchListItemDto {
+  ): IssuanceBatchListItem {
     return {
       id: batch.id,
       batchNo: batch.batchNo,
       seriesId: batch.seriesId,
       seriesName: batch.series.name,
+      seriesStatus: batch.series.status,
       name: batch.name,
       quantity: batch.quantity,
       generatedCount: batch._count.activationCodes,
@@ -314,7 +319,7 @@ export class IssuanceBatchesService {
    */
   private toIssuanceBatchMutationResponse(
     batch: Prisma.IssuanceBatchGetPayload<object>,
-  ): IssuanceBatchMutationResponseDataDto {
+  ): IssuanceBatchMutationResponseData {
     return {
       id: batch.id,
       batchNo: batch.batchNo,
@@ -406,10 +411,10 @@ export class IssuanceBatchesService {
         errorMessage: 'failed to generate unique issuance batch number',
       },
       async (candidate) => {
-      const existingBatch = await this.prisma.issuanceBatch.findUnique({
-        where: { batchNo: candidate },
-        select: { id: true },
-      });
+        const existingBatch = await this.prisma.issuanceBatch.findUnique({
+          where: { batchNo: candidate },
+          select: { id: true },
+        });
 
         return !existingBatch;
       },
