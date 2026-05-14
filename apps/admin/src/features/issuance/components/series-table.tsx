@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   type SortingState,
   type VisibilityState,
@@ -25,19 +25,38 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { seriesColumns as columns } from './series-columns'
+import { createSeriesColumns } from './series-columns'
 
 type SeriesTableProps = {
   data: SeriesListItem[]
+  /** 列表行内写操作进行中时为 true，避免重复触发。 */
+  actionsDisabled: boolean
+  onEditSeries: (row: SeriesListItem) => void
+  onSetSeriesStatus: (row: SeriesListItem, status: 'ENABLED' | 'DISABLED') => void
 }
 
-export function SeriesTable({ data }: SeriesTableProps) {
+export function SeriesTable({
+  data,
+  actionsDisabled,
+  onEditSeries,
+  onSetSeriesStatus,
+}: SeriesTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<
     Array<{ id: string; value: unknown }>
   >([])
+
+  const columns = useMemo(
+    () =>
+      createSeriesColumns({
+        actionsDisabled,
+        onEdit: onEditSeries,
+        onSetStatus: onSetSeriesStatus,
+      }),
+    [actionsDisabled, onEditSeries, onSetSeriesStatus]
+  )
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({

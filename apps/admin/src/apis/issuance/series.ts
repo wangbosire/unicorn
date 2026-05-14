@@ -3,6 +3,9 @@ import type {
   CreateSeriesResponseData,
   ListSeriesQuery,
   ListSeriesResponseData,
+  SeriesMutationResponseData,
+  UpdateSeriesRequest,
+  UpdateSeriesStatusRequest,
 } from '@contracts/admin/series'
 import { apiClient } from '@/lib/api-client'
 
@@ -26,4 +29,24 @@ export async function createSeries(
   payload: CreateSeriesRequest
 ): Promise<CreateSeriesResponseData> {
   return apiClient.post('/admin-api/series', payload)
+}
+
+/**
+ * 编辑系列基础信息。
+ */
+export async function updateSeries(
+  seriesId: string,
+  payload: UpdateSeriesRequest
+): Promise<SeriesMutationResponseData> {
+  return apiClient.patch(`/admin-api/series/${seriesId}`, payload)
+}
+
+/**
+ * 更新系列启用 / 停用状态。
+ */
+export async function updateSeriesStatus(
+  seriesId: string,
+  payload: UpdateSeriesStatusRequest
+): Promise<SeriesMutationResponseData> {
+  return apiClient.patch(`/admin-api/series/${seriesId}/status`, payload)
 }

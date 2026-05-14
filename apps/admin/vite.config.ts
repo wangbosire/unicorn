@@ -22,7 +22,30 @@ export default defineConfig({
       '@contracts': path.resolve(__dirname, '../../packages/api-contracts/src'),
     },
   },
+  /** Docker 热更：绑定 0.0.0.0，并将 /api 反代到 compose 中的 api 服务。 */
+  ...(process.env.DOCKER === '1'
+    ? {
+        server: {
+          host: '0.0.0.0',
+          port: 5173,
+          strictPort: true,
+          watch: { usePolling: true },
+          ...(process.env.VITE_API_PROXY_TARGET
+            ? {
+                proxy: {
+                  '/api': {
+                    target: process.env.VITE_API_PROXY_TARGET,
+                    changeOrigin: true,
+                  },
+                },
+              }
+            : {}),
+        },
+      }
+    : {}),
   test: {
+    /** 与 `docs/FRONTEND.md` 一致：仅收集 `test/` 下镜像目录中的用例，避免与 `src/` 混放。 */
+    include: ['test/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     silent: 'passed-only',
     unstubEnvs: true,
     browser: {

@@ -96,5 +96,6 @@
 ## 关联文档
 
 - [平台 PRD](./platform-prd.md)
-- [M1 验收清单](../exec-plans/active/m1-acceptance-checklist.md)
+- [M1 验收清单](../exec-plans/completed/m1-acceptance-checklist.md)
+- [M2 验收清单](../exec-plans/active/m2-acceptance-checklist.md)
 - [V1 执行计划](../exec-plans/active/v1-exec-plan.md)

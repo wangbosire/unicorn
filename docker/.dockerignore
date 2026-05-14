@@ -1,0 +1,12 @@
+# 减小构建上下文；勿排除各 app 的 package.json（pnpm workspace 需要）。
+node_modules
+**/node_modules
+.git
+.turbo
+**/.turbo
+**/dist
+.env
+.env.*
+*.db
+**/.DS_Store
+.cursor

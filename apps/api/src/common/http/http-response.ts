@@ -22,6 +22,14 @@ export type ErrorResponse = {
   message: string;
   /** 可选的结构化错误详情，例如字段级校验失败列表。 */
   details?: Record<string, unknown>;
+  /**
+   * 仅当环境变量 `API_DEBUG_ERRORS=1`（或 `true`）时由全局异常过滤器附加，用于本地/Docker 排障。
+   * 生产环境切勿开启；客户端勿依赖该字段。
+   */
+  debug?: {
+    name?: string;
+    stack?: string;
+  };
 };
 
 /**

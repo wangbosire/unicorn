@@ -3,6 +3,7 @@ import type {
   GenerateActivationCodesResponseData,
   ListActivationCodesQuery,
   ListActivationCodesResponseData,
+  VoidActivationCodeResponseData,
 } from '@contracts/admin/activation-codes'
 import { apiClient } from '@/lib/api-client'
 
@@ -26,4 +27,16 @@ export async function generateActivationCodes(
   payload: GenerateActivationCodesRequest
 ): Promise<GenerateActivationCodesResponseData> {
   return apiClient.post('/admin-api/activation-codes/generate', payload)
+}
+
+/**
+ * 作废单条激活码（未使用且未过期）。
+ */
+export async function voidActivationCode(
+  activationCodeId: string
+): Promise<VoidActivationCodeResponseData> {
+  return apiClient.post(
+    `/admin-api/activation-codes/${encodeURIComponent(activationCodeId)}/void`,
+    {}
+  )
 }

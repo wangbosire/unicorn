@@ -1,0 +1,96 @@
+# 与 docker-compose.yml 合并使用，实现 API / Admin / 小程序 H5 在容器内热更新。
+#
+# 启动示例（不启动生产 nginx 静态站 web，避免与 Admin 开发端口混淆）：
+#   docker compose -f docker-compose.yml -f docker-compose.hot.yml up --build mysql api admin-dev miniapp-h5-dev
+#
+# 访问：
+#   API：http://localhost:3000/api/…
+#   后台（Vite HMR）：http://localhost:5173/
+#   小程序 H5（webpack watch）：http://localhost:10086/
+#
+# 说明：对源码目录做**细粒度卷挂载**（避免宿主机 node_modules 覆盖容器内 Linux 依赖）；若增删依赖或改 pnpm-lock.yaml，需重新 build 本 dev 镜像。
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    entrypoint: ["/bin/sh", "/repo/docker/api-dev-entrypoint.sh"]
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
+    volumes:
+      - ./apps/api/src:/repo/apps/api/src
+      - ./apps/api/prisma:/repo/apps/api/prisma
+      - ./apps/api/test:/repo/apps/api/test
+      - ./apps/api/nest-cli.json:/repo/apps/api/nest-cli.json
+      - ./apps/api/tsconfig.json:/repo/apps/api/tsconfig.json
+      - ./apps/api/tsconfig.build.json:/repo/apps/api/tsconfig.build.json
+      - ./packages:/repo/packages
+
+  admin-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    container_name: unicorn-admin-dev
+    restart: unless-stopped
+    working_dir: /repo
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@unicorn/admin",
+        "run",
+        "dev",
+        "--",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5173",
+      ]
+    environment:
+      DOCKER: "1"
+      CHOKIDAR_USEPOLLING: "true"
+      VITE_API_PROXY_TARGET: http://api:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/admin/src:/repo/apps/admin/src
+      - ./apps/admin/public:/repo/apps/admin/public
+      - ./apps/admin/test:/repo/apps/admin/test
+      - ./apps/admin/index.html:/repo/apps/admin/index.html
+      - ./apps/admin/vite.config.ts:/repo/apps/admin/vite.config.ts
+      - ./apps/admin/tsconfig.json:/repo/apps/admin/tsconfig.json
+      - ./apps/admin/tsconfig.app.json:/repo/apps/admin/tsconfig.app.json
+      - ./apps/admin/tsconfig.node.json:/repo/apps/admin/tsconfig.node.json
+      - ./apps/admin/components.json:/repo/apps/admin/components.json
+      - ./apps/admin/eslint.config.js:/repo/apps/admin/eslint.config.js
+      - ./apps/admin/knip.config.ts:/repo/apps/admin/knip.config.ts
+      - ./packages:/repo/packages
+    depends_on:
+      - api
+
+  miniapp-h5-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    container_name: unicorn-miniapp-h5-dev
+    restart: unless-stopped
+    working_dir: /repo
+    command: ["pnpm", "--filter", "@unicorn/miniapp", "run", "dev:h5"]
+    environment:
+      UNICORN_DOCKER_DEV: "1"
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      MINIAPP_API_PROXY_TARGET: http://api:3000
+    ports:
+      - "10086:10086"
+    volumes:
+      - ./apps/miniapp/src:/repo/apps/miniapp/src
+      - ./apps/miniapp/config:/repo/apps/miniapp/config
+      - ./apps/miniapp/project.config.json:/repo/apps/miniapp/project.config.json
+      - ./apps/miniapp/tsconfig.json:/repo/apps/miniapp/tsconfig.json
+      - ./apps/miniapp/babel.config.cjs:/repo/apps/miniapp/babel.config.cjs
+      - ./packages:/repo/packages
+    depends_on:
+      - api

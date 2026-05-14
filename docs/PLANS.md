@@ -6,6 +6,8 @@
 
 - [进行中计划](./exec-plans/active)
 - [已完成计划](./exec-plans/completed)
+- [M1 验收清单（已归档）](./exec-plans/completed/m1-acceptance-checklist.md)
+- [M2 验收清单（进行中）](./exec-plans/active/m2-acceptance-checklist.md)
 - [里程碑总览](./exec-plans/active/milestones-overview.md)
 - [模块拆分建议](./exec-plans/active/module-splitting-plan.md)
 - [技术债跟踪](./exec-plans/tech-debt-tracker.md)

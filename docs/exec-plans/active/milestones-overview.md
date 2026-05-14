@@ -25,7 +25,9 @@
 
 补充文档：
 
-- [M1 验收清单](./m1-acceptance-checklist.md)
+- [M1 验收清单](../completed/m1-acceptance-checklist.md)
+
+里程碑状态：**已于 2026-05-14 通过验收**（详见清单内「验收记录」）。
 
 ## M2：内容展示闭环
 
@@ -40,6 +42,10 @@
 验收标准：
 
 - 会员可提交藏品内容并完成公开展示。
+
+补充文档：
+
+- [M2 验收清单](./m2-acceptance-checklist.md)
 
 ## M3：审核治理闭环
 
@@ -71,4 +77,5 @@
 ## 关联文档
 
 - [V1 执行计划](./v1-exec-plan.md)
-- [M1 验收清单](./m1-acceptance-checklist.md)
+- [M1 验收清单](../completed/m1-acceptance-checklist.md)
+- [M2 验收清单](./m2-acceptance-checklist.md)

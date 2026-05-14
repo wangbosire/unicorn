@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 import { AxiosError } from 'axios'
+import { ApiError } from '@/lib/api-error'
 import {
   QueryCache,
   QueryClient,
@@ -29,8 +30,9 @@ const queryClient = new QueryClient({
         if (failureCount > 3 && import.meta.env.PROD) return false
 
         return !(
-          error instanceof AxiosError &&
-          [401, 403].includes(error.response?.status ?? 0)
+          (error instanceof AxiosError &&
+            [401, 403].includes(error.response?.status ?? 0)) ||
+          (error instanceof ApiError && [401, 403].includes(error.status ?? 0))
         )
       },
       refetchOnWindowFocus: import.meta.env.PROD,
@@ -65,7 +67,19 @@ const queryClient = new QueryClient({
           }
         }
         if (error.response?.status === 403) {
-          // router.navigate("/forbidden", { replace: true });
+          router.navigate({ to: '/403', replace: true })
+        }
+      }
+
+      if (error instanceof ApiError) {
+        if (error.status === 401) {
+          toast.error('登录已失效，请重新登录')
+          useAuthStore.getState().auth.reset()
+          const redirect = `${router.history.location.href}`
+          router.navigate({ to: '/sign-in', search: { redirect } })
+        }
+        if (error.status === 403) {
+          router.navigate({ to: '/403', replace: true })
         }
       }
     },

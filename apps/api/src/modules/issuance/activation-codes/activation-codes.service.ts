@@ -32,6 +32,7 @@ import type {
   GeneratedActivationCode,
   ListActivationCodesQuery,
   ListActivationCodesResponseData,
+  VoidActivationCodeResponseData,
 } from '@contracts/admin/activation-codes';
 
 const generateActivationCodesSchema = z.object({
@@ -162,6 +163,84 @@ export class ActivationCodesService {
       batchId: batch.id,
       generatedCount: generatedItems.length,
       activationCodes: generatedItems,
+    };
+  }
+
+  /**
+   * 将未使用激活码作废，用于运营回收误发或未发放码；已使用或已过期码不允许作废。
+   */
+  async voidActivationCode(
+    activationCodeId: string,
+  ): Promise<VoidActivationCodeResponseData> {
+    const id = activationCodeId.trim();
+    if (!id) {
+      throw new BizError({
+        code: 'ACTIVATION_CODE_ID_REQUIRED',
+        message: 'activation code id is required',
+        status: 400,
+      });
+    }
+
+    const activationCode = await this.prisma.activationCode.findUnique({
+      where: { id },
+    });
+
+    if (!activationCode) {
+      throw new BizError({
+        code: 'ACTIVATION_CODE_NOT_FOUND',
+        message: 'activation code not found',
+        status: 404,
+      });
+    }
+
+    if (activationCode.status === ActivationCodeStatus.USED) {
+      throw new BizError({
+        code: 'ACTIVATION_CODE_CANNOT_VOID_USED',
+        message: 'activation code already used',
+        status: 400,
+      });
+    }
+
+    if (activationCode.status === ActivationCodeStatus.VOIDED) {
+      throw new BizError({
+        code: 'ACTIVATION_CODE_ALREADY_VOIDED',
+        message: 'activation code already voided',
+        status: 400,
+      });
+    }
+
+    if (activationCode.status === ActivationCodeStatus.EXPIRED) {
+      throw new BizError({
+        code: 'ACTIVATION_CODE_CANNOT_VOID_EXPIRED',
+        message: 'activation code already expired',
+        status: 400,
+      });
+    }
+
+    if (
+      activationCode.status !== ActivationCodeStatus.UNISSUED &&
+      activationCode.status !== ActivationCodeStatus.ISSUED
+    ) {
+      throw new BizError({
+        code: 'ACTIVATION_CODE_CANNOT_VOID',
+        message: 'activation code cannot be voided in current status',
+        status: 400,
+      });
+    }
+
+    const now = new Date();
+    const updated = await this.prisma.activationCode.update({
+      where: { id },
+      data: {
+        status: ActivationCodeStatus.VOIDED,
+        voidedAt: now,
+      },
+    });
+
+    return {
+      id: updated.id,
+      code: updated.code,
+      status: updated.status,
     };
   }
 

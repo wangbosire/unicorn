@@ -5,6 +5,7 @@ import request from 'supertest';
 import { test } from 'vitest';
 import { ApiExceptionFilter } from '../../../../src/common/http/api-exception.filter';
 import { ApiResponseInterceptor } from '../../../../src/common/http/api-response.interceptor';
+import { AdminAccessGuard } from '../../../../src/modules/admin/auth/admin-access.guard';
 import { IssuanceBatchesController } from '../../../../src/modules/issuance/issuance-batches/issuance-batches.controller';
 import { IssuanceBatchesService } from '../../../../src/modules/issuance/issuance-batches/issuance-batches.service';
 
@@ -38,7 +39,10 @@ test('GET /admin-api/issuance-batches returns wrapped paginated response', async
         },
       },
     ],
-  }).compile();
+  })
+    .overrideGuard(AdminAccessGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
 
   const app = moduleRef.createNestApplication();
   app.useGlobalInterceptors(new ApiResponseInterceptor());

@@ -1,0 +1,74 @@
+# 本地 Docker：MySQL + API + 静态网关（Admin + 小程序 H5）
+#
+# 启动：仓库根目录 `docker compose up -d --build`
+# 热更开发：合并 `docker-compose.hot.yml`，见 README「Docker 热更新」。
+# 访问：http://localhost:8080/ 后台；http://localhost:8080/h5/ 小程序 H5；API 经网关 /api/
+# 直连 API（排障、Postman）：http://localhost:3000/api/…（与网关路径一致）
+# 排障：`docker logs -f unicorn-api`；需要响应里带 stack 时设 `API_DEBUG_ERRORS=1`（勿上生产）
+# 数据库：root / root123.. ，库名 unicorn ，宿主机端口 3306
+#
+# 环境变量（可选）：`ADMIN_JWT_SECRET`（至少 16 字符），可在 shell 导出或写入 `.env` 由 compose 读取。
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: unicorn-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123..
+      MYSQL_DATABASE: unicorn
+      TZ: Asia/Shanghai
+    ports:
+      - '3306:3306'
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - unicorn_mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'mysqladmin',
+          'ping',
+          '-h',
+          '127.0.0.1',
+          '-uroot',
+          '-proot123..',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: unicorn-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql://root:root123..@mysql:3306/unicorn
+      PORT: '3000'
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-dev-admin-jwt-secret-change-me}
+      # 本地排障：为 true 时 5xx 响应体附带 debug.stack；生产务必关闭或删除该项。
+      API_DEBUG_ERRORS: ${API_DEBUG_ERRORS:-true}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    container_name: unicorn-web
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    depends_on:
+      - api
+
+volumes:
+  unicorn_mysql_data:

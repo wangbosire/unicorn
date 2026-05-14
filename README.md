@@ -31,3 +31,46 @@
 - 后端：`NestJS + Prisma`
 - 小程序：`TaroJS`
 - 后台：`React + Vite + shadcn/ui`
+
+## 本地开发（Docker 全栈）
+
+仓库根目录执行 `docker compose up -d --build`，会启动：
+
+- **MySQL 8**：库名 `unicorn`，账号 `root`，密码 `root123..`，宿主机端口 `3306`。
+- **API**：Nest 服务（容器内 `prisma db push` + `db seed` 后启动）；宿主机 **`http://localhost:3000`** 可直连（路径仍为 `/api/...`）；经网关访问见下。
+- **web**：Nginx 静态站点（Admin + 小程序 H5 构建产物），映射 **http://localhost:8080**。
+
+访问入口：
+
+- 后台：`http://localhost:8080/`
+- 小程序 H5：`http://localhost:8080/h5/`
+- API：同源路径前缀 **`/api/`**（由 Nginx 反代到 API 容器），或直连 **`http://localhost:3000/api/`**。
+
+排障：执行 **`docker logs -f unicorn-api`** 查看带栈日志；若需在 **HTTP 响应**里附带 `debug.stack`（仅 5xx），在 compose 或根目录 `.env` 中设置 **`API_DEBUG_ERRORS=1`**（默认在 `docker-compose.yml` 已为本地打开；勿用于生产）。
+
+可选：在仓库根目录 `.env` 或 shell 中设置 `ADMIN_JWT_SECRET`（至少 16 字符），否则使用 compose 内默认值。
+
+## 本地开发（Docker 热更新）
+
+在容器内跑 **Nest watch**、**Vite HMR**、**Taro H5 webpack watch**，源码通过卷挂载进容器，改代码即生效（依赖或 lockfile 变更后需重新 build dev 镜像）。
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.hot.yml up --build mysql api admin-dev miniapp-h5-dev
+```
+
+建议**不要**同时启动生产静态站 `web`（避免误以为 8080 是热更入口）。若已启动可停掉：`docker compose stop web`。
+
+访问：
+
+- API：`http://localhost:3000/api/…`（与全栈模式相同）
+- 后台（热更）：`http://localhost:5173/`
+- 小程序 H5（热更）：`http://localhost:10086/`
+
+说明：`admin-dev` / `miniapp-h5-dev` 通过环境变量将 **`/api`** 反代到 compose 中的 `api` 服务；卷挂载为**细粒度路径**（避免宿主机 `node_modules` 覆盖容器内 Linux 依赖）。若修改了 `apps/*/package.json` 或根 `pnpm-lock.yaml`，请执行 `docker compose ... build` 重建 dev 镜像。
+
+## 本地开发（仅 MySQL + 宿主机 pnpm）
+
+1. `docker compose up -d mysql`（或仅启动 mysql 服务）。
+2. 复制 `apps/api/.env.example` 为 `apps/api/.env`，`DATABASE_URL` 指向 `127.0.0.1:3306`。
+3. 在 `apps/api` 执行 `pnpm exec prisma db push` 与 `pnpm exec prisma db seed`。
+4. API / Admin / 小程序在宿主机 `pnpm dev` 连接本机 MySQL 即可。

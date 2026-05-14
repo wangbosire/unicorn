@@ -6,6 +6,7 @@ import { test } from 'vitest';
 import { ApiExceptionFilter } from '../../../../src/common/http/api-exception.filter';
 import { ApiResponseInterceptor } from '../../../../src/common/http/api-response.interceptor';
 import { BizError } from '../../../../src/common/http/biz-error';
+import { AdminAccessGuard } from '../../../../src/modules/admin/auth/admin-access.guard';
 import { SeriesController } from '../../../../src/modules/issuance/series/series.controller';
 import { SeriesService } from '../../../../src/modules/issuance/series/series.service';
 
@@ -34,7 +35,10 @@ test('GET /admin-api/series returns wrapped success response', async () => {
         },
       },
     ],
-  }).compile();
+  })
+    .overrideGuard(AdminAccessGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
 
   const app = moduleRef.createNestApplication();
   app.useGlobalInterceptors(new ApiResponseInterceptor());
@@ -88,7 +92,10 @@ test('GET /admin-api/series returns wrapped BizError response', async () => {
         },
       },
     ],
-  }).compile();
+  })
+    .overrideGuard(AdminAccessGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
 
   const app = moduleRef.createNestApplication();
   app.useGlobalInterceptors(new ApiResponseInterceptor());

@@ -1,13 +1,18 @@
 import { create } from 'zustand'
 import { getCookie, setCookie, removeCookie } from '@/lib/cookies'
 
-const ACCESS_TOKEN = 'thisisjustarandomstring'
+const ACCESS_TOKEN_COOKIE = 'thisisjustarandomstring'
 
-interface AuthUser {
+/**
+ * 已登录后台用户（与 `AdminAuthUser` 对齐的客户端子集）。
+ */
+export interface AuthUser {
+  id: string
   accountNo: string
-  email: string
-  role: string[]
-  exp: number
+  username: string
+  displayName: string
+  roles: string[]
+  permissionKeys: string[]
 }
 
 interface AuthState {
@@ -22,7 +27,7 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>()((set) => {
-  const cookieState = getCookie(ACCESS_TOKEN)
+  const cookieState = getCookie(ACCESS_TOKEN_COOKIE)
   const initToken = cookieState ? JSON.parse(cookieState) : ''
   return {
     auth: {
@@ -32,17 +37,17 @@ export const useAuthStore = create<AuthState>()((set) => {
       accessToken: initToken,
       setAccessToken: (accessToken) =>
         set((state) => {
-          setCookie(ACCESS_TOKEN, JSON.stringify(accessToken))
+          setCookie(ACCESS_TOKEN_COOKIE, JSON.stringify(accessToken))
           return { ...state, auth: { ...state.auth, accessToken } }
         }),
       resetAccessToken: () =>
         set((state) => {
-          removeCookie(ACCESS_TOKEN)
+          removeCookie(ACCESS_TOKEN_COOKIE)
           return { ...state, auth: { ...state.auth, accessToken: '' } }
         }),
       reset: () =>
         set((state) => {
-          removeCookie(ACCESS_TOKEN)
+          removeCookie(ACCESS_TOKEN_COOKIE)
           return {
             ...state,
             auth: { ...state.auth, user: null, accessToken: '' },

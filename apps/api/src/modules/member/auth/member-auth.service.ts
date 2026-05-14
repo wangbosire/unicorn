@@ -12,7 +12,8 @@ import { MemberContextService } from './member-context.service';
 
 /**
  * 会员认证服务。
- * 当前提供 M1 联调所需的最小登录能力，后续可替换为真实微信登录和 JWT 方案。
+ * 当前实现：使用 `Taro.login` 的临时 code 映射稳定 openid，完成会员创建/绑定与 mock JWT；
+ * 生产环境可替换为微信 `code2Session` 与正式令牌方案，接口路径保持不变。
  */
 @Injectable()
 export class MemberAuthService {

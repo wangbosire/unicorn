@@ -4,6 +4,7 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { BizError } from './biz-error';
 import { ErrorResponse } from './http-response';
@@ -20,14 +21,20 @@ type HttpResponseLike = {
  */
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ApiExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<HttpResponseLike>();
 
     if (exception instanceof BizError) {
-      response
-        .status(exception.status)
-        .json(this.toErrorResponse(exception.code, exception.message, exception.details));
+      this.logBizError(exception);
+      response.status(exception.status).json(
+        this.toErrorResponse(exception.code, exception.message, exception.details, {
+          exception,
+          httpStatus: exception.status,
+        }),
+      );
       return;
     }
 
@@ -41,15 +48,75 @@ export class ApiExceptionFilter implements ExceptionFilter {
               exceptionResponse as Record<string, unknown>,
             );
 
-      response
-        .status(status)
-        .json(this.toErrorResponse(this.toDefaultErrorCode(status), message));
+      this.logHttpException(exception, status, message);
+      response.status(status).json(
+        this.toErrorResponse(this.toDefaultErrorCode(status), message, undefined, {
+          exception,
+          httpStatus: status,
+        }),
+      );
       return;
     }
 
+    this.logUnknownException(exception);
     response
       .status(HttpStatus.INTERNAL_SERVER_ERROR)
-      .json(this.toErrorResponse('INTERNAL_SERVER_ERROR', 'internal server error'));
+      .json(
+        this.toErrorResponse('INTERNAL_SERVER_ERROR', 'internal server error', undefined, {
+          exception,
+          httpStatus: HttpStatus.INTERNAL_SERVER_ERROR,
+        }),
+      );
+  }
+
+  /** 是否向 HTTP 响应附加 `debug.stack`（仅用于本地排障）。 */
+  private isApiDebugErrors(): boolean {
+    const v = process.env.API_DEBUG_ERRORS?.toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes';
+  }
+
+  private shouldAttachDebugToBody(httpStatus: number): boolean {
+    if (!this.isApiDebugErrors()) {
+      return false;
+    }
+    return httpStatus >= 500;
+  }
+
+  private debugPayload(exception: unknown): ErrorResponse['debug'] | undefined {
+    if (!(exception instanceof Error)) {
+      return { name: 'NonError', stack: String(exception) };
+    }
+    return { name: exception.name, stack: exception.stack };
+  }
+
+  private logBizError(exception: BizError): void {
+    const line = `${exception.code} ${exception.status} — ${exception.message}`;
+    if (exception.status >= 500) {
+      this.logger.error(line, exception.stack);
+    } else {
+      this.logger.warn(line);
+    }
+  }
+
+  private logHttpException(
+    exception: HttpException,
+    status: number,
+    message: string,
+  ): void {
+    const line = `HTTP ${status} — ${message}`;
+    if (status >= 500) {
+      this.logger.error(line, exception.stack);
+    } else {
+      this.logger.warn(line);
+    }
+  }
+
+  private logUnknownException(exception: unknown): void {
+    if (exception instanceof Error) {
+      this.logger.error(`未捕获异常 — ${exception.message}`, exception.stack);
+    } else {
+      this.logger.error('未捕获异常（非 Error）', String(exception));
+    }
   }
 
   /**
@@ -98,11 +165,18 @@ export class ApiExceptionFilter implements ExceptionFilter {
     code: string,
     message: string,
     details?: Record<string, unknown>,
+    opts?: { exception: unknown; httpStatus: number },
   ): ErrorResponse {
-    return {
+    const base: ErrorResponse = {
       code,
       message,
       ...(details ? { details } : {}),
     };
+
+    if (opts && this.shouldAttachDebugToBody(opts.httpStatus)) {
+      base.debug = this.debugPayload(opts.exception);
+    }
+
+    return base;
   }
 }

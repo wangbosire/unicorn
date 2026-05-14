@@ -5,6 +5,7 @@ import { test } from 'vitest';
 import { ApiExceptionFilter } from '../../../../src/common/http/api-exception.filter';
 import { ApiResponseInterceptor } from '../../../../src/common/http/api-response.interceptor';
 import { BizError } from '../../../../src/common/http/biz-error';
+import { AdminAccessGuard } from '../../../../src/modules/admin/auth/admin-access.guard';
 import { ActivationCodesController } from '../../../../src/modules/issuance/activation-codes/activation-codes.controller';
 import { ActivationCodesService } from '../../../../src/modules/issuance/activation-codes/activation-codes.service';
 
@@ -35,7 +36,10 @@ test('GET /admin-api/activation-codes returns wrapped activation code list', asy
         },
       },
     ],
-  }).compile();
+  })
+    .overrideGuard(AdminAccessGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
 
   const app = moduleRef.createNestApplication();
   app.useGlobalInterceptors(new ApiResponseInterceptor());
@@ -91,7 +95,10 @@ test('POST /admin-api/activation-codes/generate returns wrapped BizError respons
         },
       },
     ],
-  }).compile();
+  })
+    .overrideGuard(AdminAccessGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
 
   const app = moduleRef.createNestApplication();
   app.useGlobalInterceptors(new ApiResponseInterceptor());

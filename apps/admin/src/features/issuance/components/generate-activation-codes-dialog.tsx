@@ -34,6 +34,8 @@ type GenerateActivationCodesDialogProps = {
   issuedChannel: string
   onIssuedChannelChange: Dispatch<SetStateAction<string>>
   onSubmit: () => void
+  /** 为 true 时禁用底部按钮（例如作废请求进行中）。 */
+  disableActions?: boolean
   mutation: UseMutationResult<
     GenerateActivationCodesResponseData,
     unknown,
@@ -49,6 +51,8 @@ type GenerateActivationCodesDialogProps = {
 export function GenerateActivationCodesDialog(
   props: GenerateActivationCodesDialogProps
 ) {
+  const actionsLocked = props.mutation.isPending || Boolean(props.disableActions)
+
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent>
@@ -101,13 +105,13 @@ export function GenerateActivationCodesDialog(
           <Button
             variant='outline'
             onClick={() => props.onOpenChange(false)}
-            disabled={props.mutation.isPending}
+            disabled={actionsLocked}
           >
             取消
           </Button>
           <Button
             onClick={props.onSubmit}
-            disabled={props.mutation.isPending || props.batchOptions.length === 0}
+            disabled={actionsLocked || props.batchOptions.length === 0}
           >
             {props.mutation.isPending ? '生成中...' : '确认生成'}
           </Button>

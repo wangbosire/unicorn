@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import type {
   CreateIssuanceBatchRequest,
   ListIssuanceBatchesQuery,
   UpdateIssuanceBatchRequest,
   UpdateIssuanceBatchStatusRequest,
 } from '@contracts/admin/issuance-batches';
+import { AdminAccessGuard } from '../../admin/auth/admin-access.guard';
+import { ADMIN_PERMISSION_ISSUANCE_BATCHES } from '../../admin/auth/admin-permission-keys';
+import { RequireAdminPermissions } from '../../admin/auth/admin-permissions.decorator';
 import { IssuanceBatchesService } from './issuance-batches.service';
 
 /**
@@ -12,6 +15,8 @@ import { IssuanceBatchesService } from './issuance-batches.service';
  * 当前挂载在后台接口边界下，对应 `admin-api/issuance-batches`。
  */
 @Controller('admin-api/issuance-batches')
+@UseGuards(AdminAccessGuard)
+@RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_BATCHES)
 export class IssuanceBatchesController {
   constructor(private readonly issuanceBatchesService: IssuanceBatchesService) {}
 

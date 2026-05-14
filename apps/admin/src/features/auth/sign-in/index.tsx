@@ -1,4 +1,4 @@
-import { Link, useSearch } from '@tanstack/react-router'
+import { useSearch } from '@tanstack/react-router'
 import {
   Card,
   CardContent,
@@ -17,39 +17,25 @@ export function SignIn() {
     <AuthLayout>
       <Card className='max-w-sm gap-4'>
         <CardHeader>
-          <CardTitle className='text-lg tracking-tight'>Sign in</CardTitle>
+          <CardTitle className='text-lg tracking-tight'>后台登录</CardTitle>
           <CardDescription>
-            Enter your email and password below to log into{' '}
-            <br className='max-sm:hidden' /> your account. Don't have an
-            account?{' '}
-            <Link
-              to='/sign-up'
-              className='text-nowrap underline underline-offset-4 hover:text-primary'
-            >
-              Sign Up
-            </Link>
+            请输入用户名与密码。首次本地开发请在 `apps/api` 执行
+            `pnpm exec prisma db seed` 写入种子账号（见页脚说明）。
           </CardDescription>
         </CardHeader>
         <CardContent>
           <UserAuthForm redirectTo={redirect} />
         </CardContent>
-        <CardFooter>
-          <p className='px-8 text-center text-sm text-muted-foreground'>
-            By clicking sign in, you agree to our{' '}
-            <a
-              href='/terms'
-              className='underline underline-offset-4 hover:text-primary'
-            >
-              Terms of Service
-            </a>{' '}
-            and{' '}
-            <a
-              href='/privacy'
-              className='underline underline-offset-4 hover:text-primary'
-            >
-              Privacy Policy
-            </a>
-            .
+        <CardFooter className='flex flex-col gap-2'>
+          <p className='w-full rounded-md border border-dashed bg-muted/40 px-3 py-2 text-start text-xs text-muted-foreground'>
+            种子账号（执行 db seed 后）：超级管理员{' '}
+            <span className='font-mono text-foreground'>admin</span> /{' '}
+            <span className='font-mono text-foreground'>Admin123!</span>；仅仪表盘访客{' '}
+            <span className='font-mono text-foreground'>viewer</span> /{' '}
+            <span className='font-mono text-foreground'>Viewer123!</span>
+          </p>
+          <p className='px-2 text-center text-xs text-muted-foreground'>
+            点击登录即表示同意服务条款与隐私政策（演示环境）。
           </p>
         </CardFooter>
       </Card>

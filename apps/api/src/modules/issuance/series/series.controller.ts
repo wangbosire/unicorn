@@ -6,7 +6,11 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { AdminAccessGuard } from '../../admin/auth/admin-access.guard';
+import { ADMIN_PERMISSION_ISSUANCE_SERIES } from '../../admin/auth/admin-permission-keys';
+import { RequireAdminPermissions } from '../../admin/auth/admin-permissions.decorator';
 import type {
   CreateSeriesRequest,
   ListSeriesQuery,
@@ -20,6 +24,8 @@ import { SeriesService } from './series.service';
  * 当前挂载在后台接口边界下，对应 `admin-api/series`。
  */
 @Controller('admin-api/series')
+@UseGuards(AdminAccessGuard)
+@RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_SERIES)
 export class SeriesController {
   constructor(private readonly seriesService: SeriesService) {}
 

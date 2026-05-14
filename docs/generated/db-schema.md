@@ -5,7 +5,7 @@
 ## 当前状态
 
 - 当前仓库已存在 Prisma Schema 作为源码真相源：`apps/api/prisma/schema.prisma`
-- 当前数据库 provider 为 `sqlite`
+- 当前数据库 provider 为 `mysql`（MySQL 8+ / utf8mb4）
 - 本文档当前维护“实体总览 + 枚举总览”，后续可继续补充关系图或字段明细
 
 ## 枚举总览

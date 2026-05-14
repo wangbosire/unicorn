@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   type SortingState,
   type VisibilityState,
@@ -25,19 +25,34 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { activationCodesColumns as columns } from './activation-codes-columns'
+import { createActivationCodesColumns } from './activation-codes-columns'
 
 type ActivationCodesTableProps = {
   data: ActivationCodeListItem[]
+  actionsDisabled: boolean
+  onVoidRequest: (row: ActivationCodeListItem) => void
 }
 
-export function ActivationCodesTable({ data }: ActivationCodesTableProps) {
+export function ActivationCodesTable({
+  data,
+  actionsDisabled,
+  onVoidRequest,
+}: ActivationCodesTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<
     Array<{ id: string; value: unknown }>
   >([])
+
+  const columns = useMemo(
+    () =>
+      createActivationCodesColumns({
+        actionsDisabled,
+        onVoidRequest,
+      }),
+    [actionsDisabled, onVoidRequest]
+  )
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({

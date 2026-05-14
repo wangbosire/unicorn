@@ -12,6 +12,11 @@ export type AdminAuthUser = {
   displayName: string
   /** 当前用户拥有的角色 key 列表。 */
   roles: string[]
+  /**
+   * 当前会话可访问的权限点 key 列表。
+   * 包含 `*` 时表示拥有全部权限；权限变更后需重新登录以刷新令牌内声明。
+   */
+  permissionKeys: string[]
 }
 
 /**

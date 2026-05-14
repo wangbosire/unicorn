@@ -142,6 +142,33 @@ function createActivationCodesPrismaMock() {
       findUnique: async ({ where }: { where: { id: string } }) =>
         batches.find((item) => item.id === where.id) ?? null,
     },
+    activationCode: {
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        activationCodes.find((item) => item.id === where.id) ?? null,
+      update: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: {
+          status?: ActivationCodeStatus;
+          voidedAt?: Date | null;
+        };
+      }) => {
+        const item = activationCodes.find((c) => c.id === where.id);
+        if (!item) {
+          throw new Error('activation code not found');
+        }
+        if (data.status !== undefined) {
+          item.status = data.status;
+        }
+        if (data.voidedAt !== undefined) {
+          item.voidedAt = data.voidedAt;
+        }
+        item.updatedAt = new Date('2026-05-14T02:00:00.000Z');
+        return { ...item };
+      },
+    },
     $transaction: async <T>(callback: (client: typeof tx) => Promise<T>) => callback(tx),
   };
 
@@ -237,5 +264,111 @@ test('ActivationCodesService.generateActivationCodes rejects when issuance batch
       }),
     (error: unknown) =>
       error instanceof BizError && error.code === 'ISSUANCE_BATCH_NOT_FOUND',
+  );
+});
+
+function seedVoidableActivationCode(
+  activationCodes: Array<{
+    id: string;
+    code: string;
+    batchId: string;
+    collectionId: string;
+    status: ActivationCodeStatus;
+    issuedChannel: string | null;
+    issuedAt: Date | null;
+    usedByMemberId: string | null;
+    usedAt: Date | null;
+    expiredAt: Date | null;
+    voidedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }>,
+  status: ActivationCodeStatus = ActivationCodeStatus.UNISSUED,
+) {
+  const now = new Date('2026-05-14T01:00:00.000Z');
+  activationCodes.push({
+    id: 'ac_void_1',
+    code: 'ZZZZ-YYYY-XXXX',
+    batchId: 'bat_1',
+    collectionId: 'col_void_1',
+    status,
+    issuedChannel: 'offline_event',
+    issuedAt: null,
+    usedByMemberId: null,
+    usedAt: null,
+    expiredAt: new Date('2026-06-14T00:00:00.000Z'),
+    voidedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+test('ActivationCodesService.voidActivationCode marks UNISSUED code as VOIDED', async () => {
+  const { prisma, activationCodes } = createActivationCodesPrismaMock();
+  seedVoidableActivationCode(activationCodes, ActivationCodeStatus.UNISSUED);
+  const service = new ActivationCodesService(prisma as never);
+
+  const result = await service.voidActivationCode('ac_void_1');
+
+  assert.equal(result.status, ActivationCodeStatus.VOIDED);
+  assert.equal(result.code, 'ZZZZ-YYYY-XXXX');
+  assert.ok(activationCodes[0]?.voidedAt);
+  assert.equal(activationCodes[0]?.status, ActivationCodeStatus.VOIDED);
+});
+
+test('ActivationCodesService.voidActivationCode allows ISSUED code', async () => {
+  const { prisma, activationCodes } = createActivationCodesPrismaMock();
+  seedVoidableActivationCode(activationCodes, ActivationCodeStatus.ISSUED);
+  const service = new ActivationCodesService(prisma as never);
+
+  const result = await service.voidActivationCode('ac_void_1');
+
+  assert.equal(result.status, ActivationCodeStatus.VOIDED);
+});
+
+test('ActivationCodesService.voidActivationCode rejects when code not found', async () => {
+  const { prisma } = createActivationCodesPrismaMock();
+  const service = new ActivationCodesService(prisma as never);
+
+  await assert.rejects(
+    () => service.voidActivationCode('ac_missing'),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ACTIVATION_CODE_NOT_FOUND',
+  );
+});
+
+test('ActivationCodesService.voidActivationCode rejects when already USED', async () => {
+  const { prisma, activationCodes } = createActivationCodesPrismaMock();
+  seedVoidableActivationCode(activationCodes, ActivationCodeStatus.USED);
+  const service = new ActivationCodesService(prisma as never);
+
+  await assert.rejects(
+    () => service.voidActivationCode('ac_void_1'),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ACTIVATION_CODE_CANNOT_VOID_USED',
+  );
+});
+
+test('ActivationCodesService.voidActivationCode rejects when already VOIDED', async () => {
+  const { prisma, activationCodes } = createActivationCodesPrismaMock();
+  seedVoidableActivationCode(activationCodes, ActivationCodeStatus.VOIDED);
+  const service = new ActivationCodesService(prisma as never);
+
+  await assert.rejects(
+    () => service.voidActivationCode('ac_void_1'),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ACTIVATION_CODE_ALREADY_VOIDED',
+  );
+});
+
+test('ActivationCodesService.voidActivationCode rejects when EXPIRED', async () => {
+  const { prisma, activationCodes } = createActivationCodesPrismaMock();
+  seedVoidableActivationCode(activationCodes, ActivationCodeStatus.EXPIRED);
+  const service = new ActivationCodesService(prisma as never);
+
+  await assert.rejects(
+    () => service.voidActivationCode('ac_void_1'),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ACTIVATION_CODE_CANNOT_VOID_EXPIRED',
   );
 });

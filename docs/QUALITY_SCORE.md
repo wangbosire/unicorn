@@ -36,7 +36,7 @@
 ### 执行计划
 
 - 当前分数：`3/5`
-- 证据：[执行计划入口](./PLANS.md)、[V1 执行计划](./exec-plans/active/v1-exec-plan.md)、[M1 验收清单](./exec-plans/active/m1-acceptance-checklist.md)
+- 证据：[执行计划入口](./PLANS.md)、[V1 执行计划](./exec-plans/active/v1-exec-plan.md)、[M1 验收清单](./exec-plans/completed/m1-acceptance-checklist.md)
 - 主要缺口：尚未统一状态字段、决策日志和完成归档规范
 - 下一步：后续新增计划统一按 `PLANS.md` 中的模板字段维护
 

@@ -204,6 +204,11 @@ export class IssuanceBatchesService {
     const parsedPayload = parseWithSchema(updateIssuanceBatchSchema, payload);
     const batch = await this.prisma.issuanceBatch.findUnique({
       where: { id: batchId },
+      include: {
+        _count: {
+          select: { activationCodes: true },
+        },
+      },
     });
 
     if (!batch) {
@@ -216,6 +221,16 @@ export class IssuanceBatchesService {
 
     const name = parsedPayload.name;
     const quantity = parsedPayload.quantity;
+    const generatedCount = batch._count.activationCodes;
+
+    // 计划数量不得低于已生成激活码数，避免与「已发码」事实冲突。
+    if (quantity !== undefined && quantity < generatedCount) {
+      throw new BizError({
+        code: 'ISSUANCE_BATCH_QUANTITY_BELOW_GENERATED',
+        message: 'issuance batch quantity cannot be less than generated activation codes count',
+        status: 400,
+      });
+    }
 
     let activateValidFrom: Date | undefined;
     let activateValidTo: Date | undefined;

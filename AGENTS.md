@@ -16,7 +16,7 @@
 
 - 目录入口文件使用稳定短名，如 `index.md`、`DESIGN.md`、`PLANS.md`
 - 专题文档优先使用语义清晰、可长期复用的短名，避免重复携带项目全名
-- 执行计划文档优先使用阶段或里程碑短名，如 `v1-exec-plan.md`、`m1-acceptance-checklist.md`
+- 执行计划文档优先使用阶段或里程碑短名，如 `v1-exec-plan.md`；已验收里程碑的清单可置于 `exec-plans/completed/`（例如 `m1-acceptance-checklist.md`）
 - 已拆分出的高频专题，应在总览文档中保留摘要并将详细内容收敛到专题文档
 
 ## 查阅路径

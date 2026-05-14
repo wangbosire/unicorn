@@ -58,3 +58,24 @@ test('ActivationCodesController.generateActivationCodes forwards body to service
   assert.equal(receivedBodies.length, 1);
   assert.deepEqual(receivedBodies[0], body);
 });
+
+test('ActivationCodesController.voidActivationCode forwards activationCodeId to service', async () => {
+  const expectedResult = {
+    id: 'ac_1',
+    code: 'ABCD-EFGH-IJKL',
+    status: 'VOIDED',
+  };
+  const receivedIds: string[] = [];
+  const voidActivationCode = async (activationCodeId: string) => {
+    receivedIds.push(activationCodeId);
+    return expectedResult;
+  };
+  const controller = new ActivationCodesController({
+    voidActivationCode,
+  } as never);
+
+  const result = await controller.voidActivationCode('ac_1');
+
+  assert.deepEqual(result, expectedResult);
+  assert.deepEqual(receivedIds, ['ac_1']);
+});

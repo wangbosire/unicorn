@@ -1,7 +1,15 @@
 import Taro from '@tarojs/taro'
 
-/** 本地联调默认 member-api 基地址（与 M1 验收清单一致）。 */
-const DEFAULT_MEMBER_API_BASE_URL = 'http://127.0.0.1:3000'
+/**
+ * 本地联调默认 member-api 基地址（须含 Nest 全局前缀 `/api`）。
+ * H5 在浏览器中运行时回落为当前站点同源 `/api`，以便与 Docker 网关或反代一致。
+ */
+function defaultMemberApiBaseUrl(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/api`
+  }
+  return 'http://127.0.0.1:3000/api'
+}
 
 /** 可在开发者工具中写入，便于指向测试环境而无需改代码。 */
 export const MEMBER_API_BASE_URL_STORAGE_KEY = 'unicorn_member_api_base_url'
@@ -22,7 +30,7 @@ export function resolveMemberApiBaseUrl(): string {
   } catch {
     // 非小程序环境或存储不可用时忽略，使用默认基地址。
   }
-  return DEFAULT_MEMBER_API_BASE_URL
+  return defaultMemberApiBaseUrl()
 }
 
 /**

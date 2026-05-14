@@ -16,6 +16,11 @@ type BaseNavItem = {
   title: string
   badge?: string
   icon?: React.ElementType
+  /**
+   * 至少具备其中一项权限才显示；缺省表示登录即可见。
+   * 与后端 `permissions.permission_key` 对齐。
+   */
+  anyOfPermissions?: string[]
 }
 
 type NavLink = BaseNavItem & {

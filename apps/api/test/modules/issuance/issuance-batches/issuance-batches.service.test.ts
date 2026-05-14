@@ -310,3 +310,18 @@ test('IssuanceBatchesService.createIssuanceBatch rejects when series does not ex
       error instanceof BizError && error.code === 'SERIES_NOT_FOUND',
   );
 });
+
+test('IssuanceBatchesService.updateIssuanceBatch rejects when quantity is below generated activation codes', async () => {
+  const { prisma } = createIssuanceBatchesPrismaMock();
+  const service = new IssuanceBatchesService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.updateIssuanceBatch('bat_1', {
+        quantity: 11,
+      }),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'ISSUANCE_BATCH_QUANTITY_BELOW_GENERATED',
+  );
+});

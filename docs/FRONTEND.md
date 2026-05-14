@@ -33,9 +33,10 @@
 ## 测试文件约定
 
 - 前端工程测试文件规范与后端保持一致，统一采用 `src/` 与 `test/` 镜像目录，而不是默认把测试文件放在源码同级
-- `apps/admin` 中，源码放在 `apps/admin/src/...`，对应测试放在 `apps/admin/test/...`
+- `apps/admin` 中，源码放在 `apps/admin/src/...`，对应测试放在 `apps/admin/test/...`（已全部收敛到镜像目录，勿再在 `src/` 下放 `*.test.*`）
 - `apps/miniapp` 中，源码放在 `apps/miniapp/src/...`，对应测试放在 `apps/miniapp/test/...`
 - 镜像规则按相对路径保持一致，便于快速定位实现与测试的对应关系
+- Vitest 在 `apps/admin/vite.config.ts` 中通过 `test.include` 仅收集 `test/**/*` 下的用例，避免误跑 `src/` 下的历史路径
 
 推荐示例：
 
@@ -44,5 +45,3 @@
 
 - `apps/miniapp/src/pages/activate/index.tsx`
 - `apps/miniapp/test/pages/activate/index.test.tsx`
-
-- 旧测试如果仍在源码同级，后续改动到对应模块时优先顺手迁移到镜像测试目录

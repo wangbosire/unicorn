@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   type SortingState,
   type VisibilityState,
@@ -25,19 +25,40 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { batchesColumns as columns } from './batches-columns'
+import { createBatchesColumns } from './batches-columns'
 
 type BatchesTableProps = {
   data: IssuanceBatchListItem[]
+  actionsDisabled: boolean
+  onEditBatch: (row: IssuanceBatchListItem) => void
+  onSetBatchStatus: (
+    row: IssuanceBatchListItem,
+    status: 'ENABLED' | 'DISABLED'
+  ) => void
 }
 
-export function BatchesTable({ data }: BatchesTableProps) {
+export function BatchesTable({
+  data,
+  actionsDisabled,
+  onEditBatch,
+  onSetBatchStatus,
+}: BatchesTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<
     Array<{ id: string; value: unknown }>
   >([])
+
+  const columns = useMemo(
+    () =>
+      createBatchesColumns({
+        actionsDisabled,
+        onEditBatch,
+        onSetBatchStatus,
+      }),
+    [actionsDisabled, onEditBatch, onSetBatchStatus]
+  )
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({

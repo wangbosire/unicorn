@@ -6,6 +6,8 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
+    /** 与 CJS 包（如 dayjs）的 default 导入互操作；缺省时会生成 `.default` 访问并在运行时报错。 */
+    "esModuleInterop": true,
     "target": "ES2022",
     "sourceMap": true,
     "outDir": "./dist",
