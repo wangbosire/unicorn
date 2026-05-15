@@ -7,13 +7,8 @@ import type {
 } from '@contracts/admin/issuance-batches'
 import type { SeriesListItem } from '@contracts/admin/series'
 import { toast } from 'sonner'
-import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { PageLayout } from '@/components/layout/page-layout'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   createIssuanceBatch,
   getIssuanceBatch,
@@ -265,54 +260,43 @@ export function BatchesPage() {
 
   return (
     <>
-      <Header>
-        <div className='me-auto'>
-          <p className='text-sm text-muted-foreground'>发行管理 / 发行批次</p>
-        </div>
-        <Search />
-        <ThemeSwitch />
-        <ProfileDropdown />
-      </Header>
-
-      <Main>
-        <div className='mb-6 flex items-start justify-between gap-4'>
-          <div className='space-y-1'>
-            <h1 className='text-2xl font-bold tracking-tight'>发行批次</h1>
-            <p className='text-sm text-muted-foreground'>
-              按系列定义每次具体发行的数量、状态和领取进度。
-            </p>
+      <PageLayout>
+        {isLoading ? (
+          <div className='py-8 text-center text-muted-foreground'>
+            正在加载批次数据...
           </div>
-          <Button onClick={() => handleOpenCreateDialog(true)}>新增批次</Button>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>批次列表</CardTitle>
-            <p className='text-sm text-muted-foreground'>
-              当前共 {data?.total ?? 0} 个批次。列表筛选、排序和字段显隐统一走
-              data-table 组件。
-            </p>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className='py-8 text-center text-muted-foreground'>
-                正在加载批次数据...
-              </div>
-            ) : isError ? (
-              <div className='py-8 text-center text-destructive'>
-                批次数据加载失败，请稍后重试。
-              </div>
-            ) : (
-              <BatchesTable
-                data={data?.items ?? []}
-                actionsDisabled={isBatchListMutating}
-                onEditBatch={handleEditBatch}
-                onSetBatchStatus={handleSetBatchStatus}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </Main>
+        ) : isError ? (
+          <div className='py-8 text-center text-destructive'>
+            批次数据加载失败，请稍后重试。
+          </div>
+        ) : (
+          <BatchesTable
+            data={data?.items ?? []}
+            actionsDisabled={isBatchListMutating}
+            onEditBatch={handleEditBatch}
+            onSetBatchStatus={handleSetBatchStatus}
+            totalCount={data?.total}
+            listIntro={{
+              title: '批次列表',
+              description: (
+                <>
+                  当前共 {data?.total ?? 0} 个批次。列表筛选、排序和字段显隐统一走 data-table
+                  组件。
+                </>
+              ),
+            }}
+            toolbarActions={
+              <Button
+                size='sm'
+                onClick={() => handleOpenCreateDialog(true)}
+                disabled={isBatchListMutating}
+              >
+                新增批次
+              </Button>
+            }
+            />
+        )}
+      </PageLayout>
 
       <CreateBatchDialog
         open={isCreateDialogOpen}

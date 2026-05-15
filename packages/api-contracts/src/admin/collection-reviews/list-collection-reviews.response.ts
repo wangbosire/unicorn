@@ -18,6 +18,11 @@ export type CollectionReviewListItem = {
   reviewStage: string
   /** 当前审核状态。 */
   reviewStatus: string
+  /**
+   * 审核原因或备注（如机审拒绝说明、人工闸门「待人工」说明等）；
+   * 无内容时为 `null`。
+   */
+  reviewReason: string | null
   /** 提交审核时间戳，单位毫秒。 */
   submittedAt: number
 }

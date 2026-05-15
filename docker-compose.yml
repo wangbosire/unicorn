@@ -7,7 +7,7 @@
 # 排障：`docker logs -f unicorn-api`；需要响应里带 stack 时设 `API_DEBUG_ERRORS=1`（勿上生产）
 # 数据库：root / root123.. ，库名 unicorn ，宿主机端口 3306
 #
-# 环境变量（可选）：`ADMIN_JWT_SECRET`（至少 16 字符），可在 shell 导出或写入 `.env` 由 compose 读取。
+# 环境变量（可选）：`ADMIN_JWT_SECRET`（至少 16 字符）；`CONTENT_MANUAL_GATE_AFTER_MACHINE`（见 apps/api/.env.example），可在 shell 导出或写入 `.env` 由 compose 读取。
 
 services:
   mysql:
@@ -53,6 +53,8 @@ services:
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-dev-admin-jwt-secret-change-me}
       # 本地排障：为 true 时 5xx 响应体附带 debug.stack；生产务必关闭或删除该项。
       API_DEBUG_ERRORS: ${API_DEBUG_ERRORS:-true}
+      # 为 1/true/yes 时机审占位通过后进入待人工复核队列，不立即公开；默认 0 保持 M2 机审即发布。
+      CONTENT_MANUAL_GATE_AFTER_MACHINE: ${CONTENT_MANUAL_GATE_AFTER_MACHINE:-0}
     depends_on:
       mysql:
         condition: service_healthy

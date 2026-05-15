@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { test } from 'vitest';
+import type { ConfigService } from '@nestjs/config';
 import {
   CollectionContentReviewSource,
   CollectionContentReviewStage,
@@ -12,6 +13,19 @@ import {
 import { MemberContextService } from '../../../../src/modules/member/auth/member-context.service';
 import { MyCollectionsService } from '../../../../src/modules/member/my-collections/my-collections.service';
 import { BizError } from '../../../../src/common/http/biz-error';
+
+function createConfigServiceMock(
+  options: { contentManualGateAfterMachine?: boolean } = {},
+): ConfigService {
+  return {
+    get: <T = unknown>(key: string): T | undefined => {
+      if (key === 'CONTENT_MANUAL_GATE_AFTER_MACHINE') {
+        return (options.contentManualGateAfterMachine === true ? '1' : undefined) as T;
+      }
+      return undefined;
+    },
+  } as ConfigService;
+}
 
 function createMyCollectionsPrismaMock() {
   const member = {
@@ -222,6 +236,7 @@ function createMyCollectionsPrismaMock() {
         where: { id: string };
         data: {
           reviewStatus?: CollectionContentReviewStatus;
+          reviewStage?: CollectionContentReviewStage;
           reviewedAt?: Date | null;
           reviewReason?: string | null;
         };
@@ -249,7 +264,15 @@ function createMyCollectionsPrismaMock() {
                 .slice()
                 .sort((left, right) => right.versionNo - left.versionNo)
                 .slice(0, 1)
-                .map((item) => ({ ...item })),
+                .map((item) => {
+                  const related = reviewRecords
+                    .filter((record) => record.contentVersionId === item.id)
+                    .sort(
+                      (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
+                    )
+                    .slice(0, 1);
+                  return { ...item, reviewRecords: related.map((record) => ({ ...record })) };
+                }),
             }
           : null,
     },
@@ -281,7 +304,11 @@ function createMyCollectionsPrismaMock() {
 test('MyCollectionsService.getCollectionContent returns current editable version for current member', async () => {
   const { prisma, collection, currentVersion } = createMyCollectionsPrismaMock();
   const memberContextService = new MemberContextService(prisma as never);
-  const service = new MyCollectionsService(prisma as never, memberContextService);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
 
   const result = await service.getCollectionContent(
     {
@@ -298,6 +325,40 @@ test('MyCollectionsService.getCollectionContent returns current editable version
   assert.equal(result.currentVersion.title, '我的第一件藏品');
   assert.deepEqual(result.currentVersion.contentPayload, { blocks: [] });
   assert.equal(result.currentVersion.editStatus, CollectionContentEditStatus.DRAFT);
+  assert.equal(result.currentVersion.contentReviewStatus, null);
+});
+
+test('MyCollectionsService.getCollectionContent returns latest contentReviewStatus for current version', async () => {
+  const { prisma, collection, currentVersion, reviewRecords } = createMyCollectionsPrismaMock();
+  reviewRecords.push({
+    id: 'crr_pending',
+    collectionId: collection.id,
+    contentVersionId: currentVersion.id,
+    reviewStage: CollectionContentReviewStage.MANUAL,
+    reviewStatus: CollectionContentReviewStatus.PENDING_MANUAL,
+    reviewSource: CollectionContentReviewSource.SYSTEM,
+    reviewReason: null,
+    reviewedByAdminUserId: null,
+    reviewedAt: null,
+    createdAt: new Date('2026-05-14T05:00:00.000Z'),
+  });
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
+
+  const result = await service.getCollectionContent(
+    {
+      memberId: 'mem_1',
+    },
+    {
+      collectionId: 'col_1',
+    },
+  );
+
+  assert.equal(result.currentVersion.contentReviewStatus, 'PENDING_MANUAL');
 });
 
 test('MyCollectionsService.getCollectionContent rejects when collection belongs to another member', async () => {
@@ -326,6 +387,7 @@ test('MyCollectionsService.getCollectionContent rejects when collection belongs 
   const service = new MyCollectionsService(
     prismaWithOtherOwner as never,
     memberContextService,
+    createConfigServiceMock(),
   );
 
   await assert.rejects(
@@ -348,7 +410,11 @@ test('MyCollectionsService.getCollectionContent rejects when collection belongs 
 test('MyCollectionsService.saveCollectionDraft updates current draft version in place', async () => {
   const { prisma, versions } = createMyCollectionsPrismaMock();
   const memberContextService = new MemberContextService(prisma as never);
-  const service = new MyCollectionsService(prisma as never, memberContextService);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
 
   const result = await service.saveCollectionDraft(
     {
@@ -381,7 +447,11 @@ test('MyCollectionsService.saveCollectionDraft creates new draft version after a
   versions[0]!.editStatus = CollectionContentEditStatus.APPROVED;
   versions[0]!.publishStatus = CollectionContentPublishStatus.PUBLISHED;
   const memberContextService = new MemberContextService(prisma as never);
-  const service = new MyCollectionsService(prisma as never, memberContextService);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
 
   const result = await service.saveCollectionDraft(
     {
@@ -414,7 +484,11 @@ test('MyCollectionsService.saveCollectionDraft rejects when current version is u
   const { prisma, versions } = createMyCollectionsPrismaMock();
   versions[0]!.editStatus = CollectionContentEditStatus.UNDER_REVIEW;
   const memberContextService = new MemberContextService(prisma as never);
-  const service = new MyCollectionsService(prisma as never, memberContextService);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
 
   await assert.rejects(
     () =>
@@ -442,7 +516,11 @@ test('MyCollectionsService.saveCollectionDraft rejects when current version is u
 test('MyCollectionsService.submitCollectionContent updates version status and creates review record', async () => {
   const { prisma, versions, reviewRecords } = createMyCollectionsPrismaMock();
   const memberContextService = new MemberContextService(prisma as never);
-  const service = new MyCollectionsService(prisma as never, memberContextService);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
 
   const result = await service.submitCollectionContent(
     {
@@ -472,11 +550,49 @@ test('MyCollectionsService.submitCollectionContent updates version status and cr
   );
 });
 
+test('MyCollectionsService.submitCollectionContent enters manual queue when manual gate env is enabled', async () => {
+  const { prisma, versions, reviewRecords } = createMyCollectionsPrismaMock();
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock({ contentManualGateAfterMachine: true }),
+  );
+
+  const result = await service.submitCollectionContent(
+    {
+      memberId: 'mem_1',
+    },
+    {
+      collectionId: 'col_1',
+    },
+    {
+      versionId: 'ccv_1',
+    },
+  );
+
+  assert.equal(result.versionId, 'ccv_1');
+  assert.equal(result.editStatus, CollectionContentEditStatus.UNDER_REVIEW);
+  assert.equal(result.reviewStatus, CollectionContentReviewStatus.PENDING_MANUAL);
+  assert.equal(versions[0]?.editStatus, CollectionContentEditStatus.UNDER_REVIEW);
+  assert.equal(versions[0]?.publishStatus, CollectionContentPublishStatus.UNPUBLISHED);
+  assert.ok(versions[0]?.submittedAt instanceof Date);
+  assert.equal(versions[0]?.publishedAt, null);
+  assert.equal(reviewRecords.length, 1);
+  assert.equal(reviewRecords[0]?.reviewStage, CollectionContentReviewStage.MANUAL);
+  assert.equal(reviewRecords[0]?.reviewStatus, CollectionContentReviewStatus.PENDING_MANUAL);
+  assert.equal(reviewRecords[0]?.reviewedAt, null);
+});
+
 test('MyCollectionsService.submitCollectionContent machine-rejects when title contains sentinel', async () => {
   const { prisma, versions, reviewRecords } = createMyCollectionsPrismaMock();
   versions[0]!.title = `bad${'__MACHINE_REJECT__'}title`;
   const memberContextService = new MemberContextService(prisma as never);
-  const service = new MyCollectionsService(prisma as never, memberContextService);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
 
   const result = await service.submitCollectionContent(
     {
@@ -500,7 +616,11 @@ test('MyCollectionsService.submitCollectionContent rejects already submitted ver
   const { prisma, versions } = createMyCollectionsPrismaMock();
   versions[0]!.editStatus = CollectionContentEditStatus.UNDER_REVIEW;
   const memberContextService = new MemberContextService(prisma as never);
-  const service = new MyCollectionsService(prisma as never, memberContextService);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
 
   await assert.rejects(
     () =>
@@ -530,7 +650,11 @@ test('MyCollectionsService.submitCollectionContent rejects when version does not
     versionNo: 2,
   });
   const memberContextService = new MemberContextService(prisma as never);
-  const service = new MyCollectionsService(prisma as never, memberContextService);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
 
   await assert.rejects(
     () =>

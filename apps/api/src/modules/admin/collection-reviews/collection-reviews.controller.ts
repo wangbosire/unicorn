@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import type {
   ApproveCollectionReviewRequest,
+  ListCollectionReviewHistoryQuery,
   ListCollectionReviewsQuery,
+  RejectCollectionReviewRequest,
+  TakedownPublishedContentVersionRequest,
 } from '@contracts/admin/collection-reviews';
 import { AdminAccessGuard } from '../auth/admin-access.guard';
 import { ADMIN_PERMISSION_COLLECTION_REVIEWS_MANAGE } from '../auth/admin-permission-keys';
@@ -21,11 +24,43 @@ export class CollectionReviewsController {
   ) {}
 
   /**
+   * 按藏品编号（及可选内容版本）查询审核轨迹（时间升序）。
+   * 路由需置于参数型 `GET :id` 之前，避免被误匹配。
+   */
+  @Get('history')
+  async listCollectionReviewHistory(@Query() query: ListCollectionReviewHistoryQuery) {
+    return this.collectionReviewsService.listCollectionReviewHistory(query);
+  }
+
+  /**
    * 查询藏品内容审核列表。
    */
   @Get()
   async listCollectionReviews(@Query() query: ListCollectionReviewsQuery) {
     return this.collectionReviewsService.listCollectionReviews(query);
+  }
+
+  /**
+   * 运营下架：将已公开发布的已通过内容版本标记为 `TAKEDOWN`。
+   * 路由需置于 `:reviewId/*` 之前，避免 `reviewId` 误匹配 `content-versions`。
+   */
+  @Post('content-versions/:contentVersionId/takedown')
+  async takedownPublishedContentVersion(
+    @Param('contentVersionId') contentVersionId: string,
+    @Body() body: TakedownPublishedContentVersionRequest,
+  ) {
+    return this.collectionReviewsService.takedownPublishedContentVersion(contentVersionId, body);
+  }
+
+  /**
+   * 人工驳回藏品内容审核。
+   */
+  @Post(':reviewId/reject')
+  async rejectCollectionReview(
+    @Param('reviewId') reviewId: string,
+    @Body() body: RejectCollectionReviewRequest,
+  ) {
+    return this.collectionReviewsService.rejectCollectionReview(reviewId, body);
   }
 
   /**

@@ -31,7 +31,7 @@ export const sidebarData: SidebarData = {
   ],
   navGroups: [
     {
-      title: 'Overview',
+      title: '总览',
       items: [
         {
           title: '仪表盘',

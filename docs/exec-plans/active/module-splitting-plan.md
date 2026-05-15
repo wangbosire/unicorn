@@ -46,4 +46,4 @@
 
 - [V1 执行计划](./v1-exec-plan.md)
 - [一期里程碑总览](./milestones-overview.md)
-- [M2 验收清单](./m2-acceptance-checklist.md)
+- [M2 验收清单](../completed/m2-acceptance-checklist.md)

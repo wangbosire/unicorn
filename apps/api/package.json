@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "commonjs",
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "ts-node -r tsconfig-paths/register src/main.ts",
     "dev:watch": "node --watch-path=./src --watch-path=../../packages/api-contracts/src -r ts-node/register -r tsconfig-paths/register ./src/main.ts",
     "prisma:generate": "prisma generate",

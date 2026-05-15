@@ -6,11 +6,7 @@ import type {
 } from '@contracts/admin/activation-codes'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { PageLayout } from '@/components/layout/page-layout'
 import {
   generateActivationCodes,
   listActivationCodes,
@@ -18,7 +14,6 @@ import {
 } from '@/apis/issuance/activation-codes'
 import { listIssuanceBatches } from '@/apis/issuance/batches'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApiError } from '@/lib/api-error'
 import { ActivationCodesTable } from './components/activation-codes-table'
 import { GenerateActivationCodesDialog } from './components/generate-activation-codes-dialog'
@@ -179,69 +174,54 @@ export function ActivationCodesPage() {
 
   return (
     <>
-      <Header>
-        <div className='me-auto'>
-          <p className='text-sm text-muted-foreground'>发行管理 / 激活码管理</p>
-        </div>
-        <Search />
-        <ThemeSwitch />
-        <ProfileDropdown />
-      </Header>
-
-      <Main>
-        <div className='mb-6 flex items-start justify-between gap-4'>
-          <div className='space-y-1'>
-            <h1 className='text-2xl font-bold tracking-tight'>激活码管理</h1>
-            <p className='text-sm text-muted-foreground'>
-              查看、导出、发放与作废激活码，并追踪对应藏品编号。
-            </p>
+      <PageLayout>
+        {isLoading ? (
+          <div className='py-8 text-center text-muted-foreground'>
+            正在加载激活码数据...
           </div>
-          <div className='flex gap-2'>
-            <Button
-              variant='outline'
-              disabled={isActivationCodesMutating || isLoading || isError}
-              onClick={() =>
-                handleExportActivationCodes(data?.items ?? [], data?.total ?? 0)
-              }
-            >
-              导出激活码
-            </Button>
-            <Button
-              onClick={() => handleOpenGenerateDialog(true)}
-              disabled={isActivationCodesMutating}
-            >
-              批量生成
-            </Button>
+        ) : isError ? (
+          <div className='py-8 text-center text-destructive'>
+            激活码数据加载失败，请稍后重试。
           </div>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>激活码列表</CardTitle>
-            <p className='text-sm text-muted-foreground'>
-              当前共 {data?.total ?? 0} 个激活码；「导出激活码」仅导出第 1 页已加载数据（每页
-              20 条）。列表筛选、排序和字段显隐统一走 data-table 组件。
-            </p>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className='py-8 text-center text-muted-foreground'>
-                正在加载激活码数据...
-              </div>
-            ) : isError ? (
-              <div className='py-8 text-center text-destructive'>
-                激活码数据加载失败，请稍后重试。
-              </div>
-            ) : (
-              <ActivationCodesTable
-                data={data?.items ?? []}
-                actionsDisabled={isActivationCodesMutating}
-                onVoidRequest={handleVoidRequest}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </Main>
+        ) : (
+          <ActivationCodesTable
+            data={data?.items ?? []}
+            actionsDisabled={isActivationCodesMutating}
+            onVoidRequest={handleVoidRequest}
+            totalCount={data?.total}
+            listIntro={{
+              title: '激活码列表',
+              description: (
+                <>
+                  当前共 {data?.total ?? 0} 个激活码；「导出激活码」仅导出第 1 页已加载数据（每页
+                  20 条）。列表筛选、排序和字段显隐统一走 data-table 组件。
+                </>
+              ),
+            }}
+            toolbarActions={
+              <>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  disabled={isActivationCodesMutating || isLoading || isError}
+                  onClick={() =>
+                    handleExportActivationCodes(data?.items ?? [], data?.total ?? 0)
+                  }
+                >
+                  导出激活码
+                </Button>
+                <Button
+                  size='sm'
+                  onClick={() => handleOpenGenerateDialog(true)}
+                  disabled={isActivationCodesMutating}
+                >
+                  批量生成
+                </Button>
+              </>
+            }
+          />
+        )}
+      </PageLayout>
 
       <GenerateActivationCodesDialog
         open={isGenerateDialogOpen}

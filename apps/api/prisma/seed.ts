@@ -1,8 +1,17 @@
 import {
   AdminUserStatus,
+  CollectionContentEditStatus,
+  CollectionContentPublishStatus,
+  CollectionContentReviewSource,
+  CollectionContentReviewStage,
+  CollectionContentReviewStatus,
+  CollectionStatus,
+  IssuanceBatchStatus,
+  MemberStatus,
   PermissionType,
   PrismaClient,
   RoleStatus,
+  SeriesStatus,
 } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -54,6 +63,18 @@ async function seedPermissions() {
       id: 'perm_collection_reviews_manage',
       key: 'collection_reviews.manage',
       name: '藏品内容复核',
+      type: PermissionType.PAGE,
+    },
+    {
+      id: 'perm_members_read',
+      key: 'members.read',
+      name: '会员列表',
+      type: PermissionType.PAGE,
+    },
+    {
+      id: 'perm_members_manage',
+      key: 'members.manage',
+      name: '会员状态管理',
       type: PermissionType.PAGE,
     },
     {
@@ -111,6 +132,8 @@ async function seedRoles() {
     'perm_issuance_batches',
     'perm_issuance_activation_codes',
     'perm_collection_reviews_manage',
+    'perm_members_read',
+    'perm_members_manage',
     'perm_nav_m2_placeholder',
   ];
 
@@ -135,6 +158,138 @@ async function seedRoles() {
     data: {
       roleId: 'role_viewer',
       permissionId: 'perm_dashboard_read',
+    },
+  });
+}
+
+/** 固定主键：便于 `prisma db seed` 幂等写入一条「待人工复核」演示数据。 */
+const PENDING_MANUAL_DEMO = {
+  memberId: 'seed_mem_pending_manual',
+  seriesId: 'seed_ser_pending_manual',
+  batchId: 'seed_bat_pending_manual',
+  collectionId: 'seed_col_pending_manual',
+  contentVersionId: 'seed_ccv_pending_manual',
+  reviewRecordId: 'seed_crr_pending_manual',
+} as const;
+
+/**
+ * 写入一条与 `CONTENT_MANUAL_GATE_AFTER_MACHINE` 机审通过后一致的人工队列数据，
+ * 便于本地打开后台「内容复核」默认筛即可看到待处理行。
+ */
+async function seedPendingManualReviewDemo() {
+  const at = new Date('2026-05-15T12:00:00.000Z');
+
+  await prisma.member.upsert({
+    where: { id: PENDING_MANUAL_DEMO.memberId },
+    create: {
+      id: PENDING_MANUAL_DEMO.memberId,
+      memberNo: 'MEM-SEED-PENDING-MANUAL',
+      nickname: 'Seed 待人工复核会员',
+      avatarUrl: null,
+      mobile: null,
+      status: MemberStatus.ACTIVE,
+      registeredAt: at,
+    },
+    update: {
+      nickname: 'Seed 待人工复核会员',
+      status: MemberStatus.ACTIVE,
+    },
+  });
+
+  await prisma.series.upsert({
+    where: { id: PENDING_MANUAL_DEMO.seriesId },
+    create: {
+      id: PENDING_MANUAL_DEMO.seriesId,
+      seriesNo: 'SER-SEED-PENDING-MANUAL',
+      name: 'Seed 复核演示系列',
+      description: 'prisma seed 写入，用于后台「待人工复核」队列演示。',
+      status: SeriesStatus.ENABLED,
+    },
+    update: {
+      name: 'Seed 复核演示系列',
+      status: SeriesStatus.ENABLED,
+    },
+  });
+
+  await prisma.issuanceBatch.upsert({
+    where: { id: PENDING_MANUAL_DEMO.batchId },
+    create: {
+      id: PENDING_MANUAL_DEMO.batchId,
+      batchNo: 'BAT-SEED-PENDING-MANUAL',
+      seriesId: PENDING_MANUAL_DEMO.seriesId,
+      name: 'Seed 复核演示批次',
+      quantity: 1000,
+      activateValidFrom: at,
+      activateValidTo: new Date('2028-12-31T23:59:59.000Z'),
+      status: IssuanceBatchStatus.ENABLED,
+    },
+    update: {
+      status: IssuanceBatchStatus.ENABLED,
+    },
+  });
+
+  await prisma.collection.upsert({
+    where: { id: PENDING_MANUAL_DEMO.collectionId },
+    create: {
+      id: PENDING_MANUAL_DEMO.collectionId,
+      collectionNo: 'COL-SEED-PENDING-MANUAL',
+      seriesId: PENDING_MANUAL_DEMO.seriesId,
+      batchId: PENDING_MANUAL_DEMO.batchId,
+      status: CollectionStatus.OWNED,
+      currentOwnerMemberId: PENDING_MANUAL_DEMO.memberId,
+      claimedAt: at,
+    },
+    update: {
+      status: CollectionStatus.OWNED,
+      currentOwnerMemberId: PENDING_MANUAL_DEMO.memberId,
+      claimedAt: at,
+    },
+  });
+
+  await prisma.collectionContentVersion.upsert({
+    where: { id: PENDING_MANUAL_DEMO.contentVersionId },
+    create: {
+      id: PENDING_MANUAL_DEMO.contentVersionId,
+      collectionId: PENDING_MANUAL_DEMO.collectionId,
+      versionNo: 1,
+      title: 'Seed 待人工标题',
+      summary: '用于后台内容复核页「待人工复核」默认筛的演示数据。',
+      coverImageUrl: null,
+      contentPayload: { blocks: [] },
+      editStatus: CollectionContentEditStatus.UNDER_REVIEW,
+      publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
+      submittedAt: at,
+      publishedAt: null,
+      createdByMemberId: PENDING_MANUAL_DEMO.memberId,
+    },
+    update: {
+      title: 'Seed 待人工标题',
+      summary: '用于后台内容复核页「待人工复核」默认筛的演示数据。',
+      editStatus: CollectionContentEditStatus.UNDER_REVIEW,
+      publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
+      submittedAt: at,
+      publishedAt: null,
+    },
+  });
+
+  await prisma.collectionContentReviewRecord.upsert({
+    where: { id: PENDING_MANUAL_DEMO.reviewRecordId },
+    create: {
+      id: PENDING_MANUAL_DEMO.reviewRecordId,
+      collectionId: PENDING_MANUAL_DEMO.collectionId,
+      contentVersionId: PENDING_MANUAL_DEMO.contentVersionId,
+      reviewStage: CollectionContentReviewStage.MANUAL,
+      reviewStatus: CollectionContentReviewStatus.PENDING_MANUAL,
+      reviewSource: CollectionContentReviewSource.SYSTEM,
+      reviewReason: '同步机审策略已通过，待人工复核',
+      reviewedAt: null,
+    },
+    update: {
+      reviewStage: CollectionContentReviewStage.MANUAL,
+      reviewStatus: CollectionContentReviewStatus.PENDING_MANUAL,
+      reviewSource: CollectionContentReviewSource.SYSTEM,
+      reviewReason: '同步机审策略已通过，待人工复核',
+      reviewedAt: null,
     },
   });
 }
@@ -192,12 +347,16 @@ async function main() {
   await seedPermissions();
   await seedRoles();
   await seedAdminUsers();
+  await seedPendingManualReviewDemo();
 }
 
 main()
   .then(async () => {
     // eslint-disable-next-line no-console
-    console.log('[prisma seed] admin users: admin / Admin123! , viewer / Viewer123!');
+    // eslint-disable-next-line no-console
+    console.log(
+      '[prisma seed] admin: admin / Admin123! , viewer / Viewer123! | demo queue: COL-SEED-PENDING-MANUAL (review seed_crr_pending_manual)',
+    );
     await prisma.$disconnect();
   })
   .catch(async (error) => {

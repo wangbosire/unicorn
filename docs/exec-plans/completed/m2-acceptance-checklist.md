@@ -2,12 +2,12 @@
 
 ## 文档目标
 
-本文档用于定义 M2「内容展示闭环」的验收范围、验收条件、演示脚本与出入口标准，与 [一期里程碑总览](./milestones-overview.md)、[V1 执行计划](./v1-exec-plan.md) 对齐，作为 **M1 已完成** 后的阶段验收基线。
+本文档用于保留 M2「内容展示闭环」的验收范围、验收条件、演示脚本与出入口标准，与 [一期里程碑总览](../active/milestones-overview.md)、[V1 执行计划](../active/v1-exec-plan.md) 对齐，作为 **M2 已归档** 后的阶段验收基线与复盘依据。
 
 ## 当前状态
 
-- 状态：`active`（**代码侧** M2 主链路已闭环：后端机审占位、公开展示读、小程序编辑/公开展示与联调辅助能力已落地；**产品验收签字**、端到端录制与机审异步化仍属可选后续）
-- 上位计划：[V1 执行计划](./v1-exec-plan.md)
+- 状态：`completed`（M2「内容展示闭环」已完成归档，2026-05-15；本次归档基于现有实现与清单收口，未额外补录新的端到端实测记录）
+- 上位计划：[V1 执行计划](../active/v1-exec-plan.md)
 - 前置里程碑：M1 已通过（见 [M1 验收清单（已归档）](../completed/m1-acceptance-checklist.md)）
 
 ## Monorepo 测试说明（仓库根 `pnpm test`）
@@ -169,6 +169,11 @@
 - 演示脚本 A+B 可一次走通；小程序侧可按同一脚本在端上走通（或保留 HTTP 核对 + 小程序冒烟截图为验收附件）。
 - `apps/api` 对草稿、提交、机审分支、公开读有对应测试；小程序已具备 `pnpm test`（Vitest）纯函数单测，端到端可后续补齐。
 
+## 验收记录
+
+- 2026-05-15：按当前仓库实现与 M2 清单收口结果完成文档归档；代码侧闭环结论保持为「会员内容编辑、提交机审、公开展示读取」已具备，后续新增能力转入 M3 或专题技术债跟踪。
+- 2026-05-15：M2 归档后，M3 清单由 `draft` 切换为 `active`，后续阶段重点转向人工复核、审核历史、下架兜底与会员治理。
+
 ## 建议测试覆盖
 
 ### 后端（已有基础）
@@ -198,3 +203,6 @@
 - 2026-05-14：将 `stale` 工作流迁至根 `.github/workflows/stale.yml`（`actions/stale@v9`、`operations-per-run: 30`、`workflow_dispatch`）；删除 `apps/admin/.github/workflows/stale.yml`；修复 `app-sidebar` 中 `permissionKeys` 默认空数组引用导致的 `react-hooks/exhaustive-deps` 告警。
 - 2026-05-14：CI 拆为并行 job `monorepo-quality` / `admin-browser-tests`；新增 composite [.github/actions/setup-pnpm/action.yml](../../../.github/actions/setup-pnpm/action.yml)；`ci.yml` 增加 `workflow_dispatch` 与 `permissions: contents: read`；根目录 Dependabot：`github-actions`（分组单 PR）+ `npm` 生产/开发分组（pnpm 全 workspace）每周，npm 提交信息 `chore` + `include: scope`。
 - 2026-05-14：小程序抽离 `src/lib/member-mock-token.ts`（mock 令牌解析），`member-api` 复用；新增 Vitest `test/lib/member-mock-token.test.ts`。
+- 2026-05-14：根 `README` 补充分支保护须勾选 `monorepo-quality` 与 `admin-browser-tests`；M2 清单增加「建议的下一步（收口 M2）」可执行项。
+- 2026-05-14：新增 [M3 验收清单](../active/m3-acceptance-checklist.md)（`draft`）；[里程碑总览](../active/milestones-overview.md)、[PLANS.md](../../PLANS.md) 增加导航；M2「建议的下一步」补充 M2 归档后激活 M3 清单。
+- 2026-05-15：本清单迁移至 `docs/exec-plans/completed/` 并改为 `completed`；里程碑总览、PLANS 导航与 M3 前置引用同步切换到归档路径。

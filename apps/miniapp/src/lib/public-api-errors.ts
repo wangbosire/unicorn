@@ -3,6 +3,8 @@
  */
 export function formatPublicApiErrorMessage(error: { code: string; message: string }): string {
   switch (error.code) {
+    case 'PUBLIC_COLLECTION_TAKEDOWN':
+      return '该公开展示已下架，暂无法查看'
     case 'NOT_FOUND':
       return '该藏品未公开或不存在'
     case 'INVALID_RESPONSE':

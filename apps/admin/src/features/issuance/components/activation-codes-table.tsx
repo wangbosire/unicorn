@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   type SortingState,
   type VisibilityState,
@@ -14,6 +14,8 @@ import {
 import type { ActivationCodeListItem } from '@contracts/admin/activation-codes'
 import { cn } from '@/lib/utils'
 import {
+  DataListIntro,
+  type DataListIntroBlock,
   DataTablePagination,
   DataTableToolbar,
 } from '@/components/data-table'
@@ -31,12 +33,21 @@ type ActivationCodesTableProps = {
   data: ActivationCodeListItem[]
   actionsDisabled: boolean
   onVoidRequest: (row: ActivationCodeListItem) => void
+  /** 右侧操作栏：导出、批量生成等。 */
+  toolbarActions?: ReactNode
+  /** 接口 total，用于底部分页旁「共 N 条」（与当前页行数可不一致）。 */
+  totalCount?: number
+  /** 表格上方列表标题与说明；不传则不展示。 */
+  listIntro?: DataListIntroBlock | DataListIntroBlock[]
 }
 
 export function ActivationCodesTable({
   data,
   actionsDisabled,
   onVoidRequest,
+  toolbarActions,
+  totalCount,
+  listIntro,
 }: ActivationCodesTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
@@ -92,11 +103,18 @@ export function ActivationCodesTable({
     table.setPageIndex(0)
   }, [globalFilter, columnFilters, table])
 
+  const introBlocks =
+    listIntro == null ? null : Array.isArray(listIntro) ? listIntro : [listIntro]
+
   return (
     <div className={cn('flex flex-1 flex-col gap-4')}>
+      {introBlocks != null && introBlocks.length > 0 ? (
+        <DataListIntro blocks={introBlocks} />
+      ) : null}
       <DataTableToolbar
         table={table}
         searchPlaceholder='搜索激活码、批次或藏品编号...'
+        actions={toolbarActions}
         filters={[
           {
             columnId: 'status',
@@ -166,7 +184,11 @@ export function ActivationCodesTable({
           </TableBody>
         </Table>
       </div>
-      <DataTablePagination table={table} className='mt-auto' />
+      <DataTablePagination
+        table={table}
+        className='mt-auto'
+        totalCount={totalCount}
+      />
     </div>
   )
 }

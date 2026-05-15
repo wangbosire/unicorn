@@ -6,13 +6,8 @@ import type {
   UpdateSeriesRequest,
 } from '@contracts/admin/series'
 import { toast } from 'sonner'
-import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { PageLayout } from '@/components/layout/page-layout'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createSeries, listSeries, updateSeries, updateSeriesStatus } from '@/apis/issuance/series'
 import { ApiError } from '@/lib/api-error'
 import { CreateSeriesDialog } from './components/create-series-dialog'
@@ -182,62 +177,46 @@ export function SeriesPage() {
 
   return (
     <>
-      <Header>
-        <div className='me-auto'>
-          <p className='text-sm text-muted-foreground'>发行管理 / 系列管理</p>
-        </div>
-        <Search />
-        <ThemeSwitch />
-        <ProfileDropdown />
-      </Header>
-
-      <Main>
-        <div className='mb-6 flex items-start justify-between gap-4'>
-          <div className='space-y-1'>
-            <h1 className='text-2xl font-bold tracking-tight'>系列管理</h1>
-            <p className='text-sm text-muted-foreground'>
-              维护数字藏品系列定义、状态和发行规模基线。
-            </p>
+      <PageLayout>
+        {isLoading ? (
+          <div className='py-8 text-center text-muted-foreground'>
+            正在加载系列数据...
           </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>新增系列</Button>
-        </div>
-
-        <Card className='mb-4'>
-          <CardHeader>
-            <CardTitle>系列总览</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className='text-sm text-muted-foreground'>
-              当前共 {data?.total ?? 0} 个系列。列表筛选、排序和字段显隐统一走
-              data-table 组件。
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>系列列表</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className='py-8 text-center text-muted-foreground'>
-                正在加载系列数据...
-              </div>
-            ) : isError ? (
-              <div className='py-8 text-center text-destructive'>
-                系列数据加载失败，请稍后重试。
-              </div>
-            ) : (
-              <SeriesTable
-                data={data?.items ?? []}
-                actionsDisabled={isSeriesListMutating}
-                onEditSeries={handleEditSeries}
-                onSetSeriesStatus={handleSetSeriesStatus}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </Main>
+        ) : isError ? (
+          <div className='py-8 text-center text-destructive'>
+            系列数据加载失败，请稍后重试。
+          </div>
+        ) : (
+          <SeriesTable
+            data={data?.items ?? []}
+            actionsDisabled={isSeriesListMutating}
+            onEditSeries={handleEditSeries}
+            onSetSeriesStatus={handleSetSeriesStatus}
+            totalCount={data?.total}
+            listIntro={[
+              {
+                title: '系列总览',
+                description: (
+                  <>
+                    当前共 {data?.total ?? 0} 个系列。列表筛选、排序和字段显隐统一走 data-table
+                    组件。
+                  </>
+                ),
+              },
+              { title: '系列列表' },
+            ]}
+            toolbarActions={
+              <Button
+                size='sm'
+                onClick={() => setIsCreateDialogOpen(true)}
+                disabled={isSeriesListMutating}
+              >
+                新增系列
+              </Button>
+            }
+            />
+        )}
+      </PageLayout>
 
       <CreateSeriesDialog
         open={isCreateDialogOpen}

@@ -1,9 +1,5 @@
 import { Bell, Boxes, KeyRound, MessageSquareMore, ScanSearch, Users } from 'lucide-react'
-import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { PageLayout } from '@/components/layout/page-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const overviewCards = [
@@ -17,19 +13,7 @@ const overviewCards = [
 
 export function Dashboard() {
   return (
-    <>
-      <Header>
-        <div className='me-auto'>
-          <p className='text-sm text-muted-foreground'>
-            Digital Collection Operation Console
-          </p>
-        </div>
-        <Search />
-        <ThemeSwitch />
-        <ProfileDropdown />
-      </Header>
-
-      <Main>
+    <PageLayout>
         <div className='mb-6 space-y-1'>
           <h1 className='text-2xl font-bold tracking-tight'>数字藏品平台仪表盘</h1>
           <p className='text-sm text-muted-foreground'>
@@ -76,7 +60,6 @@ export function Dashboard() {
             </CardContent>
           </Card>
         </div>
-      </Main>
-    </>
+    </PageLayout>
   )
 }

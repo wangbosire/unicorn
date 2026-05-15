@@ -24,6 +24,7 @@ test('CollectionReviewsController.listCollectionReviews forwards query to servic
     reviewStatus: 'PENDING_MANUAL',
     seriesId: 'ser_1',
     batchId: 'bat_1',
+    collectionNo: 'COL-001',
   };
   const result = await controller.listCollectionReviews(query);
 
@@ -50,6 +51,31 @@ test('CollectionReviewsController.approveCollectionReview forwards reviewId and 
 
   const body = { comment: '审核通过' };
   const result = await controller.approveCollectionReview('crr_1', body);
+
+  assert.deepEqual(result, expectedResult);
+  assert.equal(receivedCalls.length, 1);
+  assert.equal(receivedCalls[0]?.reviewId, 'crr_1');
+  assert.deepEqual(receivedCalls[0]?.body, body);
+});
+
+test('CollectionReviewsController.rejectCollectionReview forwards reviewId and body to service', async () => {
+  const expectedResult = {
+    reviewId: 'crr_1',
+    reviewStatus: 'MANUAL_REJECTED',
+    publishStatus: 'UNPUBLISHED',
+    reviewedAt: new Date('2026-05-14T09:00:00.000Z').getTime(),
+  };
+  const receivedCalls: Array<{ reviewId: string; body: unknown }> = [];
+  const rejectCollectionReview = async (reviewId: string, body: unknown) => {
+    receivedCalls.push({ reviewId, body });
+    return expectedResult;
+  };
+  const controller = new CollectionReviewsController({
+    rejectCollectionReview,
+  } as never);
+
+  const body = { reason: '违规内容' };
+  const result = await controller.rejectCollectionReview('crr_1', body);
 
   assert.deepEqual(result, expectedResult);
   assert.equal(receivedCalls.length, 1);

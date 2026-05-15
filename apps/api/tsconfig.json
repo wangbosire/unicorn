@@ -21,6 +21,6 @@
       "@contracts/*": ["../../packages/api-contracts/src/*"]
     }
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", "prisma/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
