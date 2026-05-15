@@ -1,8 +1,4 @@
-import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { PageLayout } from '@/components/layout/page-layout'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -35,17 +31,7 @@ const memberRows = [
 
 export function MembersPage() {
   return (
-    <>
-      <Header>
-        <div className='me-auto'>
-          <p className='text-sm text-muted-foreground'>互动与会员 / 会员管理</p>
-        </div>
-        <Search />
-        <ThemeSwitch />
-        <ProfileDropdown />
-      </Header>
-
-      <Main>
+    <PageLayout>
         <div className='mb-6 space-y-1'>
           <h1 className='text-2xl font-bold tracking-tight'>会员管理</h1>
           <p className='text-sm text-muted-foreground'>
@@ -88,7 +74,6 @@ export function MembersPage() {
             </Table>
           </CardContent>
         </Card>
-      </Main>
-    </>
+    </PageLayout>
   )
 }

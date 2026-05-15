@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   CollectionContentReviewSource,
   CollectionContentReviewStage,
@@ -46,6 +47,11 @@ import type {
 const MACHINE_REJECT_TITLE_SENTINEL = '__MACHINE_REJECT__';
 
 /**
+ * 环境变量键：为 `1` / `true` / `yes`（大小写不敏感）时，同步机审通过后不立即公开，而是进入人工复核队列（`MANUAL` + `PENDING_MANUAL`）。
+ */
+const CONTENT_MANUAL_GATE_AFTER_MACHINE_ENV_KEY = 'CONTENT_MANUAL_GATE_AFTER_MACHINE';
+
+/**
  * 保存草稿请求校验 schema。
  */
 const saveCollectionDraftSchema = z.object({
@@ -71,6 +77,7 @@ export class MyCollectionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly memberContextService: MemberContextService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -290,6 +297,7 @@ export class MyCollectionsService {
       const machineOutcome = await this.applySynchronizedMachineReview(tx, {
         reviewRecordId: reviewRecord.id,
         contentVersionId: updatedVersion.id,
+        manualGateAfterMachine: this.isContentManualGateAfterMachineEnabled(),
       });
 
       return {
@@ -307,10 +315,16 @@ export class MyCollectionsService {
 
   /**
    * 在提交事务内执行同步机审占位逻辑：默认自动通过并公开；命中拒绝子串则机审拒绝并退回可编辑态。
+   * 当开启 `CONTENT_MANUAL_GATE_AFTER_MACHINE` 时，机审通过仅表示策略通过，版本保持审核中且不公开，审核记录进入待人工状态。
    */
   private async applySynchronizedMachineReview(
     tx: Prisma.TransactionClient,
-    args: { reviewRecordId: string; contentVersionId: string },
+    args: {
+      reviewRecordId: string;
+      contentVersionId: string;
+      /** 机审通过后是否必须经人工复核才可公开。 */
+      manualGateAfterMachine: boolean;
+    },
   ): Promise<{
     version: Prisma.CollectionContentVersionGetPayload<Record<string, never>>;
     reviewStatus: CollectionContentReviewStatus;
@@ -351,6 +365,32 @@ export class MyCollectionsService {
       return { version: rejected, reviewStatus: CollectionContentReviewStatus.MACHINE_REJECTED };
     }
 
+    if (args.manualGateAfterMachine) {
+      await tx.collectionContentReviewRecord.update({
+        where: { id: args.reviewRecordId },
+        data: {
+          reviewStage: CollectionContentReviewStage.MANUAL,
+          reviewStatus: CollectionContentReviewStatus.PENDING_MANUAL,
+          reviewedAt: null,
+          reviewReason: '同步机审策略已通过，待人工复核',
+        },
+      });
+
+      const pendingManual = await tx.collectionContentVersion.update({
+        where: { id: args.contentVersionId },
+        data: {
+          editStatus: CollectionContentEditStatus.UNDER_REVIEW,
+          publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
+          publishedAt: null,
+        },
+      });
+
+      return {
+        version: pendingManual,
+        reviewStatus: CollectionContentReviewStatus.PENDING_MANUAL,
+      };
+    }
+
     await tx.collectionContentReviewRecord.update({
       where: { id: args.reviewRecordId },
       data: {
@@ -369,6 +409,21 @@ export class MyCollectionsService {
     });
 
     return { version: approved, reviewStatus: CollectionContentReviewStatus.MACHINE_APPROVED };
+  }
+
+  /**
+   * 是否启用「机审通过后进入人工队列」；未配置或非法值时视为关闭，保持一期 M2 机审即发布行为。
+   */
+  private isContentManualGateAfterMachineEnabled(): boolean {
+    const raw = this.configService.get<string | undefined>(
+      CONTENT_MANUAL_GATE_AFTER_MACHINE_ENV_KEY,
+    );
+    const asString = typeof raw === 'string' ? raw : String(raw ?? '');
+    if (asString.trim() === '') {
+      return false;
+    }
+    const normalized = asString.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes';
   }
 
   /**
@@ -399,8 +454,12 @@ export class MyCollectionsService {
    * 转换为当前内容版本视图。
    */
   private toCollectionContentVersionView(
-    currentVersion: Prisma.CollectionContentVersionGetPayload<Record<string, never>>,
+    currentVersion: Prisma.CollectionContentVersionGetPayload<{
+      include: { reviewRecords: true };
+    }>,
   ): CollectionContentVersionView {
+    const latestReview = currentVersion.reviewRecords[0];
+
     return {
       id: currentVersion.id,
       versionNo: currentVersion.versionNo,
@@ -410,6 +469,7 @@ export class MyCollectionsService {
       contentPayload: currentVersion.contentPayload as Record<string, unknown>,
       editStatus: currentVersion.editStatus,
       publishStatus: currentVersion.publishStatus,
+      contentReviewStatus: latestReview?.reviewStatus ?? null,
     };
   }
 
@@ -467,6 +527,12 @@ export class MyCollectionsService {
         contentVersions: {
           orderBy: { versionNo: 'desc' },
           take: 1,
+          include: {
+            reviewRecords: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
         },
       },
     });

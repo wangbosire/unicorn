@@ -24,6 +24,8 @@ import type {
   CollectionReviewListItem,
   ListCollectionReviewsQuery,
   ListCollectionReviewsResponseData,
+  RejectCollectionReviewRequest,
+  RejectCollectionReviewResponseData,
 } from '@contracts/admin/collection-reviews';
 
 /**
@@ -45,11 +47,24 @@ export class CollectionReviewsService {
       pageSize: query.pageSize,
     });
     const reviewStatus = this.parseReviewStatus(query.reviewStatus);
+    const collectionNo = query.collectionNo?.trim();
+
+    const collectionWhere: Prisma.CollectionWhereInput = {};
+    const seriesId = query.seriesId?.trim();
+    const batchId = query.batchId?.trim();
+    if (seriesId) {
+      collectionWhere.seriesId = seriesId;
+    }
+    if (batchId) {
+      collectionWhere.batchId = batchId;
+    }
+    if (collectionNo) {
+      collectionWhere.collectionNo = collectionNo;
+    }
 
     const where: Prisma.CollectionContentReviewRecordWhereInput = {
       ...(reviewStatus ? { reviewStatus } : {}),
-      ...(query.seriesId ? { collection: { seriesId: query.seriesId } } : {}),
-      ...(query.batchId ? { collection: { batchId: query.batchId } } : {}),
+      ...(Object.keys(collectionWhere).length > 0 ? { collection: collectionWhere } : {}),
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -150,6 +165,88 @@ export class CollectionReviewsService {
   }
 
   /**
+   * 人工驳回藏品内容审核。
+   * 仅允许处理待人工审核记录；版本退回可编辑态且不公开（与机审拒绝分支一致）。
+   */
+  async rejectCollectionReview(
+    reviewId: string,
+    payload: RejectCollectionReviewRequest,
+  ): Promise<RejectCollectionReviewResponseData> {
+    const normalizedReviewId = reviewId?.trim();
+    const reason = payload.reason?.trim() ?? '';
+
+    if (!normalizedReviewId) {
+      throw new BizError({
+        code: 'VALIDATION_ERROR',
+        message: 'review id is required',
+      });
+    }
+
+    if (!reason) {
+      throw new BizError({
+        code: 'VALIDATION_ERROR',
+        message: 'reject reason is required',
+      });
+    }
+
+    const reviewRecord = await this.prisma.collectionContentReviewRecord.findUnique({
+      where: { id: normalizedReviewId },
+      include: {
+        contentVersion: true,
+      },
+    });
+
+    if (!reviewRecord) {
+      throw new BizError({
+        code: 'REVIEW_RECORD_NOT_FOUND',
+        message: 'review record not found',
+        status: 404,
+      });
+    }
+
+    if (
+      reviewRecord.reviewStage !== CollectionContentReviewStage.MANUAL ||
+      reviewRecord.reviewStatus !== CollectionContentReviewStatus.PENDING_MANUAL
+    ) {
+      throw new BizError({
+        code: 'REVIEW_STATUS_INVALID',
+        message: 'review status invalid',
+      });
+    }
+
+    const reviewedAt = new Date();
+    const rejectedReviewRecord = await this.prisma.$transaction(async (tx) => {
+      const updatedReviewRecord = await tx.collectionContentReviewRecord.update({
+        where: { id: reviewRecord.id },
+        data: {
+          reviewStatus: CollectionContentReviewStatus.MANUAL_REJECTED,
+          reviewSource: CollectionContentReviewSource.ADMIN,
+          reviewReason: reason,
+          reviewedAt,
+        },
+      });
+
+      await tx.collectionContentVersion.update({
+        where: { id: reviewRecord.contentVersionId },
+        data: {
+          editStatus: CollectionContentEditStatus.REJECTED,
+          publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
+          publishedAt: null,
+        },
+      });
+
+      return updatedReviewRecord;
+    });
+
+    return {
+      reviewId: rejectedReviewRecord.id,
+      reviewStatus: rejectedReviewRecord.reviewStatus,
+      publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
+      reviewedAt: toNullableTimestamp(rejectedReviewRecord.reviewedAt) ?? toTimestamp(reviewedAt),
+    };
+  }
+
+  /**
    * 转换为审核列表项视图。
    */
   private toCollectionReviewListItem(
@@ -168,6 +265,7 @@ export class CollectionReviewsService {
       versionNo: reviewRecord.contentVersion.versionNo,
       reviewStage: reviewRecord.reviewStage,
       reviewStatus: reviewRecord.reviewStatus,
+      reviewReason: reviewRecord.reviewReason ?? null,
       submittedAt:
         toNullableTimestamp(reviewRecord.contentVersion.submittedAt) ??
         toTimestamp(reviewRecord.createdAt),

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   type SortingState,
   type VisibilityState,
@@ -14,6 +14,8 @@ import {
 import type { IssuanceBatchListItem } from '@contracts/admin/issuance-batches'
 import { cn } from '@/lib/utils'
 import {
+  DataListIntro,
+  type DataListIntroBlock,
   DataTablePagination,
   DataTableToolbar,
 } from '@/components/data-table'
@@ -35,6 +37,10 @@ type BatchesTableProps = {
     row: IssuanceBatchListItem,
     status: 'ENABLED' | 'DISABLED'
   ) => void
+  toolbarActions?: ReactNode
+  totalCount?: number
+  /** 表格上方列表标题与说明；不传则不展示。 */
+  listIntro?: DataListIntroBlock | DataListIntroBlock[]
 }
 
 export function BatchesTable({
@@ -42,6 +48,9 @@ export function BatchesTable({
   actionsDisabled,
   onEditBatch,
   onSetBatchStatus,
+  toolbarActions,
+  totalCount,
+  listIntro,
 }: BatchesTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
@@ -98,11 +107,18 @@ export function BatchesTable({
     table.setPageIndex(0)
   }, [globalFilter, columnFilters, table])
 
+  const introBlocks =
+    listIntro == null ? null : Array.isArray(listIntro) ? listIntro : [listIntro]
+
   return (
     <div className={cn('flex flex-1 flex-col gap-4')}>
+      {introBlocks != null && introBlocks.length > 0 ? (
+        <DataListIntro blocks={introBlocks} />
+      ) : null}
       <DataTableToolbar
         table={table}
         searchPlaceholder='搜索批次编号、批次名称或所属系列...'
+        actions={toolbarActions}
         filters={[
           {
             columnId: 'status',
@@ -169,7 +185,11 @@ export function BatchesTable({
           </TableBody>
         </Table>
       </div>
-      <DataTablePagination table={table} className='mt-auto' />
+      <DataTablePagination
+        table={table}
+        className='mt-auto'
+        totalCount={totalCount}
+      />
     </div>
   )
 }

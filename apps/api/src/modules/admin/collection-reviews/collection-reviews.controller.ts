@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import type {
   ApproveCollectionReviewRequest,
   ListCollectionReviewsQuery,
+  RejectCollectionReviewRequest,
 } from '@contracts/admin/collection-reviews';
 import { AdminAccessGuard } from '../auth/admin-access.guard';
 import { ADMIN_PERMISSION_COLLECTION_REVIEWS_MANAGE } from '../auth/admin-permission-keys';
@@ -26,6 +27,17 @@ export class CollectionReviewsController {
   @Get()
   async listCollectionReviews(@Query() query: ListCollectionReviewsQuery) {
     return this.collectionReviewsService.listCollectionReviews(query);
+  }
+
+  /**
+   * 人工驳回藏品内容审核。
+   */
+  @Post(':reviewId/reject')
+  async rejectCollectionReview(
+    @Param('reviewId') reviewId: string,
+    @Body() body: RejectCollectionReviewRequest,
+  ) {
+    return this.collectionReviewsService.rejectCollectionReview(reviewId, body);
   }
 
   /**

@@ -1,8 +1,4 @@
-import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { PageLayout } from '@/components/layout/page-layout'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -18,17 +14,7 @@ export function ModulePage({
   status = 'Bootstrap Ready',
 }: ModulePageProps) {
   return (
-    <>
-      <Header>
-        <div className='me-auto'>
-          <p className='text-sm text-muted-foreground'>Unicorn Admin</p>
-        </div>
-        <Search />
-        <ThemeSwitch />
-        <ProfileDropdown />
-      </Header>
-
-      <Main>
+    <PageLayout>
         <div className='mb-6 flex items-start justify-between gap-4'>
           <div className='space-y-1'>
             <h1 className='text-2xl font-bold tracking-tight'>{title}</h1>
@@ -45,7 +31,6 @@ export function ModulePage({
             当前页面已接入后台信息架构，下一步可开始补业务表格、筛选器和操作区。
           </CardContent>
         </Card>
-      </Main>
-    </>
+    </PageLayout>
   )
 }

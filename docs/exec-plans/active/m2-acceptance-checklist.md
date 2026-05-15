@@ -169,6 +169,14 @@
 - 演示脚本 A+B 可一次走通；小程序侧可按同一脚本在端上走通（或保留 HTTP 核对 + 小程序冒烟截图为验收附件）。
 - `apps/api` 对草稿、提交、机审分支、公开读有对应测试；小程序已具备 `pnpm test`（Vitest）纯函数单测，端到端可后续补齐。
 
+### 建议的下一步（收口 M2）
+
+- 按上文「演示脚本」**A + B** 各走通一次；小程序侧同路径冒烟或附截图/录屏作验收附件。
+- 与产品确认 **「机审通过后是否必须进入人工审核」**：若必须，需改后端分支并更新本清单「关键状态与数据模型」与决策日志；若维持当前「同步机审通过即公开」，亦请将结论记入决策日志。
+- 在 GitHub **分支保护** 中为合并进 `main` 的 PR 勾选必过检查：**`monorepo-quality`** 与 **`admin-browser-tests`**（见根 `README`「持续集成」说明）。
+- 验收通过后：将本清单状态改为 `completed`，迁移至 `docs/exec-plans/completed/`，并在 [PLANS.md](../../PLANS.md) 导航中更新链接。
+- M2 归档后：将 [M3 验收清单](./m3-acceptance-checklist.md) 由 `draft` 改为 `active`，并补齐实现快照与演示脚本。
+
 ## 建议测试覆盖
 
 ### 后端（已有基础）
@@ -198,3 +206,5 @@
 - 2026-05-14：将 `stale` 工作流迁至根 `.github/workflows/stale.yml`（`actions/stale@v9`、`operations-per-run: 30`、`workflow_dispatch`）；删除 `apps/admin/.github/workflows/stale.yml`；修复 `app-sidebar` 中 `permissionKeys` 默认空数组引用导致的 `react-hooks/exhaustive-deps` 告警。
 - 2026-05-14：CI 拆为并行 job `monorepo-quality` / `admin-browser-tests`；新增 composite [.github/actions/setup-pnpm/action.yml](../../../.github/actions/setup-pnpm/action.yml)；`ci.yml` 增加 `workflow_dispatch` 与 `permissions: contents: read`；根目录 Dependabot：`github-actions`（分组单 PR）+ `npm` 生产/开发分组（pnpm 全 workspace）每周，npm 提交信息 `chore` + `include: scope`。
 - 2026-05-14：小程序抽离 `src/lib/member-mock-token.ts`（mock 令牌解析），`member-api` 复用；新增 Vitest `test/lib/member-mock-token.test.ts`。
+- 2026-05-14：根 `README` 补充分支保护须勾选 `monorepo-quality` 与 `admin-browser-tests`；M2 清单增加「建议的下一步（收口 M2）」可执行项。
+- 2026-05-14：新增 [M3 验收清单](./m3-acceptance-checklist.md)（`draft`）；[里程碑总览](./milestones-overview.md)、[PLANS.md](../../PLANS.md) 增加导航；M2「建议的下一步」补充 M2 归档后激活 M3 清单。

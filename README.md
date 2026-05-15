@@ -90,3 +90,5 @@ docker compose -f docker-compose.yml -f docker-compose.hot.yml up --build mysql 
 每日定时任务（可手动触发）见 [.github/workflows/stale.yml](./.github/workflows/stale.yml)，用于标记并关闭长期无活动的 Issue / PR。
 
 依赖与流水线版本由 [.github/dependabot.yml](./.github/dependabot.yml) 每周检查：`github-actions`（**分组**为单条 PR）与根目录 **pnpm**（`npm` 生态；**生产 / 开发依赖分组**，仍由根 `pnpm-lock.yaml` 覆盖全 workspace）。
+
+若在 GitHub 为 `main` 开启 **Required status checks**，请将 **`monorepo-quality`** 与 **`admin-browser-tests`** 一并设为必过（与 [.github/workflows/ci.yml](./.github/workflows/ci.yml) 中两个 job 名称一致）；仅勾选旧名称会导致合并前漏跑其中一条。

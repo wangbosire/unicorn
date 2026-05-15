@@ -10,4 +10,6 @@ export type ListCollectionReviewsQuery = PaginationQuery & {
   seriesId?: string
   /** 按批次筛选。 */
   batchId?: string
+  /** 按藏品对外编号（`collectionNo`）精确筛选，用于按单件藏品查看审核轨迹。 */
+  collectionNo?: string
 }

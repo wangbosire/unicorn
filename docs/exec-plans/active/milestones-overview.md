@@ -61,6 +61,10 @@
 
 - 平台可处理疑似异常内容和评论风险。
 
+补充文档：
+
+- [M3 验收清单](./m3-acceptance-checklist.md)（草案，待 M2 收口后激活）
+
 ## M4：流转与通知闭环
 
 范围：
@@ -79,3 +83,4 @@
 - [V1 执行计划](./v1-exec-plan.md)
 - [M1 验收清单](../completed/m1-acceptance-checklist.md)
 - [M2 验收清单](./m2-acceptance-checklist.md)
+- [M3 验收清单](./m3-acceptance-checklist.md)

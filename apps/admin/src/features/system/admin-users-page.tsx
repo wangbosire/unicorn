@@ -1,8 +1,4 @@
-import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { PageLayout } from '@/components/layout/page-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,17 +28,7 @@ const adminUserRows = [
 
 export function AdminUsersPage() {
   return (
-    <>
-      <Header>
-        <div className='me-auto'>
-          <p className='text-sm text-muted-foreground'>系统管理 / 后台用户</p>
-        </div>
-        <Search />
-        <ThemeSwitch />
-        <ProfileDropdown />
-      </Header>
-
-      <Main>
+    <PageLayout>
         <div className='mb-6 flex items-start justify-between gap-4'>
           <div className='space-y-1'>
             <h1 className='text-2xl font-bold tracking-tight'>后台用户</h1>
@@ -82,7 +68,6 @@ export function AdminUsersPage() {
             </Table>
           </CardContent>
         </Card>
-      </Main>
-    </>
+    </PageLayout>
   )
 }

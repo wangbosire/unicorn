@@ -8,6 +8,6 @@ export type RejectCollectionReviewResponseData = {
   reviewStatus: string
   /** 同步更新后的公开状态。 */
   publishStatus: string
-  /** 审核完成时间。 */
-  reviewedAt: string
+  /** 审核完成时间戳，单位毫秒（与人工通过响应一致）。 */
+  reviewedAt: number
 }

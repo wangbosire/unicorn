@@ -8,6 +8,7 @@ import type { SubmitCollectionContentRequest } from '@contracts/member/my-collec
 import type { SubmitCollectionContentResponseData } from '@contracts/member/my-collections/submit-collection-content.response'
 import { MemberApiError, requestMemberApi } from '../../apis/member/member-api'
 import { buildContentPayload, readTextFromPayload } from '../../lib/collection-content-draft'
+import { formatMemberContentReviewStatus } from '../../lib/member-content-review-status'
 import { formatMemberApiErrorMessage } from '../../lib/member-api-errors'
 import { PageShell } from '../../components/page-shell'
 import { StatusCard } from '../../components/status-card'
@@ -39,8 +40,8 @@ export default function CollectionEditPage() {
   const [versionId, setVersionId] = useState<string | null>(null)
   const [editStatus, setEditStatus] = useState<string | null>(null)
   const [publishStatus, setPublishStatus] = useState<string | null>(null)
-  /** 最近一次提交审核返回的机审/审核状态（GET 内容接口不返回该字段）。 */
-  const [lastSubmitReviewStatus, setLastSubmitReviewStatus] = useState<string | null>(null)
+  /** 当前版本在 GET 内容接口中返回的最新审核记录状态（用于刷新后仍展示「待人工复核」等）。 */
+  const [contentReviewStatus, setContentReviewStatus] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -59,6 +60,9 @@ export default function CollectionEditPage() {
       setVersionId(v.id)
       setEditStatus(v.editStatus)
       setPublishStatus(v.publishStatus)
+      setContentReviewStatus(
+        typeof v.contentReviewStatus === 'string' ? v.contentReviewStatus : null,
+      )
       const payload = v.contentPayload as Record<string, unknown> | undefined
       const nextTitle =
         readTextFromPayload(payload, 'title') || (typeof v.title === 'string' ? v.title : '')
@@ -159,8 +163,10 @@ export default function CollectionEditPage() {
         data: { versionId },
       })
       setEditStatus(result.editStatus)
-      setLastSubmitReviewStatus(result.reviewStatus)
-      Taro.showToast({ title: `已提交：${result.reviewStatus}`, icon: 'none' })
+      Taro.showToast({
+        title: `已提交：${formatMemberContentReviewStatus(result.reviewStatus)}`,
+        icon: 'none',
+      })
       await loadContent(collectionId)
     } catch (error) {
       const message =
@@ -182,7 +188,7 @@ export default function CollectionEditPage() {
   return (
     <PageShell
       title="编辑藏品内容"
-      description="保存草稿后可提交审核；机审通过后内容将公开发布，并可从本页跳转查看公开展示。下拉可刷新。"
+      description="保存草稿后可提交审核；机审通过后内容将公开发布（若服务端开启人工闸门，则需人工通过后才公开）。下拉可刷新。"
       background="linear-gradient(180deg, #e0f2fe 0%, #f8fafc 40%, #fff7ed 100%)"
       heroBackground="#0c4a6e"
       heroTextColor="#e0f2fe"
@@ -211,7 +217,9 @@ export default function CollectionEditPage() {
 
         {editStatus === 'UNDER_REVIEW' ? (
           <Text style={{ fontSize: '12px', color: '#b45309', lineHeight: '18px' }}>
-            当前版本审核中，暂不可保存草稿；请等待机审/人工结果后再操作。
+            {contentReviewStatus === 'PENDING_MANUAL'
+              ? '机审已通过，正等待运营人工复核；通过前不会公开发布，暂不可编辑。'
+              : '当前版本审核中，暂不可保存草稿；请等待机审或人工结果后再操作。'}
           </Text>
         ) : null}
         {editStatus === 'APPROVED' ? (
@@ -232,8 +240,8 @@ export default function CollectionEditPage() {
           <Text style={{ fontSize: '12px', color: '#64748b' }}>藏品编号：{collectionNo}</Text>
         ) : null}
         <Text style={{ fontSize: '12px', color: '#64748b' }}>
-          状态：edit={editStatus ?? '—'} / publish={publishStatus ?? '—'} / 最近提交审核：
-          {lastSubmitReviewStatus ?? '—'}
+          状态：edit={editStatus ?? '—'} / publish={publishStatus ?? '—'} / 审核：
+          {formatMemberContentReviewStatus(contentReviewStatus)}
         </Text>
 
         <View style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

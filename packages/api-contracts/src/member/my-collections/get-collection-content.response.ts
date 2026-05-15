@@ -19,6 +19,11 @@ export type CollectionContentVersionView = {
   editStatus: string
   /** 当前公开发布状态。 */
   publishStatus: string
+  /**
+   * 与该内容版本关联的最新一条审核记录状态（按创建时间倒序取一条）；
+   * 无记录时为 `null`，用于 C 端展示「待人工复核」等口径。
+   */
+  contentReviewStatus: string | null
 }
 
 /**

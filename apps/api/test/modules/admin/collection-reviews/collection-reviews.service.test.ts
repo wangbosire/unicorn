@@ -44,7 +44,7 @@ function createCollectionReviewsPrismaMock() {
       reviewStage: CollectionContentReviewStage.MANUAL,
       reviewStatus: CollectionContentReviewStatus.PENDING_MANUAL,
       reviewSource: CollectionContentReviewSource.SYSTEM,
-      reviewReason: null,
+      reviewReason: '同步机审策略已通过，待人工复核',
       reviewedByAdminUserId: null,
       reviewedAt: null,
       createdAt: new Date('2026-05-14T05:00:00.000Z'),
@@ -115,6 +115,7 @@ function createCollectionReviewsPrismaMock() {
         collection?: {
           seriesId?: string;
           batchId?: string;
+          collectionNo?: string;
         };
       };
       skip: number;
@@ -139,6 +140,13 @@ function createCollectionReviewsPrismaMock() {
           return false;
         }
 
+        if (
+          where.collection?.collectionNo &&
+          item.collection.collectionNo !== where.collection.collectionNo
+        ) {
+          return false;
+        }
+
         return true;
       });
 
@@ -155,6 +163,7 @@ function createCollectionReviewsPrismaMock() {
         collection?: {
           seriesId?: string;
           batchId?: string;
+          collectionNo?: string;
         };
       };
     }) =>
@@ -173,6 +182,13 @@ function createCollectionReviewsPrismaMock() {
         if (
           where.collection?.batchId &&
           item.collection.batchId !== where.collection.batchId
+        ) {
+          return false;
+        }
+
+        if (
+          where.collection?.collectionNo &&
+          item.collection.collectionNo !== where.collection.collectionNo
         ) {
           return false;
         }
@@ -216,7 +232,7 @@ function createCollectionReviewsPrismaMock() {
       data: {
         editStatus: CollectionContentEditStatus;
         publishStatus: CollectionContentPublishStatus;
-        publishedAt: Date;
+        publishedAt?: Date | null;
       };
     }) => {
       const version = contentVersions.find((item) => item.id === where.id);
@@ -267,6 +283,36 @@ test('CollectionReviewsService.listCollectionReviews returns paginated review qu
   assert.equal(result.items[0]?.reviewId, 'crr_2');
   assert.equal(result.items[0]?.collectionNo, 'COL-002');
   assert.equal(result.items[1]?.reviewStatus, CollectionContentReviewStatus.PENDING_MANUAL);
+  assert.equal(
+    result.items[1]?.reviewReason,
+    '同步机审策略已通过，待人工复核',
+  );
+});
+
+test('CollectionReviewsService.listCollectionReviews supports filtering by collectionNo', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  const result = await service.listCollectionReviews({
+    collectionNo: 'COL-002',
+  });
+
+  assert.equal(result.total, 1);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.reviewId, 'crr_2');
+});
+
+test('CollectionReviewsService.listCollectionReviews merges seriesId and batchId on collection filter', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  const result = await service.listCollectionReviews({
+    seriesId: 'ser_1',
+    batchId: 'bat_1',
+  });
+
+  assert.equal(result.total, 1);
+  assert.equal(result.items[0]?.reviewId, 'crr_1');
 });
 
 test('CollectionReviewsService.listCollectionReviews supports filtering by review status and series', async () => {
@@ -349,5 +395,43 @@ test('CollectionReviewsService.approveCollectionReview rejects invalid review st
     () => service.approveCollectionReview('crr_1', {}),
     (error: unknown) =>
       error instanceof BizError && error.code === 'REVIEW_STATUS_INVALID',
+  );
+});
+
+test('CollectionReviewsService.rejectCollectionReview marks review rejected and unpublishes content', async () => {
+  const { prisma, reviewRecords, contentVersions } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  const result = await service.rejectCollectionReview('crr_1', {
+    reason: '不符合公开展示规范',
+  });
+
+  assert.equal(result.reviewId, 'crr_1');
+  assert.equal(result.reviewStatus, CollectionContentReviewStatus.MANUAL_REJECTED);
+  assert.equal(result.publishStatus, CollectionContentPublishStatus.UNPUBLISHED);
+  assert.ok(result.reviewedAt);
+  assert.equal(
+    reviewRecords[0]?.reviewStatus,
+    CollectionContentReviewStatus.MANUAL_REJECTED,
+  );
+  assert.equal(reviewRecords[0]?.reviewSource, CollectionContentReviewSource.ADMIN);
+  assert.equal(reviewRecords[0]?.reviewReason, '不符合公开展示规范');
+  assert.equal(contentVersions[0]?.editStatus, CollectionContentEditStatus.REJECTED);
+  assert.equal(
+    contentVersions[0]?.publishStatus,
+    CollectionContentPublishStatus.UNPUBLISHED,
+  );
+});
+
+test('CollectionReviewsService.rejectCollectionReview rejects empty reason', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.rejectCollectionReview('crr_1', { reason: '   ' }),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'VALIDATION_ERROR' &&
+      error.message.includes('reason'),
   );
 });
