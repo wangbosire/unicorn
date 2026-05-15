@@ -77,18 +77,18 @@ docker compose -f docker-compose.yml -f docker-compose.hot.yml up --build mysql 
 
 ## 测试（Monorepo）
 
-根目录 `pnpm test` 由 Turborepo 并行执行各 workspace 的 `test` 脚本。
+当前仓库默认**不要求前端 UI 自动化测试**。前端项目以 `lint`、`typecheck`、`build` 与必要的纯函数 / 服务层单测作为交付基线；若后续某个项目确有必要引入 UI 自动化测试，应先在执行计划中单独说明。
 
-- **`apps/admin`**：Vitest 浏览器模式依赖本机 **Playwright**。若报错提示缺少 Chromium / `chrome-headless-shell`，请在仓库根目录执行 `pnpm exec playwright install`，或先执行 `pnpm --filter @unicorn/admin run test:browser:install`，再重试根目录 `pnpm test`。
-- **不跑 Admin、仅 API + 小程序**（CI / 本机快速校验，无需 Playwright）：`pnpm test:api-miniapp`。
+- **根目录 `pnpm test`**：当前默认执行 API 与小程序单测，不拉起 Admin 浏览器测试，也不依赖 Playwright。
+- **仅跑 API + 小程序**：`pnpm test:api-miniapp`。
 - **仅跑其中一个包**：`pnpm --filter @unicorn/api test`、`pnpm --filter @unicorn/miniapp test`。
 
 ## 持续集成（GitHub Actions）
 
-指向 `main` 的 push 与 pull request 会运行根目录 [.github/workflows/ci.yml](./.github/workflows/ci.yml)（支持 **workflow_dispatch** 手动触发）：**并行**两个 job——其一执行 `pnpm test:api-miniapp`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；其二安装 Playwright 后执行 `pnpm --filter @unicorn/admin test`。依赖安装通过 [.github/actions/setup-pnpm/action.yml](./.github/actions/setup-pnpm/action.yml) 复用。
+指向 `main` 的 push 与 pull request 会运行根目录 [.github/workflows/ci.yml](./.github/workflows/ci.yml)（支持 **workflow_dispatch** 手动触发）：当前默认执行 `pnpm test:api-miniapp`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；不再将 Admin Playwright / 浏览器 UI 自动化测试作为必经门禁。依赖安装通过 [.github/actions/setup-pnpm/action.yml](./.github/actions/setup-pnpm/action.yml) 复用。
 
 每日定时任务（可手动触发）见 [.github/workflows/stale.yml](./.github/workflows/stale.yml)，用于标记并关闭长期无活动的 Issue / PR。
 
 依赖与流水线版本由 [.github/dependabot.yml](./.github/dependabot.yml) 每周检查：`github-actions`（**分组**为单条 PR）与根目录 **pnpm**（`npm` 生态；**生产 / 开发依赖分组**，仍由根 `pnpm-lock.yaml` 覆盖全 workspace）。
 
-若在 GitHub 为 `main` 开启 **Required status checks**，请将 **`monorepo-quality`** 与 **`admin-browser-tests`** 一并设为必过（与 [.github/workflows/ci.yml](./.github/workflows/ci.yml) 中两个 job 名称一致）；仅勾选旧名称会导致合并前漏跑其中一条。
+若在 GitHub 为 `main` 开启 **Required status checks**，当前仅需将 **`monorepo-quality`** 设为必过；若仓库中仍保留旧的 **`admin-browser-tests`** 规则，请同步移除，避免合并门禁继续依赖已废弃的前端 UI 自动化测试。

@@ -12,16 +12,16 @@
 
 ## Monorepo 测试说明（仓库根 `pnpm test`）
 
-根目录执行 `pnpm test` 时，Turborepo 会并行跑各包脚本；其中 **`apps/admin`** 使用 Vitest 浏览器模式，**依赖本机已安装的 Playwright 浏览器**。若失败并提示缺少 `chromium_headless_shell` 等可执行文件，请在仓库根目录执行 `pnpm exec playwright install`（或先跑 `apps/admin` 的 `pnpm run test:browser:install`）后再试。
+根目录执行 `pnpm test` 时，当前默认只验证 **API** 与 **小程序** 单测；仓库已不再将前端 UI 自动化测试作为默认门禁。若未来某个前端项目需要恢复浏览器自动化测试，应在对应执行计划中单独说明。
 
-若仅需验证 **API** 与 **小程序** 单测（不拉 Admin、无需 Playwright），可在仓库根目录执行 **`pnpm test:api-miniapp`**；或分别执行：
+当前默认验证 **API** 与 **小程序** 单测，可在仓库根目录执行 **`pnpm test:api-miniapp`**；或分别执行：
 
 - `pnpm --filter @unicorn/api test`
 - `pnpm --filter @unicorn/miniapp test`
 
 更完整的说明见仓库根目录 [README.md](../../../README.md) 的「测试（Monorepo）」一节。
 
-**CI**：根目录 [.github/workflows/ci.yml](../../../.github/workflows/ci.yml) 在 `main` 的 push/PR 上**并行**跑 `monorepo-quality`（`test:api-miniapp`、lint、typecheck、build）与 `admin-browser-tests`（Playwright + Admin 单测）；依赖安装复用 [.github/actions/setup-pnpm/action.yml](../../../.github/actions/setup-pnpm/action.yml)；支持 `workflow_dispatch`。长期无活动 Issue/PR 的定时清理见 [.github/workflows/stale.yml](../../../.github/workflows/stale.yml)。依赖与 Actions 版本见 [.github/dependabot.yml](../../../.github/dependabot.yml)（**分组**减少 PR 数量）。
+**CI**：根目录 [.github/workflows/ci.yml](../../../.github/workflows/ci.yml) 在 `main` 的 push/PR 上执行 `monorepo-quality`（`test:api-miniapp`、lint、typecheck、build）；前端 UI 自动化测试不再作为默认 CI 门禁。依赖安装复用 [.github/actions/setup-pnpm/action.yml](../../../.github/actions/setup-pnpm/action.yml)；支持 `workflow_dispatch`。长期无活动 Issue/PR 的定时清理见 [.github/workflows/stale.yml](../../../.github/workflows/stale.yml)。依赖与 Actions 版本见 [.github/dependabot.yml](../../../.github/dependabot.yml)（**分组**减少 PR 数量）。
 
 ## 目标结果
 
@@ -96,7 +96,7 @@
 
 **尚缺 / 可选优化**
 
-- 小程序端自动化测试与端到端录制（当前已接入 **Vitest** 纯函数单测：`pnpm test`；端到端仍可后续补充）。
+- 小程序端自动化测试与端到端录制不是当前默认要求；现阶段以 **Vitest** 纯函数单测与构建校验为主。
 - 可选：将机审从同步占位改为异步编排 / 外部机审服务（当前已在提交事务内同步落结果）。
 
 ## 联调与测试说明（机审占位）
@@ -167,7 +167,7 @@
 ### M2 出口条件
 
 - 演示脚本 A+B 可一次走通；小程序侧可按同一脚本在端上走通（或保留 HTTP 核对 + 小程序冒烟截图为验收附件）。
-- `apps/api` 对草稿、提交、机审分支、公开读有对应测试；小程序已具备 `pnpm test`（Vitest）纯函数单测，端到端可后续补齐。
+- `apps/api` 对草稿、提交、机审分支、公开读有对应测试；小程序已具备 `pnpm test`（Vitest）纯函数单测。
 
 ## 验收记录
 
@@ -183,7 +183,7 @@
 
 ### 前端
 
-- 小程序：`collection-edit`、`collection-public`（封面预览、正文去重、错误文案等）、列表与个人中心入口、已公开列表快捷入口、**底部 tabBar**；`pnpm test`（Vitest）覆盖 `src/lib` 纯函数；可选补充端到端。
+- 小程序：`collection-edit`、`collection-public`（封面预览、正文去重、错误文案等）、列表与个人中心入口、已公开列表快捷入口、**底部 tabBar**；`pnpm test`（Vitest）覆盖 `src/lib` 纯函数。
 
 ## 决策日志
 
@@ -206,3 +206,4 @@
 - 2026-05-14：根 `README` 补充分支保护须勾选 `monorepo-quality` 与 `admin-browser-tests`；M2 清单增加「建议的下一步（收口 M2）」可执行项。
 - 2026-05-14：新增 [M3 验收清单](../active/m3-acceptance-checklist.md)（`draft`）；[里程碑总览](../active/milestones-overview.md)、[PLANS.md](../../PLANS.md) 增加导航；M2「建议的下一步」补充 M2 归档后激活 M3 清单。
 - 2026-05-15：本清单迁移至 `docs/exec-plans/completed/` 并改为 `completed`；里程碑总览、PLANS 导航与 M3 前置引用同步切换到归档路径。
+- 2026-05-15：仓库测试口径调整为“前端项目默认不要求 UI 自动化测试”；根 `README`、`docs/FRONTEND.md`、CI 与本清单说明同步更新，不再以 Admin Playwright 作为默认门禁。

@@ -3,7 +3,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import type { SeriesListItem } from '@contracts/admin/series'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { DataTableColumnHeader } from '@/components/data-table'
+import { ProTableColumnHeader } from '@/components/pro'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,7 +30,7 @@ export function createSeriesColumns(
     {
       accessorKey: 'seriesNo',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='系列编号' />
+        <ProTableColumnHeader column={column} title='系列编号' />
       ),
       cell: ({ row }) => (
         <div className='font-medium'>{row.getValue('seriesNo')}</div>
@@ -40,7 +40,7 @@ export function createSeriesColumns(
     {
       accessorKey: 'name',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='系列名称' />
+        <ProTableColumnHeader column={column} title='系列名称' />
       ),
       meta: { className: 'w-50' },
       cell: ({ row }) => <div>{row.getValue('name')}</div>,
@@ -48,7 +48,7 @@ export function createSeriesColumns(
     {
       accessorKey: 'status',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='状态' />
+        <ProTableColumnHeader column={column} title='状态' />
       ),
       cell: ({ row }) => {
         const status = String(row.getValue('status'))
@@ -64,7 +64,7 @@ export function createSeriesColumns(
     {
       accessorKey: 'description',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='系列描述' />
+        <ProTableColumnHeader column={column} title='系列描述' />
       ),
       meta: { className: 'w-[40%]' },
       cell: ({ row }) => (
@@ -77,7 +77,7 @@ export function createSeriesColumns(
     {
       accessorKey: 'createdAt',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='创建时间' />
+        <ProTableColumnHeader column={column} title='创建时间' />
       ),
       cell: ({ row }) => formatTimestamp(row.getValue('createdAt')),
     },

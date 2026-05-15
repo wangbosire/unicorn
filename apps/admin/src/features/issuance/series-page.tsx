@@ -1,15 +1,19 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  createSeries,
+  listSeries,
+  updateSeries,
+  updateSeriesStatus,
+} from '@/apis/issuance/series'
 import type {
   CreateSeriesRequest,
   SeriesListItem,
   UpdateSeriesRequest,
 } from '@contracts/admin/series'
 import { toast } from 'sonner'
-import { PageLayout } from '@/components/layout/page-layout'
-import { Button } from '@/components/ui/button'
-import { createSeries, listSeries, updateSeries, updateSeriesStatus } from '@/apis/issuance/series'
 import { ApiError } from '@/lib/api-error'
+import { PageLayout } from '@/components/layout/page-layout'
 import { CreateSeriesDialog } from './components/create-series-dialog'
 import { EditSeriesDialog } from './components/edit-series-dialog'
 import { SeriesTable } from './components/series-table'
@@ -23,7 +27,7 @@ export function SeriesPage() {
   const [seriesName, setSeriesName] = useState('')
   const [seriesDescription, setSeriesDescription] = useState('')
   const queryClient = useQueryClient()
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['admin', 'series'],
     queryFn: () =>
       listSeries({
@@ -52,8 +56,10 @@ export function SeriesPage() {
     },
   })
   const updateSeriesMutation = useMutation({
-    mutationFn: (variables: { seriesId: string; payload: UpdateSeriesRequest }) =>
-      updateSeries(variables.seriesId, variables.payload),
+    mutationFn: (variables: {
+      seriesId: string
+      payload: UpdateSeriesRequest
+    }) => updateSeries(variables.seriesId, variables.payload),
     onSuccess: async () => {
       toast.success('系列信息已更新')
       setIsEditDialogOpen(false)
@@ -178,44 +184,14 @@ export function SeriesPage() {
   return (
     <>
       <PageLayout>
-        {isLoading ? (
-          <div className='py-8 text-center text-muted-foreground'>
-            正在加载系列数据...
-          </div>
-        ) : isError ? (
-          <div className='py-8 text-center text-destructive'>
-            系列数据加载失败，请稍后重试。
-          </div>
-        ) : (
-          <SeriesTable
-            data={data?.items ?? []}
-            actionsDisabled={isSeriesListMutating}
-            onEditSeries={handleEditSeries}
-            onSetSeriesStatus={handleSetSeriesStatus}
-            totalCount={data?.total}
-            listIntro={[
-              {
-                title: '系列总览',
-                description: (
-                  <>
-                    当前共 {data?.total ?? 0} 个系列。列表筛选、排序和字段显隐统一走 data-table
-                    组件。
-                  </>
-                ),
-              },
-              { title: '系列列表' },
-            ]}
-            toolbarActions={
-              <Button
-                size='sm'
-                onClick={() => setIsCreateDialogOpen(true)}
-                disabled={isSeriesListMutating}
-              >
-                新增系列
-              </Button>
-            }
-            />
-        )}
+        <SeriesTable
+          isLoading={isLoading}
+          data={data?.items ?? []}
+          actionsDisabled={isSeriesListMutating}
+          onEditSeries={handleEditSeries}
+          onSetSeriesStatus={handleSetSeriesStatus}
+          onCreateSeries={() => setIsCreateDialogOpen(true)}
+        />
       </PageLayout>
 
       <CreateSeriesDialog

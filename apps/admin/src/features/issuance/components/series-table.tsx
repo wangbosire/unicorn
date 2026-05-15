@@ -1,32 +1,15 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import {
-  type SortingState,
-  type VisibilityState,
-  flexRender,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { useMemo, useState } from 'react'
 import type { SeriesListItem } from '@contracts/admin/series'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
-  DataListIntro,
-  type DataListIntroBlock,
-  DataTablePagination,
-  DataTableToolbar,
-} from '@/components/data-table'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ProQueryFilter, ProQueryFilterItem, ProTable } from '@/components/pro'
 import { createSeriesColumns } from './series-columns'
 
 type SeriesTableProps = {
@@ -34,12 +17,12 @@ type SeriesTableProps = {
   /** 列表行内写操作进行中时为 true，避免重复触发。 */
   actionsDisabled: boolean
   onEditSeries: (row: SeriesListItem) => void
-  onSetSeriesStatus: (row: SeriesListItem, status: 'ENABLED' | 'DISABLED') => void
-  toolbarActions?: ReactNode
-  /** 接口 total，用于底部分页旁「共 N 条」。 */
-  totalCount?: number
-  /** 表格上方列表标题与说明（可多段）；不传则不展示。 */
-  listIntro?: DataListIntroBlock | DataListIntroBlock[]
+  onSetSeriesStatus: (
+    row: SeriesListItem,
+    status: 'ENABLED' | 'DISABLED'
+  ) => void
+  onCreateSeries: () => void
+  isLoading: boolean
 }
 
 export function SeriesTable({
@@ -47,16 +30,12 @@ export function SeriesTable({
   actionsDisabled,
   onEditSeries,
   onSetSeriesStatus,
-  toolbarActions,
-  totalCount,
-  listIntro,
+  onCreateSeries,
+  isLoading,
 }: SeriesTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [globalFilter, setGlobalFilter] = useState('')
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [columnFilters, setColumnFilters] = useState<
-    Array<{ id: string; value: unknown }>
-  >([])
+  const [keywordInput, setKeywordInput] = useState('')
+  const [keyword, setKeyword] = useState('')
+  const [status, setStatus] = useState<'ALL' | 'ENABLED' | 'DISABLED'>('ALL')
 
   const columns = useMemo(
     () =>
@@ -68,126 +47,83 @@ export function SeriesTable({
     [actionsDisabled, onEditSeries, onSetSeriesStatus]
   )
 
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
-    data,
-    columns,
-    state: {
-      sorting,
-      globalFilter,
-      columnVisibility,
-      columnFilters,
-    },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    onColumnVisibilityChange: setColumnVisibility,
-    onColumnFiltersChange: setColumnFilters,
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const keyword = String(filterValue).toLowerCase()
-      const name = String(row.getValue('name')).toLowerCase()
-      const seriesNo = String(row.getValue('seriesNo')).toLowerCase()
-      const description = String(row.getValue('description')).toLowerCase()
+  const filteredData = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase()
 
-      return (
-        name.includes(keyword) ||
-        seriesNo.includes(keyword) ||
-        description.includes(keyword)
+    return data.filter((item) => {
+      const matchesStatus = status === 'ALL' ? true : item.status === status
+      if (!matchesStatus) {
+        return false
+      }
+
+      if (!normalizedKeyword) {
+        return true
+      }
+
+      return [item.seriesNo, item.name, item.description].some((field) =>
+        field.toLowerCase().includes(normalizedKeyword)
       )
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-  })
-
-  useEffect(() => {
-    table.setPageIndex(0)
-  }, [globalFilter, columnFilters, table])
-
-  const introBlocks =
-    listIntro == null ? null : Array.isArray(listIntro) ? listIntro : [listIntro]
+    })
+  }, [data, keyword, status])
 
   return (
-    <div className={cn('flex flex-1 flex-col gap-4')}>
-      {introBlocks != null && introBlocks.length > 0 ? (
-        <DataListIntro blocks={introBlocks} />
-      ) : null}
-      <DataTableToolbar
-        table={table}
-        searchPlaceholder='搜索系列名称、编号或描述...'
-        actions={toolbarActions}
-        filters={[
-          {
-            columnId: 'status',
-            title: '状态',
-            options: [
-              { label: '启用', value: 'ENABLED' },
-              { label: '停用', value: 'DISABLED' },
-            ],
-          },
-        ]}
-      />
-      <div className='overflow-hidden rounded-md border'>
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    colSpan={header.colSpan}
-                    className={cn(
-                      header.column.columnDef.meta?.className,
-                      header.column.columnDef.meta?.thClassName
-                    )}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cn(
-                        cell.column.columnDef.meta?.className,
-                        cell.column.columnDef.meta?.tdClassName
-                      )}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className='h-24 text-center'>
-                  暂无符合条件的系列。
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      <DataTablePagination
-        table={table}
-        className='mt-auto'
-        totalCount={totalCount}
+    <div className='flex flex-1 flex-col gap-4'>
+      <ProQueryFilter
+        defaultCollapsed={false}
+        defaultVisibleCount={4}
+        onSubmit={(event) => {
+          event.preventDefault()
+          setKeyword(keywordInput)
+        }}
+        onReset={() => {
+          setKeywordInput('')
+          setKeyword('')
+          setStatus('ALL')
+        }}
+      >
+        <ProQueryFilterItem label='关键字' span={2}>
+          <Input
+            value={keywordInput}
+            onChange={(event) => setKeywordInput(event.target.value)}
+            placeholder='输入系列编号、名称或描述'
+          />
+        </ProQueryFilterItem>
+        <ProQueryFilterItem label='状态'>
+          <Select
+            value={status}
+            onValueChange={(value) =>
+              setStatus(value as 'ALL' | 'ENABLED' | 'DISABLED')
+            }
+          >
+            <SelectTrigger className='w-full'>
+              <SelectValue placeholder='选择状态' />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='ALL'>全部状态</SelectItem>
+              <SelectItem value='ENABLED'>启用</SelectItem>
+              <SelectItem value='DISABLED'>停用</SelectItem>
+            </SelectContent>
+          </Select>
+        </ProQueryFilterItem>
+      </ProQueryFilter>
+
+      <ProTable
+        title='系列列表'
+        columns={columns}
+        data={filteredData}
+        emptyTitle='暂无符合条件的系列'
+        emptyDescription='可以尝试放宽关键字或切换状态条件后再查看。'
+        extra={
+          <Button size='sm' onClick={onCreateSeries}>
+            新增系列
+          </Button>
+        }
+        loading={isLoading}
+        pagination={{
+          mode: 'client',
+          pageSize: 10,
+          pageSizeOptions: [10, 20],
+        }}
       />
     </div>
   )

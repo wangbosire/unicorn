@@ -37,16 +37,9 @@ services:
     working_dir: /repo
     command:
       [
-        "pnpm",
-        "--filter",
-        "@unicorn/admin",
-        "run",
-        "dev",
-        "--",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "5173",
+        "/bin/sh",
+        "-lc",
+        "pnpm install --frozen-lockfile && pnpm --filter @unicorn/admin run dev -- --host 0.0.0.0 --port 5173",
       ]
     environment:
       DOCKER: "1"
@@ -55,6 +48,11 @@ services:
     ports:
       - "5173:5173"
     volumes:
+      - ./package.json:/repo/package.json
+      - ./pnpm-lock.yaml:/repo/pnpm-lock.yaml
+      - ./pnpm-workspace.yaml:/repo/pnpm-workspace.yaml
+      - ./turbo.json:/repo/turbo.json
+      - ./apps/admin/package.json:/repo/apps/admin/package.json
       - ./apps/admin/src:/repo/apps/admin/src
       - ./apps/admin/public:/repo/apps/admin/public
       - ./apps/admin/test:/repo/apps/admin/test

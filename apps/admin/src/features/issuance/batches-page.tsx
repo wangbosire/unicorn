@@ -276,18 +276,9 @@ export function BatchesPage() {
             onEditBatch={handleEditBatch}
             onSetBatchStatus={handleSetBatchStatus}
             totalCount={data?.total}
-            listIntro={{
-              title: '批次列表',
-              description: (
-                <>
-                  当前共 {data?.total ?? 0} 个批次。列表筛选、排序和字段显隐统一走 data-table
-                  组件。
-                </>
-              ),
-            }}
             toolbarActions={
               <Button
-                size='sm'
+                size='lg'
                 onClick={() => handleOpenCreateDialog(true)}
                 disabled={isBatchListMutating}
               >

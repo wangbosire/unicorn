@@ -476,6 +476,19 @@ test('CollectionReviewsService.approveCollectionReview rejects missing review re
   );
 });
 
+test('CollectionReviewsService.approveCollectionReview rejects empty review id', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.approveCollectionReview('   ', {}),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'VALIDATION_ERROR' &&
+      error.message.includes('review id'),
+  );
+});
+
 test('CollectionReviewsService.approveCollectionReview rejects invalid review status', async () => {
   const { prisma, reviewRecords } = createCollectionReviewsPrismaMock();
   const pendingManual = reviewRecords.find((row) => row.id === 'crr_1');
@@ -529,6 +542,39 @@ test('CollectionReviewsService.rejectCollectionReview rejects empty reason', asy
   );
 });
 
+test('CollectionReviewsService.rejectCollectionReview rejects missing review record', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.rejectCollectionReview('missing_review', {
+        reason: '不符合公开展示规范',
+      }),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'REVIEW_RECORD_NOT_FOUND' &&
+      error.status === 404,
+  );
+});
+
+test('CollectionReviewsService.rejectCollectionReview rejects invalid review status', async () => {
+  const { prisma, reviewRecords } = createCollectionReviewsPrismaMock();
+  const pendingManual = reviewRecords.find((row) => row.id === 'crr_1');
+  assert.ok(pendingManual);
+  pendingManual.reviewStatus = CollectionContentReviewStatus.MANUAL_APPROVED;
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.rejectCollectionReview('crr_1', {
+        reason: '不符合公开展示规范',
+      }),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'REVIEW_STATUS_INVALID',
+  );
+});
+
 test('CollectionReviewsService.listCollectionReviewHistory rejects missing collectionNo', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
   const service = new CollectionReviewsService(prisma as never);
@@ -568,6 +614,58 @@ test('CollectionReviewsService.listCollectionReviewHistory returns ascending rec
   assert.equal(result.items[0]?.reviewStatus, CollectionContentReviewStatus.MACHINE_APPROVED);
   assert.equal(result.items[1]?.reviewId, 'crr_1');
   assert.equal(result.items[1]?.reviewStatus, CollectionContentReviewStatus.PENDING_MANUAL);
+});
+
+test('CollectionReviewsService.listCollectionReviewHistory supports filtering by content version', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  const result = await service.listCollectionReviewHistory({
+    collectionNo: 'COL-001',
+    contentVersionId: 'ccv_2',
+  });
+
+  assert.equal(result.items.length, 2);
+  assert.equal(result.items[0]?.contentVersionId, 'ccv_2');
+  assert.equal(result.items[1]?.contentVersionId, 'ccv_2');
+});
+
+test('CollectionReviewsService.listCollectionReviewHistory rejects when result exceeds max records', async () => {
+  const { prisma, reviewRecords } = createCollectionReviewsPrismaMock();
+  for (let i = 0; i < 205; i += 1) {
+    reviewRecords.push({
+      id: `crr_limit_${i}`,
+      collectionId: 'col_1',
+      contentVersionId: 'ccv_2',
+      reviewStage: CollectionContentReviewStage.MANUAL,
+      reviewStatus: CollectionContentReviewStatus.PENDING_MANUAL,
+      reviewSource: CollectionContentReviewSource.SYSTEM,
+      reviewReason: null,
+      reviewedByAdminUserId: null,
+      reviewedAt: null,
+      createdAt: new Date(`2026-05-15T06:${String(i % 60).padStart(2, '0')}:00.000Z`),
+      collection: {
+        id: 'col_1',
+        collectionNo: 'COL-001',
+        seriesId: 'ser_1',
+        batchId: 'bat_1',
+      },
+      contentVersion: {
+        id: 'ccv_2',
+        versionNo: 2,
+        submittedAt: new Date('2026-05-14T04:30:00.000Z'),
+      },
+    });
+  }
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.listCollectionReviewHistory({ collectionNo: 'COL-001' }),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'REVIEW_HISTORY_LIMIT_EXCEEDED' &&
+      error.status === 400,
+  );
 });
 
 test('CollectionReviewsService.listCollectionReviewHistory rejects version not belonging to collection', async () => {

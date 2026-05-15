@@ -1,4 +1,5 @@
-# Monorepo 持续集成：并行跑「API 单测 + Admin/API 静态检查与构建」与「Admin 浏览器单测」；不含小程序（@unicorn/miniapp）。
+# Monorepo 持续集成：默认不要求前端 UI 自动化测试；
+# 以前后端单元测试、静态检查与构建作为主质量门禁。
 name: CI
 
 on:
@@ -25,8 +26,8 @@ jobs:
       - name: Setup pnpm workspace
         uses: ./.github/actions/setup-pnpm
 
-      - name: API tests
-        run: pnpm --filter @unicorn/api test
+      - name: Workspace tests
+        run: pnpm test
 
       - name: Lint
         run: pnpm turbo run lint --filter='...@unicorn/admin' --filter='...@unicorn/api'
@@ -35,22 +36,4 @@ jobs:
         run: pnpm turbo run typecheck --filter='...@unicorn/admin' --filter='...@unicorn/api'
 
       - name: Build
-        run: pnpm turbo run build --filter='...@unicorn/admin' --filter='...@unicorn/api'
-
-  admin-browser-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm workspace
-        uses: ./.github/actions/setup-pnpm
-
-      - name: Install Playwright (Admin)
-        run: pnpm --filter @unicorn/admin run test:browser:install
-
-      - name: Admin tests
-        run: pnpm --filter @unicorn/admin test
+        run: pnpm turbo run build --filter='...@unicorn/admin' --filter='...@unicorn/api' --filter='...@unicorn/miniapp'

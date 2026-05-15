@@ -1,11 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { ColumnFiltersState } from '@tanstack/react-table'
+import { type PaginationState } from '@tanstack/react-table'
 import type { AdminMemberListItem } from '@contracts/admin/members'
+import { UsersIcon, WalletCardsIcon } from 'lucide-react'
 import { listMembers, updateMemberStatus } from '@/apis/members/members'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { PageLayout } from '@/components/layout/page-layout'
+import {
+  ProCard,
+  ProCardGroup,
+  ProPageContainer,
+  ProQueryFilter,
+  ProQueryFilterItem,
+  ProStatCard,
+} from '@/components/pro'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ApiError } from '@/lib/api-error'
 import { toast } from 'sonner'
 import { MembersTable } from './components/members-table'
@@ -13,7 +30,7 @@ import { MembersTable } from './components/members-table'
 const SEARCH_DEBOUNCE_MS = 400
 
 /**
- * 将输入防抖后用于接口查询，避免与 data-table 搜索框同步时频繁请求。
+ * 将输入防抖后用于接口查询，避免筛选输入频繁触发服务端请求。
  */
 function useDebouncedValue(value: string, delayMs: number): string {
   const [debounced, setDebounced] = useState(value)
@@ -59,36 +76,21 @@ function mapUpdateMemberStatusErrorMessage(error: ApiError): string {
   }
 }
 
-function statusFromColumnFilters(
-  columnFilters: ColumnFiltersState
-): 'ACTIVE' | 'FROZEN' | undefined {
-  const raw = columnFilters.find((c) => c.id === 'status')?.value as
-    | string[]
-    | undefined
-  if (!raw?.length || raw.length > 1) {
-    return undefined
-  }
-  const v = raw[0]
-  if (v === 'ACTIVE' || v === 'FROZEN') return v
-  return undefined
-}
-
 export function MembersPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [searchInput, setSearchInput] = useState('')
   const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS)
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'FROZEN'>(
+    'ALL'
+  )
   const [statusConfirm, setStatusConfirm] = useState<{
     member: AdminMemberListItem
     nextStatus: 'ACTIVE' | 'FROZEN'
   } | null>(null)
 
-  const statusForApi = useMemo(
-    () => statusFromColumnFilters(columnFilters),
-    [columnFilters]
-  )
+  const statusForApi = statusFilter === 'ALL' ? undefined : statusFilter
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -132,9 +134,15 @@ export function MembersPage() {
 
   const items: AdminMemberListItem[] = data?.items ?? []
   const total = data?.total ?? 0
+  const activeCount = items.filter((item) => item.status === 'ACTIVE').length
+  const frozenCount = items.filter((item) => item.status === 'FROZEN').length
+  const ownedCollectionsCount = items.reduce(
+    (sum, item) => sum + item.ownedCollectionsCount,
+    0
+  )
 
   const handlePaginationModelChange = useCallback(
-    (model: { pageIndex: number; pageSize: number }) => {
+    (model: PaginationState) => {
       setPageSize(model.pageSize)
       setPage(model.pageIndex + 1)
     },
@@ -160,58 +168,136 @@ export function MembersPage() {
   return (
     <>
       <PageLayout>
-        <div className='mb-6 space-y-1'>
-          <h1 className='text-2xl font-bold tracking-tight'>会员管理</h1>
-          <p className='text-sm text-muted-foreground'>
-            会员列表与发行区一致使用 data-table
-            工具条（搜索、状态筛选、列显隐）与底部分页；数据为服务端分页，搜索关键词在输入停止约{' '}
-            {SEARCH_DEBOUNCE_MS / 1000} 秒后触发查询。接口：{' '}
-            <code className='text-xs'>GET /admin-api/members</code>，冻结 / 解冻：{' '}
-            <code className='text-xs'>PATCH /admin-api/members/:id/status</code>（需{' '}
-            <code className='text-xs'>members.manage</code>）。
-          </p>
-        </div>
+        <ProPageContainer
+          title='会员管理'
+          subtitle='查看会员档案、账号状态与持有藏品概览，并执行冻结 / 解冻操作。'
+          description={
+            <>
+              数据为服务端分页，搜索关键词在输入停止约 {SEARCH_DEBOUNCE_MS / 1000}{' '}
+              秒后触发查询。接口：
+              <code className='mx-1 text-xs'>GET /admin-api/members</code>
+              ，冻结 / 解冻：
+              <code className='mx-1 text-xs'>
+                PATCH /admin-api/members/:id/status
+              </code>
+              （需
+              <code className='mx-1 text-xs'>members.manage</code>）。
+            </>
+          }
+        >
+          <ProCardGroup columns={3}>
+            <ProStatCard
+              title='会员总量'
+              value={total}
+              description='当前筛选条件下接口返回的会员总条数。'
+              icon={<UsersIcon className='size-5' />}
+              footerNote='统计口径：当前查询 total'
+            />
+            <ProStatCard
+              title='当前页正常'
+              value={activeCount}
+              description='当前页处于正常状态的会员数量。'
+              icon={<UsersIcon className='size-5' />}
+              trend='up'
+              trendLabel='当前页状态概览'
+            />
+            <ProStatCard
+              title='当前页藏品数'
+              value={ownedCollectionsCount}
+              description='当前页会员合计持有的藏品数量。'
+              icon={<WalletCardsIcon className='size-5' />}
+              trend='flat'
+              trendLabel={`${frozenCount} 位冻结会员`}
+            />
+          </ProCardGroup>
 
-        {isLoading ? (
-          <div className='py-8 text-center text-muted-foreground'>
-            正在加载会员列表…
-          </div>
-        ) : isError ? (
-          <div className='flex flex-col items-center gap-3 py-8'>
-            <p className='max-w-md text-center text-destructive text-sm'>
-              {mapListMembersErrorMessage(error)}
-            </p>
-            <Button type='button' variant='outline' size='sm' onClick={() => void refetch()}>
-              重试
-            </Button>
-          </div>
-        ) : (
-          <MembersTable
-            data={items}
-            total={total}
-            page={page}
-            pageSize={pageSize}
-            onPaginationModelChange={handlePaginationModelChange}
-            globalFilter={searchInput}
-            onGlobalFilterChange={setSearchInput}
-            columnFilters={columnFilters}
-            onColumnFiltersChange={setColumnFilters}
-            actionsDisabled={updateStatusMutation.isPending}
-            onRequestFreeze={handleRequestFreeze}
-            onRequestUnfreeze={handleRequestUnfreeze}
-            listIntro={[
-              {
-                title: '会员总览',
-                description: (
-                  <>
-                    当前共 {total} 位会员。状态多选时若同时包含「正常」与「冻结」，列表等价于不筛选状态。
-                  </>
-                ),
-              },
-              { title: '会员列表' },
-            ]}
-          />
-        )}
+          <ProQueryFilter
+            title='会员筛选'
+            description='按会员编号、昵称和账号状态筛选后台会员列表。搜索输入会在停止输入后自动发起查询。'
+            defaultCollapsed={false}
+            defaultVisibleCount={4}
+            submitter={false}
+            actions={
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => {
+                  setSearchInput('')
+                  setStatusFilter('ALL')
+                }}
+              >
+                重置筛选
+              </Button>
+            }
+          >
+            <ProQueryFilterItem
+              label='关键字'
+              description='支持按会员编号或昵称模糊搜索。'
+              span={2}
+            >
+              <Input
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder='输入会员编号或昵称'
+              />
+            </ProQueryFilterItem>
+            <ProQueryFilterItem
+              label='状态'
+              description='按会员当前账号状态筛选。'
+            >
+              <Select
+                value={statusFilter}
+                onValueChange={(value) =>
+                  setStatusFilter(value as 'ALL' | 'ACTIVE' | 'FROZEN')
+                }
+              >
+                <SelectTrigger className='w-full'>
+                  <SelectValue placeholder='选择状态' />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='ALL'>全部状态</SelectItem>
+                  <SelectItem value='ACTIVE'>正常</SelectItem>
+                  <SelectItem value='FROZEN'>冻结</SelectItem>
+                </SelectContent>
+              </Select>
+            </ProQueryFilterItem>
+          </ProQueryFilter>
+
+          {isLoading ? (
+            <ProCard>
+              <div className='py-8 text-center text-muted-foreground'>
+                正在加载会员列表…
+              </div>
+            </ProCard>
+          ) : isError ? (
+            <ProCard>
+              <div className='flex flex-col items-center gap-3 py-8'>
+                <p className='max-w-md text-center text-destructive text-sm'>
+                  {mapListMembersErrorMessage(error)}
+                </p>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => void refetch()}
+                >
+                  重试
+                </Button>
+              </div>
+            </ProCard>
+          ) : (
+            <MembersTable
+              data={items}
+              total={total}
+              page={page}
+              pageSize={pageSize}
+              onPaginationModelChange={handlePaginationModelChange}
+              actionsDisabled={updateStatusMutation.isPending}
+              onRequestFreeze={handleRequestFreeze}
+              onRequestUnfreeze={handleRequestUnfreeze}
+            />
+          )}
+        </ProPageContainer>
       </PageLayout>
 
       <ConfirmDialog

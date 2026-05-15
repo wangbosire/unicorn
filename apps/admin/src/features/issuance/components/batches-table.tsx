@@ -1,32 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import {
-  type SortingState,
-  type VisibilityState,
-  flexRender,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { useMemo, type ReactNode } from 'react'
 import type { IssuanceBatchListItem } from '@contracts/admin/issuance-batches'
-import { cn } from '@/lib/utils'
-import {
-  DataListIntro,
-  type DataListIntroBlock,
-  DataTablePagination,
-  DataTableToolbar,
-} from '@/components/data-table'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { ProTable } from '@/components/pro'
 import { createBatchesColumns } from './batches-columns'
 
 type BatchesTableProps = {
@@ -39,8 +13,6 @@ type BatchesTableProps = {
   ) => void
   toolbarActions?: ReactNode
   totalCount?: number
-  /** 表格上方列表标题与说明；不传则不展示。 */
-  listIntro?: DataListIntroBlock | DataListIntroBlock[]
 }
 
 export function BatchesTable({
@@ -50,15 +22,7 @@ export function BatchesTable({
   onSetBatchStatus,
   toolbarActions,
   totalCount,
-  listIntro,
 }: BatchesTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [globalFilter, setGlobalFilter] = useState('')
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [columnFilters, setColumnFilters] = useState<
-    Array<{ id: string; value: unknown }>
-  >([])
-
   const columns = useMemo(
     () =>
       createBatchesColumns({
@@ -69,127 +33,47 @@ export function BatchesTable({
     [actionsDisabled, onEditBatch, onSetBatchStatus]
   )
 
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
-    data,
-    columns,
-    state: {
-      sorting,
-      globalFilter,
-      columnVisibility,
-      columnFilters,
-    },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    onColumnVisibilityChange: setColumnVisibility,
-    onColumnFiltersChange: setColumnFilters,
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const keyword = String(filterValue).toLowerCase()
-      const batchNo = String(row.getValue('batchNo')).toLowerCase()
-      const name = String(row.getValue('name')).toLowerCase()
-      const seriesName = String(row.getValue('seriesName')).toLowerCase()
-
-      return (
-        batchNo.includes(keyword) ||
-        name.includes(keyword) ||
-        seriesName.includes(keyword)
-      )
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-  })
-
-  useEffect(() => {
-    table.setPageIndex(0)
-  }, [globalFilter, columnFilters, table])
-
-  const introBlocks =
-    listIntro == null ? null : Array.isArray(listIntro) ? listIntro : [listIntro]
-
   return (
-    <div className={cn('flex flex-1 flex-col gap-4')}>
-      {introBlocks != null && introBlocks.length > 0 ? (
-        <DataListIntro blocks={introBlocks} />
-      ) : null}
-      <DataTableToolbar
-        table={table}
-        searchPlaceholder='搜索批次编号、批次名称或所属系列...'
-        actions={toolbarActions}
-        filters={[
-          {
-            columnId: 'status',
-            title: '状态',
-            options: [
-              { label: '启用', value: 'ENABLED' },
-              { label: '停用', value: 'DISABLED' },
-            ],
-          },
-        ]}
-      />
-      <div className='overflow-hidden rounded-md border'>
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    colSpan={header.colSpan}
-                    className={cn(
-                      header.column.columnDef.meta?.className,
-                      header.column.columnDef.meta?.thClassName
-                    )}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cn(
-                        cell.column.columnDef.meta?.className,
-                        cell.column.columnDef.meta?.tdClassName
-                      )}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className='h-24 text-center'>
-                  暂无批次数据。
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      <DataTablePagination
-        table={table}
-        className='mt-auto'
-        totalCount={totalCount}
-      />
-    </div>
+    <ProTable
+      variant='plain'
+      title='批次列表'
+      description={
+        <>
+          当前共 {totalCount ?? data.length} 个批次。列表筛选、排序和字段显隐统一走 ProTable 组件。
+        </>
+      }
+      columns={columns}
+      data={data}
+      search={{
+        placeholder: '搜索批次编号、批次名称或所属系列。',
+        globalFilterFn: (row, _columnId, filterValue) => {
+          const keyword = String(filterValue).toLowerCase()
+          const item = row.original
+
+          return [item.batchNo, item.name, item.seriesName].some((field) =>
+            field.toLowerCase().includes(keyword)
+          )
+        },
+      }}
+      filters={[
+        {
+          columnId: 'status',
+          title: '状态',
+          options: [
+            { label: '启用', value: 'ENABLED' },
+            { label: '停用', value: 'DISABLED' },
+          ],
+        },
+      ]}
+      actions={toolbarActions}
+      emptyTitle='暂无批次数据'
+      emptyDescription='可以尝试放宽搜索关键词或切换状态筛选后再查看。'
+      pagination={{
+        mode: 'client',
+        pageSize: 10,
+        total: totalCount,
+        pageSizeOptions: [10, 20],
+      }}
+    />
   )
 }
