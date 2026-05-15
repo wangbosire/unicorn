@@ -9,7 +9,8 @@ import { PrismaService } from '../../../platform/prisma/prisma.service';
 
 /**
  * 公开展示读服务。
- * 仅返回已通过机审（或等价策略）且处于公开发布态的内容快照。
+ * 仅返回已通过审核且处于公开发布态的内容快照；若当前最高已审核版本为下架态（`TAKEDOWN`），
+ * 返回 410 与独立业务码，便于与「从未公开」的 404 区分。
  */
 @Injectable()
 export class PublicCollectionsService {
@@ -35,20 +36,15 @@ export class PublicCollectionsService {
       include: {
         currentOwnerMember: true,
         contentVersions: {
-          where: {
-            publishStatus: CollectionContentPublishStatus.PUBLISHED,
-            editStatus: CollectionContentEditStatus.APPROVED,
-          },
-          orderBy: { publishedAt: 'desc' },
-          take: 1,
+          where: { editStatus: CollectionContentEditStatus.APPROVED },
+          orderBy: { versionNo: 'desc' },
+          take: 50,
         },
       },
     });
 
-    const publishedVersion = collection?.contentVersions[0];
     const owner = collection?.currentOwnerMember;
-
-    if (!collection || !publishedVersion || !owner) {
+    if (!collection || !owner) {
       throw new BizError({
         code: 'RESOURCE_NOT_FOUND',
         message: 'public collection not found',
@@ -56,7 +52,36 @@ export class PublicCollectionsService {
       });
     }
 
-    if (!publishedVersion.publishedAt) {
+    const approvedVersions = collection.contentVersions;
+    if (approvedVersions.length < 1) {
+      throw new BizError({
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'public collection not found',
+        status: 404,
+      });
+    }
+
+    /**
+     * 以「最高版本号的已审核版本」为当前公开态锚点：
+     * - 若为 `TAKEDOWN`，视为运营下架，返回 410 以便 C 端与普通「未公开」区分；
+     * - 否则在仍存在 `PUBLISHED` 且带 `publishedAt` 的版本时返回公开展示快照（允许较低版本号仍处已发布态）。
+     */
+    const latestApproved = approvedVersions[0]!;
+    if (latestApproved.publishStatus === CollectionContentPublishStatus.TAKEDOWN) {
+      throw new BizError({
+        code: 'PUBLIC_COLLECTION_TAKEDOWN',
+        message: 'public collection is taken down',
+        status: 410,
+      });
+    }
+
+    const publishedVersion = approvedVersions.find(
+      (version) =>
+        version.publishStatus === CollectionContentPublishStatus.PUBLISHED &&
+        version.publishedAt != null,
+    );
+
+    if (!publishedVersion?.publishedAt) {
       throw new BizError({
         code: 'RESOURCE_NOT_FOUND',
         message: 'public collection not found',

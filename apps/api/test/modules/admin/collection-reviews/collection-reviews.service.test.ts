@@ -38,6 +38,29 @@ function createCollectionReviewsPrismaMock() {
     };
   }> = [
     {
+      id: 'crr_0',
+      collectionId: 'col_1',
+      contentVersionId: 'ccv_2',
+      reviewStage: CollectionContentReviewStage.MACHINE,
+      reviewStatus: CollectionContentReviewStatus.MACHINE_APPROVED,
+      reviewSource: CollectionContentReviewSource.SYSTEM,
+      reviewReason: null,
+      reviewedByAdminUserId: null,
+      reviewedAt: new Date('2026-05-14T04:15:00.000Z'),
+      createdAt: new Date('2026-05-14T04:15:00.000Z'),
+      collection: {
+        id: 'col_1',
+        collectionNo: 'COL-001',
+        seriesId: 'ser_1',
+        batchId: 'bat_1',
+      },
+      contentVersion: {
+        id: 'ccv_2',
+        versionNo: 2,
+        submittedAt: new Date('2026-05-14T04:30:00.000Z'),
+      },
+    },
+    {
       id: 'crr_1',
       collectionId: 'col_1',
       contentVersionId: 'ccv_2',
@@ -88,6 +111,7 @@ function createCollectionReviewsPrismaMock() {
   const contentVersions = [
     {
       id: 'ccv_2',
+      collectionId: 'col_1',
       versionNo: 2,
       submittedAt: new Date('2026-05-14T04:30:00.000Z'),
       editStatus: CollectionContentEditStatus.UNDER_REVIEW,
@@ -96,6 +120,7 @@ function createCollectionReviewsPrismaMock() {
     },
     {
       id: 'ccv_3',
+      collectionId: 'col_2',
       versionNo: 1,
       submittedAt: new Date('2026-05-14T05:40:00.000Z'),
       editStatus: CollectionContentEditStatus.UNDER_REVIEW,
@@ -104,13 +129,61 @@ function createCollectionReviewsPrismaMock() {
     },
   ];
 
-  const collectionContentReviewRecord = {
-    findMany: async ({
+  const collections = [
+    { id: 'col_1', collectionNo: 'COL-001' },
+    { id: 'col_2', collectionNo: 'COL-002' },
+  ];
+
+  const collection = {
+    findFirst: async ({
       where,
-      skip,
-      take,
     }: {
-      where: {
+      where: { collectionNo?: string };
+    }) => collections.find((row) => row.collectionNo === where.collectionNo) ?? null,
+  };
+
+  const collectionContentReviewRecord = {
+    findMany: async (args: {
+      where:
+        | {
+            reviewStatus?: CollectionContentReviewStatus;
+            collection?: {
+              seriesId?: string;
+              batchId?: string;
+              collectionNo?: string;
+            };
+            collectionId?: string;
+            contentVersionId?: string;
+          }
+        | Record<string, unknown>;
+      skip?: number;
+      take?: number;
+      orderBy?: { createdAt: 'asc' | 'desc' };
+    }) => {
+      const { where, skip = 0, take, orderBy } = args;
+
+      if (where && typeof (where as { collectionId?: string }).collectionId === 'string') {
+        const collectionId = (where as { collectionId: string }).collectionId;
+        const versionFilter = (where as { contentVersionId?: string }).contentVersionId;
+        let filtered = reviewRecords.filter((item) => item.collectionId === collectionId);
+        if (versionFilter) {
+          filtered = filtered.filter((item) => item.contentVersionId === versionFilter);
+        }
+        const direction = orderBy?.createdAt === 'asc' ? 1 : -1;
+        const sorted = filtered.slice().sort((left, right) => {
+          const delta = left.createdAt.getTime() - right.createdAt.getTime();
+          return direction * delta;
+        });
+        const limit = typeof take === 'number' ? take : sorted.length;
+        return sorted.slice(0, limit).map((item) => ({
+          ...item,
+          reviewedByAdminUser: item.reviewedByAdminUserId
+            ? { displayName: '测试审核员' }
+            : null,
+        }));
+      }
+
+      const queueWhere = where as {
         reviewStatus?: CollectionContentReviewStatus;
         collection?: {
           seriesId?: string;
@@ -118,31 +191,29 @@ function createCollectionReviewsPrismaMock() {
           collectionNo?: string;
         };
       };
-      skip: number;
-      take: number;
-    }) => {
+
       const filteredItems = reviewRecords.filter((item) => {
-        if (where.reviewStatus && item.reviewStatus !== where.reviewStatus) {
+        if (queueWhere.reviewStatus && item.reviewStatus !== queueWhere.reviewStatus) {
           return false;
         }
 
         if (
-          where.collection?.seriesId &&
-          item.collection.seriesId !== where.collection.seriesId
+          queueWhere.collection?.seriesId &&
+          item.collection.seriesId !== queueWhere.collection.seriesId
         ) {
           return false;
         }
 
         if (
-          where.collection?.batchId &&
-          item.collection.batchId !== where.collection.batchId
+          queueWhere.collection?.batchId &&
+          item.collection.batchId !== queueWhere.collection.batchId
         ) {
           return false;
         }
 
         if (
-          where.collection?.collectionNo &&
-          item.collection.collectionNo !== where.collection.collectionNo
+          queueWhere.collection?.collectionNo &&
+          item.collection.collectionNo !== queueWhere.collection.collectionNo
         ) {
           return false;
         }
@@ -150,10 +221,11 @@ function createCollectionReviewsPrismaMock() {
         return true;
       });
 
+      const pageTake = typeof take === 'number' ? take : 20;
       return filteredItems
         .slice()
         .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
-        .slice(skip, skip + take);
+        .slice(skip, skip + pageTake);
     },
     count: async ({
       where,
@@ -224,6 +296,20 @@ function createCollectionReviewsPrismaMock() {
   };
 
   const collectionContentVersion = {
+    findFirst: async ({
+      where,
+    }: {
+      where: { id: string; collectionId?: string };
+    }) => {
+      const row = contentVersions.find((item) => item.id === where.id);
+      if (!row) {
+        return null;
+      }
+      if (where.collectionId && row.collectionId !== where.collectionId) {
+        return null;
+      }
+      return row;
+    },
     update: async ({
       where,
       data,
@@ -247,6 +333,7 @@ function createCollectionReviewsPrismaMock() {
   };
 
   const prisma = {
+    collection,
     collectionContentReviewRecord,
     collectionContentVersion,
     $transaction: async (operationsOrCallback: unknown) => {
@@ -257,6 +344,7 @@ function createCollectionReviewsPrismaMock() {
             collectionContentVersion: typeof collectionContentVersion;
           }) => Promise<unknown>
         )({
+          collection,
           collectionContentReviewRecord,
           collectionContentVersion,
         });
@@ -278,8 +366,8 @@ test('CollectionReviewsService.listCollectionReviews returns paginated review qu
     pageSize: '20',
   });
 
-  assert.equal(result.total, 2);
-  assert.equal(result.items.length, 2);
+  assert.equal(result.total, 3);
+  assert.equal(result.items.length, 3);
   assert.equal(result.items[0]?.reviewId, 'crr_2');
   assert.equal(result.items[0]?.collectionNo, 'COL-002');
   assert.equal(result.items[1]?.reviewStatus, CollectionContentReviewStatus.PENDING_MANUAL);
@@ -311,8 +399,10 @@ test('CollectionReviewsService.listCollectionReviews merges seriesId and batchId
     batchId: 'bat_1',
   });
 
-  assert.equal(result.total, 1);
+  assert.equal(result.total, 2);
+  assert.equal(result.items.length, 2);
   assert.equal(result.items[0]?.reviewId, 'crr_1');
+  assert.equal(result.items[1]?.reviewId, 'crr_0');
 });
 
 test('CollectionReviewsService.listCollectionReviews supports filtering by review status and series', async () => {
@@ -357,12 +447,13 @@ test('CollectionReviewsService.approveCollectionReview marks review approved and
   assert.equal(result.reviewStatus, CollectionContentReviewStatus.MANUAL_APPROVED);
   assert.equal(result.publishStatus, CollectionContentPublishStatus.PUBLISHED);
   assert.ok(result.reviewedAt);
+  const afterApprove = reviewRecords.find((row) => row.id === 'crr_1');
   assert.equal(
-    reviewRecords[0]?.reviewStatus,
+    afterApprove?.reviewStatus,
     CollectionContentReviewStatus.MANUAL_APPROVED,
   );
-  assert.equal(reviewRecords[0]?.reviewSource, CollectionContentReviewSource.ADMIN);
-  assert.equal(reviewRecords[0]?.reviewReason, '人工审核通过');
+  assert.equal(afterApprove?.reviewSource, CollectionContentReviewSource.ADMIN);
+  assert.equal(afterApprove?.reviewReason, '人工审核通过');
   assert.equal(
     contentVersions[0]?.editStatus,
     CollectionContentEditStatus.APPROVED,
@@ -388,7 +479,9 @@ test('CollectionReviewsService.approveCollectionReview rejects missing review re
 
 test('CollectionReviewsService.approveCollectionReview rejects invalid review status', async () => {
   const { prisma, reviewRecords } = createCollectionReviewsPrismaMock();
-  reviewRecords[0]!.reviewStatus = CollectionContentReviewStatus.MANUAL_APPROVED;
+  const pendingManual = reviewRecords.find((row) => row.id === 'crr_1');
+  assert.ok(pendingManual);
+  pendingManual.reviewStatus = CollectionContentReviewStatus.MANUAL_APPROVED;
   const service = new CollectionReviewsService(prisma as never);
 
   await assert.rejects(
@@ -410,12 +503,13 @@ test('CollectionReviewsService.rejectCollectionReview marks review rejected and 
   assert.equal(result.reviewStatus, CollectionContentReviewStatus.MANUAL_REJECTED);
   assert.equal(result.publishStatus, CollectionContentPublishStatus.UNPUBLISHED);
   assert.ok(result.reviewedAt);
+  const afterReject = reviewRecords.find((row) => row.id === 'crr_1');
   assert.equal(
-    reviewRecords[0]?.reviewStatus,
+    afterReject?.reviewStatus,
     CollectionContentReviewStatus.MANUAL_REJECTED,
   );
-  assert.equal(reviewRecords[0]?.reviewSource, CollectionContentReviewSource.ADMIN);
-  assert.equal(reviewRecords[0]?.reviewReason, '不符合公开展示规范');
+  assert.equal(afterReject?.reviewSource, CollectionContentReviewSource.ADMIN);
+  assert.equal(afterReject?.reviewReason, '不符合公开展示规范');
   assert.equal(contentVersions[0]?.editStatus, CollectionContentEditStatus.REJECTED);
   assert.equal(
     contentVersions[0]?.publishStatus,
@@ -433,5 +527,179 @@ test('CollectionReviewsService.rejectCollectionReview rejects empty reason', asy
       error instanceof BizError &&
       error.code === 'VALIDATION_ERROR' &&
       error.message.includes('reason'),
+  );
+});
+
+test('CollectionReviewsService.listCollectionReviewHistory rejects missing collectionNo', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.listCollectionReviewHistory({}),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'VALIDATION_ERROR' &&
+      error.message.includes('collectionNo'),
+  );
+});
+
+test('CollectionReviewsService.listCollectionReviewHistory returns 404 when collection not found', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.listCollectionReviewHistory({ collectionNo: 'COL-404' }),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'COLLECTION_NOT_FOUND' &&
+      error.status === 404,
+  );
+});
+
+test('CollectionReviewsService.listCollectionReviewHistory returns ascending records for a collection', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  const result = await service.listCollectionReviewHistory({
+    collectionNo: 'COL-001',
+  });
+
+  assert.equal(result.items.length, 2);
+  assert.equal(result.items[0]?.reviewId, 'crr_0');
+  assert.equal(result.items[0]?.reviewStatus, CollectionContentReviewStatus.MACHINE_APPROVED);
+  assert.equal(result.items[1]?.reviewId, 'crr_1');
+  assert.equal(result.items[1]?.reviewStatus, CollectionContentReviewStatus.PENDING_MANUAL);
+});
+
+test('CollectionReviewsService.listCollectionReviewHistory rejects version not belonging to collection', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.listCollectionReviewHistory({
+        collectionNo: 'COL-002',
+        contentVersionId: 'ccv_2',
+      }),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'CONTENT_VERSION_NOT_FOUND' &&
+      error.status === 404,
+  );
+});
+
+function createTakedownPrismaMock(options: {
+  id?: string;
+  editStatus?: CollectionContentEditStatus;
+  initialPublishStatus: CollectionContentPublishStatus;
+}) {
+  const id = options.id ?? 'ccv_td';
+  let publishStatus = options.initialPublishStatus;
+  const editStatus = options.editStatus ?? CollectionContentEditStatus.APPROVED;
+
+  const prisma = {
+    collectionContentVersion: {
+      findUnique: async ({ where }: { where: { id: string } }) => {
+        if (where.id !== id) {
+          return null;
+        }
+        return {
+          id,
+          collectionId: 'col_1',
+          versionNo: 3,
+          editStatus,
+          publishStatus,
+          collection: { collectionNo: 'COL-TD' },
+        };
+      },
+      update: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: { publishStatus: CollectionContentPublishStatus };
+      }) => {
+        publishStatus = data.publishStatus;
+        return { id: where.id, publishStatus };
+      },
+    },
+  };
+
+  return { prisma, getPublishStatus: () => publishStatus };
+}
+
+test('CollectionReviewsService.takedownPublishedContentVersion sets TAKEDOWN on published version', async () => {
+  const { prisma, getPublishStatus } = createTakedownPrismaMock({
+    initialPublishStatus: CollectionContentPublishStatus.PUBLISHED,
+  });
+  const service = new CollectionReviewsService(prisma as never);
+
+  const result = await service.takedownPublishedContentVersion('ccv_td', {});
+
+  assert.equal(result.publishStatus, 'TAKEDOWN');
+  assert.equal(result.collectionNo, 'COL-TD');
+  assert.equal(getPublishStatus(), CollectionContentPublishStatus.TAKEDOWN);
+  assert.ok(result.appliedAt > 0);
+});
+
+test('CollectionReviewsService.takedownPublishedContentVersion rejects missing version', async () => {
+  const { prisma } = createTakedownPrismaMock({
+    id: 'ccv_td',
+    initialPublishStatus: CollectionContentPublishStatus.PUBLISHED,
+  });
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.takedownPublishedContentVersion('other', {}),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'CONTENT_VERSION_NOT_FOUND' &&
+      error.status === 404,
+  );
+});
+
+test('CollectionReviewsService.takedownPublishedContentVersion rejects when already TAKEDOWN', async () => {
+  const { prisma } = createTakedownPrismaMock({
+    initialPublishStatus: CollectionContentPublishStatus.TAKEDOWN,
+  });
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.takedownPublishedContentVersion('ccv_td', {}),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'TAKEDOWN_STATUS_INVALID' &&
+      error.status === 400,
+  );
+});
+
+test('CollectionReviewsService.takedownPublishedContentVersion rejects when not published', async () => {
+  const { prisma } = createTakedownPrismaMock({
+    initialPublishStatus: CollectionContentPublishStatus.UNPUBLISHED,
+  });
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.takedownPublishedContentVersion('ccv_td', {}),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'TAKEDOWN_STATUS_INVALID' &&
+      error.status === 400,
+  );
+});
+
+test('CollectionReviewsService.takedownPublishedContentVersion rejects when not approved', async () => {
+  const { prisma } = createTakedownPrismaMock({
+    initialPublishStatus: CollectionContentPublishStatus.PUBLISHED,
+    editStatus: CollectionContentEditStatus.DRAFT,
+  });
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.takedownPublishedContentVersion('ccv_td', {}),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'TAKEDOWN_STATUS_INVALID' &&
+      error.status === 400,
   );
 });

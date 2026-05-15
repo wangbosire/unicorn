@@ -66,6 +66,18 @@ async function seedPermissions() {
       type: PermissionType.PAGE,
     },
     {
+      id: 'perm_members_read',
+      key: 'members.read',
+      name: '会员列表',
+      type: PermissionType.PAGE,
+    },
+    {
+      id: 'perm_members_manage',
+      key: 'members.manage',
+      name: '会员状态管理',
+      type: PermissionType.PAGE,
+    },
+    {
       id: 'perm_nav_m2_placeholder',
       key: 'nav.m2_placeholder',
       name: 'M2+ 占位导航',
@@ -120,6 +132,8 @@ async function seedRoles() {
     'perm_issuance_batches',
     'perm_issuance_activation_codes',
     'perm_collection_reviews_manage',
+    'perm_members_read',
+    'perm_members_manage',
     'perm_nav_m2_placeholder',
   ];
 

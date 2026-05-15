@@ -21,11 +21,16 @@ import { PrismaService } from '../../../platform/prisma/prisma.service';
 import type {
   ApproveCollectionReviewRequest,
   ApproveCollectionReviewResponseData,
+  CollectionReviewHistoryItem,
   CollectionReviewListItem,
+  ListCollectionReviewHistoryQuery,
+  ListCollectionReviewHistoryResponseData,
   ListCollectionReviewsQuery,
   ListCollectionReviewsResponseData,
   RejectCollectionReviewRequest,
   RejectCollectionReviewResponseData,
+  TakedownPublishedContentVersionRequest,
+  TakedownPublishedContentVersionResponseData,
 } from '@contracts/admin/collection-reviews';
 
 /**
@@ -34,7 +39,82 @@ import type {
  */
 @Injectable()
 export class CollectionReviewsService {
+  /** 单藏品审核轨迹单次返回上限，防止一次性拉取过多行。 */
+  private static readonly REVIEW_HISTORY_MAX = 200;
+
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * 按藏品编号（及可选内容版本）查询审核轨迹，按记录创建时间升序。
+   */
+  async listCollectionReviewHistory(
+    query: ListCollectionReviewHistoryQuery,
+  ): Promise<ListCollectionReviewHistoryResponseData> {
+    const collectionNo = query.collectionNo?.trim();
+    if (!collectionNo) {
+      throw new BizError({
+        code: 'VALIDATION_ERROR',
+        message: 'collectionNo is required',
+      });
+    }
+
+    const versionId = query.contentVersionId?.trim();
+
+    const collection = await this.prisma.collection.findFirst({
+      where: { collectionNo },
+      select: { id: true },
+    });
+
+    if (!collection) {
+      throw new BizError({
+        code: 'COLLECTION_NOT_FOUND',
+        message: 'collection not found',
+        status: 404,
+      });
+    }
+
+    if (versionId) {
+      const version = await this.prisma.collectionContentVersion.findFirst({
+        where: { id: versionId, collectionId: collection.id },
+        select: { id: true },
+      });
+      if (!version) {
+        throw new BizError({
+          code: 'CONTENT_VERSION_NOT_FOUND',
+          message: 'content version not found for this collection',
+          status: 404,
+        });
+      }
+    }
+
+    const where: Prisma.CollectionContentReviewRecordWhereInput = {
+      collectionId: collection.id,
+      ...(versionId ? { contentVersionId: versionId } : {}),
+    };
+
+    const rows = await this.prisma.collectionContentReviewRecord.findMany({
+      where,
+      include: {
+        collection: true,
+        contentVersion: true,
+        reviewedByAdminUser: { select: { displayName: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: CollectionReviewsService.REVIEW_HISTORY_MAX + 1,
+    });
+
+    if (rows.length > CollectionReviewsService.REVIEW_HISTORY_MAX) {
+      throw new BizError({
+        code: 'REVIEW_HISTORY_LIMIT_EXCEEDED',
+        message: `review history exceeds ${CollectionReviewsService.REVIEW_HISTORY_MAX} records; refine filters`,
+        status: 400,
+      });
+    }
+
+    return {
+      items: rows.map((row) => this.toCollectionReviewHistoryItem(row)),
+    };
+  }
 
   /**
    * 查询藏品内容审核列表。
@@ -243,6 +323,106 @@ export class CollectionReviewsService {
       reviewStatus: rejectedReviewRecord.reviewStatus,
       publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
       reviewedAt: toNullableTimestamp(rejectedReviewRecord.reviewedAt) ?? toTimestamp(reviewedAt),
+    };
+  }
+
+  /**
+   * 运营下架：将已通过审核且当前为公开发布态（`PUBLISHED`）的内容版本标记为 `TAKEDOWN`。
+   * 公开展示读在「最高已审核版本为下架态」时将返回 410，与从未公开区分。
+   * 请求体中的 `reason` 一期仅占位，后续可接入审计/运营台账。
+   */
+  async takedownPublishedContentVersion(
+    contentVersionId: string,
+    _payload: TakedownPublishedContentVersionRequest,
+  ): Promise<TakedownPublishedContentVersionResponseData> {
+    const id = contentVersionId?.trim();
+    if (!id) {
+      throw new BizError({
+        code: 'VALIDATION_ERROR',
+        message: 'contentVersionId is required',
+      });
+    }
+
+    const version = await this.prisma.collectionContentVersion.findUnique({
+      where: { id },
+      include: {
+        collection: { select: { collectionNo: true } },
+      },
+    });
+
+    if (!version) {
+      throw new BizError({
+        code: 'CONTENT_VERSION_NOT_FOUND',
+        message: 'content version not found',
+        status: 404,
+      });
+    }
+
+    if (version.editStatus !== CollectionContentEditStatus.APPROVED) {
+      throw new BizError({
+        code: 'TAKEDOWN_STATUS_INVALID',
+        message: 'only approved content versions can be taken down',
+        status: 400,
+      });
+    }
+
+    if (version.publishStatus === CollectionContentPublishStatus.TAKEDOWN) {
+      throw new BizError({
+        code: 'TAKEDOWN_STATUS_INVALID',
+        message: 'content version is already taken down',
+        status: 400,
+      });
+    }
+
+    if (version.publishStatus !== CollectionContentPublishStatus.PUBLISHED) {
+      throw new BizError({
+        code: 'TAKEDOWN_STATUS_INVALID',
+        message: 'only published content versions can be taken down',
+        status: 400,
+      });
+    }
+
+    const appliedAt = new Date();
+    await this.prisma.collectionContentVersion.update({
+      where: { id },
+      data: {
+        publishStatus: CollectionContentPublishStatus.TAKEDOWN,
+      },
+    });
+
+    return {
+      contentVersionId: id,
+      collectionNo: version.collection.collectionNo,
+      publishStatus: 'TAKEDOWN',
+      appliedAt: toTimestamp(appliedAt),
+    };
+  }
+
+  /**
+   * 转换为审核历史时间线项。
+   */
+  private toCollectionReviewHistoryItem(
+    reviewRecord: Prisma.CollectionContentReviewRecordGetPayload<{
+      include: {
+        collection: true;
+        contentVersion: true;
+        reviewedByAdminUser: { select: { displayName: true } };
+      };
+    }>,
+  ): CollectionReviewHistoryItem {
+    return {
+      reviewId: reviewRecord.id,
+      collectionNo: reviewRecord.collection.collectionNo,
+      contentVersionId: reviewRecord.contentVersionId,
+      versionNo: reviewRecord.contentVersion.versionNo,
+      reviewStage: reviewRecord.reviewStage,
+      reviewStatus: reviewRecord.reviewStatus,
+      reviewSource: reviewRecord.reviewSource,
+      reviewReason: reviewRecord.reviewReason ?? null,
+      createdAt: toTimestamp(reviewRecord.createdAt),
+      reviewedAt: toNullableTimestamp(reviewRecord.reviewedAt),
+      reviewedByDisplayName:
+        reviewRecord.reviewedByAdminUser?.displayName?.trim() || null,
     };
   }
 

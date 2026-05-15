@@ -35,23 +35,32 @@
 
 ## 与现有实现的对接点（占位）
 
-- 后台：`CollectionReviewsController` / `CollectionReviewsService`（`apps/api/src/modules/admin/collection-reviews/`）：列表（含 **`reviewReason`**；支持按 **`collectionNo`** 等与 `seriesId`/`batchId` 组合筛选）、**人工通过**、**人工驳回**（仅 `PENDING_MANUAL`）。
-- 管理端：`apps/admin` 中 `CollectionReviewsPage`（`/collections/reviews`）已对接 **`GET /admin-api/collection-reviews`**（分页、按状态筛选、**按藏品编号精确筛选**、列表含备注「说明」列、中文展示）、**`POST .../:reviewId/approve`** 与 **`POST .../:reviewId/reject`**（待人工行内通过 / 驳回及弹窗）；支持 **导出当前页为 UTF-8 CSV**（含 BOM）。
+- 后台：`CollectionReviewsController` / `CollectionReviewsService`（`apps/api/src/modules/admin/collection-reviews/`）：列表（含 **`reviewReason`**；支持按 **`collectionNo`** 等与 `seriesId`/`batchId` 组合筛选）、**人工通过**、**人工驳回**（仅 `PENDING_MANUAL`）、**审核历史**（`GET .../collection-reviews/history?collectionNo=&contentVersionId=`，单藏品单次最多 200 条，超出返回 `REVIEW_HISTORY_LIMIT_EXCEEDED`）、**下架公开**（`POST .../content-versions/:contentVersionId/takedown`，仅 `APPROVED`+`PUBLISHED` → `TAKEDOWN`）。
+- 管理端：`apps/admin` 中 `CollectionReviewsPage`（`/collections/reviews`）已对接 **`GET /admin-api/collection-reviews`**（分页、按状态筛选、**按藏品编号精确筛选**、列表含备注「说明」列、中文展示）、**`POST .../:reviewId/approve`** 与 **`POST .../:reviewId/reject`**（待人工行内通过 / 驳回及弹窗）；支持 **导出当前页为 UTF-8 CSV**（含 BOM）；行内 **「审核历史」** 弹窗对接 **`GET /admin-api/collection-reviews/history`**（按藏品编号 + 当前行内容版本筛选，时间升序）；对机审/人工已通过记录提供 **「下架公开」**（`POST .../content-versions/:id/takedown`）。
 - 会员提交：`CONTENT_MANUAL_GATE_AFTER_MACHINE=1`（或 `true`/`yes`）时，同步机审占位通过后产生待人工队列；`docker-compose.yml` 中 api 服务已透传该变量（默认 `0`）。
 - 会员读内容：`GET /member-api/my/collections/:id/content` 的 `currentVersion.contentReviewStatus` 为当前版本最新一条审核状态；小程序编辑页据此展示中文说明（含「待人工复核」）。
 - 管理端默认筛选项为 **待人工复核**（进入页面即队列视图，可改为「全部状态」）。
 - 契约：`packages/api-contracts/src/admin/collection-reviews/`（与实现同步）。
 - 本地数据：`pnpm --filter @unicorn/api exec prisma db seed`（或仓库内等价命令）会写入 **`COL-SEED-PENDING-MANUAL`** 待人工复核演示行（固定主键，可重复执行）。
-
-## 验收结论标准（草案）
+- 公开展示：`PublicCollectionsService`（`GET /public-api/collections/:slug`）：按**最高版本号的已审核内容**判断；若为 `TAKEDOWN` 则 **410** + `PUBLIC_COLLECTION_TAKEDOWN`（小程序 `public-api-errors` 映射为下架提示），否则在存在 `PUBLISHED` 快照时返回 200。
+- 会员管理：`GET /admin-api/members` 分页列表（可选 `search`、`status`）；**`PATCH /admin-api/members/:memberId/status`** 冻结 / 解冻（`ACTIVE`↔`FROZEN`）；权限 **`members.read`** / **`members.manage`**（种子已授予超级管理员）；管理端 `/members` 对接真实数据，列表含微信渠道摘要与持有藏品数，行内「冻结 / 解冻」+ 确认弹窗。
 
 - 人工可对 **进入人工队列** 的记录完成通过/驳回，且状态与公开展示可见性符合设计。
 - 审核历史可按验收脚本查询并核对关键字段。
 - 下架或类似处置后，公开读与 C 端表现符合安全与体验要求。
 
-## 演示脚本（待 M2 完成后补全步骤号）
+## 演示脚本（本地可照做）
 
-- 预留：从 M2 已公开藏品切入 → 触发人工队列/下架等场景 → 后台操作 → 验证公开接口与会员侧表现。
+**前置**：数据库可用（见根目录 `docker-compose.yml` 与 `apps/api/.env.example`）；`pnpm install` 后已生成 Prisma Client（`apps/api` 的 `postinstall`）；`pnpm --filter @unicorn/api exec prisma migrate deploy`（或团队约定的建库方式）+ **`pnpm --filter @unicorn/api exec prisma db seed`**；启动 `apps/api` 与 `apps/admin`；使用具备 **`collection_reviews.manage`**、**`members.read`** / **`members.manage`** 的后台账号（种子超级管理员默认具备）。
+
+1. **待人工队列**：浏览器打开后台 **内容复核**（`/collections/reviews`），默认筛为「待人工复核」；确认存在种子 **`COL-SEED-PENDING-MANUAL`** 对应行（若无则检查 seed 是否成功执行）。
+2. **人工通过**：对该行执行 **通过**（可选备注），刷新列表后该行不再处于待人工；在 **审核历史** 弹窗中可见时间线新增记录。
+3. **人工驳回**（可选另一条待人工或自建数据）：对 `PENDING_MANUAL` 行执行 **驳回**，列表与历史应符合驳回语义。
+4. **下架公开**：对 **机审或人工已通过且版本已公开** 的行使用 **下架公开**，确认理由可选；随后用 **`GET /public-api/collections/:slug`**（slug 取该藏品公开展示 slug）应返回 **410**，业务码 **`PUBLIC_COLLECTION_TAKEDOWN`**（与从未公开的 404 区分）；若在小程序侧验证，应出现下架相关中文提示。
+5. **会员进人工开关**（可选）：将 API 环境变量 **`CONTENT_MANUAL_GATE_AFTER_MACHINE=1`** 后重启，会员提交内容在机审占位通过后进入 **`PENDING_MANUAL`** 且不公开；后台队列可见；验收后恢复为 `0` 以免干扰默认演示口径。
+6. **会员管理**：打开 **会员管理**（`/members`），确认列表、搜索（防抖）、状态筛选、分页与 **列设置** 可用；对测试会员执行 **冻结**，使用该会员令牌调用 **`member-api`** 应返回 **`MEMBER_ACCOUNT_FROZEN`**（登录/鉴权路径已拦截非 `ACTIVE`）；再 **解冻** 恢复可操作。
+
+**评论审核**：若本期纳入 M3，在本脚本末尾增加「评论列表 / 处置」步骤；若已划入 M4，在决策日志中注明，不在此脚本展开。
 
 ## 出入口标准（草案）
 
@@ -81,3 +90,10 @@
 - 2026-05-15：审核列表查询增加 **`collectionNo`** 精确筛选；`seriesId` 与 `batchId` 在服务层合并为同一 `collection` 条件，避免互相覆盖；后台内容复核页提供编号输入与「应用 / 清空」。
 - 2026-05-15：审核列表项增加 **`reviewReason`**（契约 + 接口 + 后台表格「说明」列）。
 - 2026-05-15：后台内容复核页支持 **导出当前页 CSV**（`src/lib/collection-reviews-csv.ts` + Vitest）；按钮文案标明仅当前页，避免与全量导出混淆。
+- 2026-05-15：新增 **`GET /admin-api/collection-reviews/history`**：按 `collectionNo`（必填）与可选 `contentVersionId` 返回审核时间线（`createdAt` 升序，含 `reviewSource`、`reviewedByDisplayName`、`reviewedAt`）；藏品或版本不存在分别 `COLLECTION_NOT_FOUND` / `CONTENT_VERSION_NOT_FOUND`；单请求超过 200 条记录时 `REVIEW_HISTORY_LIMIT_EXCEEDED`；内容复核列表行内 **「审核历史」** 弹窗对接该接口（默认按当前行版本筛选）。
+- 2026-05-15：公开展示读 **`GET /public-api/collections/:slug`**：若藏品存在且**当前最高版本号的已审核内容**为 `TAKEDOWN`，返回 **410** + `PUBLIC_COLLECTION_TAKEDOWN`（与从未公开的 **404** `RESOURCE_NOT_FOUND` 区分）；小程序 `formatPublicApiErrorMessage` 映射为「该公开展示已下架…」。
+- 2026-05-15：后台内容复核模块增加 **`POST /admin-api/collection-reviews/content-versions/:contentVersionId/takedown`**：将 `APPROVED`+`PUBLISHED` 版本标为 `TAKEDOWN`（与公开展示 410 联动）；管理端列表对机审/人工已通过行提供「下架公开」入口；契约 `TakedownPublishedContentVersionRequest/ResponseData`。
+- 2026-05-15：新增 **`GET /admin-api/members`** 会员分页列表（`search`、`status`、`_count.ownedCollections`、微信绑定渠道摘要）；权限 **`members.read`**；`apps/admin` 会员管理页接入接口并支持筛选与分页。
+- 2026-05-15：会员管理增加 **`PATCH /admin-api/members/:memberId/status`**（`UpdateMemberStatusRequest`）；权限 **`members.manage`**；管理端会员列表行内冻结 / 解冻与 `members.http.test` / `members.service.test` 覆盖。
+- 2026-05-15：本清单 **「演示脚本」** 由占位改为可执行步骤（内容复核 / 历史 / 下架与公开 410 / 可选机审后进人工 / 会员列表与冻结拦截）；评论审核是否纳入本脚本见段末说明。
+- 2026-05-15：后台「评论列表」「评论审核」仍为 **占位 mock**，尚无对应 **`admin-api` 评论治理接口**；与总览 M3「评论审核」尚未落地；**下一步需产品裁定**纳入本期实现或划入 M4，并在本清单「范围内事项」与演示脚本中同步收口表述。

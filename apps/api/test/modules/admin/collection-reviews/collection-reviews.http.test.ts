@@ -10,18 +10,34 @@ import { AdminAccessGuard } from '../../../../src/modules/admin/auth/admin-acces
 import { CollectionReviewsController } from '../../../../src/modules/admin/collection-reviews/collection-reviews.controller';
 import { CollectionReviewsService } from '../../../../src/modules/admin/collection-reviews/collection-reviews.service';
 
+type CollectionReviewsHttpServiceMock = Pick<
+  CollectionReviewsService,
+  'listCollectionReviews' | 'approveCollectionReview' | 'rejectCollectionReview'
+> &
+  Partial<
+    Pick<
+      CollectionReviewsService,
+      'listCollectionReviewHistory' | 'takedownPublishedContentVersion'
+    >
+  >;
+
 async function createCollectionReviewsHttpApp(
-  mock: Pick<
-    CollectionReviewsService,
-    'listCollectionReviews' | 'approveCollectionReview' | 'rejectCollectionReview'
-  >,
+  mock: CollectionReviewsHttpServiceMock,
 ): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({
     controllers: [CollectionReviewsController],
     providers: [
       {
         provide: CollectionReviewsService,
-        useValue: mock,
+        useValue: {
+          listCollectionReviewHistory: async () => {
+            throw new Error('not used');
+          },
+          takedownPublishedContentVersion: async () => {
+            throw new Error('not used');
+          },
+          ...mock,
+        },
       },
     ],
   })
@@ -78,6 +94,85 @@ test('GET /admin-api/collection-reviews returns wrapped paginated list', async (
       response.body.data.items[0]?.reviewReason,
       '同步机审策略已通过，待人工复核',
     );
+  } finally {
+    await app.close();
+  }
+});
+
+test('GET /admin-api/collection-reviews/history returns wrapped timeline', async () => {
+  const app = await createCollectionReviewsHttpApp({
+    listCollectionReviews: async () => {
+      throw new Error('not used');
+    },
+    listCollectionReviewHistory: async () => ({
+      items: [
+        {
+          reviewId: 'crr_a',
+          collectionNo: 'COL-001',
+          contentVersionId: 'ccv_1',
+          versionNo: 1,
+          reviewStage: 'MACHINE',
+          reviewStatus: 'MACHINE_APPROVED',
+          reviewSource: 'SYSTEM',
+          reviewReason: null,
+          createdAt: 1_000,
+          reviewedAt: 2_000,
+          reviewedByDisplayName: null,
+        },
+      ],
+    }),
+    approveCollectionReview: async () => {
+      throw new Error('not used');
+    },
+    rejectCollectionReview: async () => {
+      throw new Error('not used');
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .get('/admin-api/collection-reviews/history')
+      .query({ collectionNo: 'COL-001' })
+      .expect(200);
+
+    assert.equal(response.body.code, 'OK');
+    assert.equal(response.body.data.items.length, 1);
+    assert.equal(response.body.data.items[0]?.reviewId, 'crr_a');
+    assert.equal(response.body.data.items[0]?.reviewedByDisplayName, null);
+  } finally {
+    await app.close();
+  }
+});
+
+test('GET /admin-api/collection-reviews/history returns 400 when collectionNo missing', async () => {
+  const app = await createCollectionReviewsHttpApp({
+    listCollectionReviews: async () => {
+      throw new Error('not used');
+    },
+    listCollectionReviewHistory: async (query) => {
+      if (!(query.collectionNo ?? '').trim()) {
+        throw new BizError({
+          code: 'VALIDATION_ERROR',
+          message: 'collectionNo is required',
+        });
+      }
+      return { items: [] };
+    },
+    approveCollectionReview: async () => {
+      throw new Error('not used');
+    },
+    rejectCollectionReview: async () => {
+      throw new Error('not used');
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .get('/admin-api/collection-reviews/history')
+      .expect(400);
+
+    assert.equal(response.body.code, 'VALIDATION_ERROR');
+    assert.equal(response.body.message, 'collectionNo is required');
   } finally {
     await app.close();
   }
@@ -247,6 +342,48 @@ test('POST /admin-api/collection-reviews/:reviewId/reject returns 404 when revie
 
     assert.equal(response.body.code, 'REVIEW_RECORD_NOT_FOUND');
     assert.equal(response.body.message, 'review record not found');
+  } finally {
+    await app.close();
+  }
+});
+
+test('POST /admin-api/collection-reviews/content-versions/:id/takedown returns wrapped payload', async () => {
+  const appliedAt = new Date('2026-05-15T12:00:00.000Z').getTime();
+  const app = await createCollectionReviewsHttpApp({
+    listCollectionReviews: async () => {
+      throw new Error('not used');
+    },
+    approveCollectionReview: async () => {
+      throw new Error('not used');
+    },
+    rejectCollectionReview: async () => {
+      throw new Error('not used');
+    },
+    takedownPublishedContentVersion: async (contentVersionId, body) => {
+      assert.equal(contentVersionId, 'ccv_pub_1');
+      assert.equal(body.reason, '风控下架');
+      return {
+        contentVersionId: 'ccv_pub_1',
+        collectionNo: 'COL-001',
+        publishStatus: 'TAKEDOWN',
+        appliedAt,
+      };
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .post('/admin-api/collection-reviews/content-versions/ccv_pub_1/takedown')
+      .send({ reason: '风控下架' })
+      .expect(201);
+
+    assert.equal(response.body.code, 'OK');
+    assert.deepEqual(response.body.data, {
+      contentVersionId: 'ccv_pub_1',
+      collectionNo: 'COL-001',
+      publishStatus: 'TAKEDOWN',
+      appliedAt,
+    });
   } finally {
     await app.close();
   }

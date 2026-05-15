@@ -4,8 +4,10 @@ import type { CollectionReviewListItem } from '@contracts/admin/collection-revie
 import { toast } from 'sonner'
 import {
   approveCollectionReview,
+  listCollectionReviewHistory,
   listCollectionReviews,
   rejectCollectionReview,
+  takedownPublishedContentVersion,
 } from '@/apis/collections/collection-reviews'
 import { PageLayout } from '@/components/layout/page-layout'
 import { DataListIntro } from '@/components/data-table'
@@ -67,6 +69,23 @@ const REVIEW_STAGE_LABELS: Record<string, string> = {
   MANUAL: '人工',
 }
 
+/** 审核记录为「机审/人工已通过」时，允许尝试下架对应内容版本的公开展示（服务端校验是否仍为 `PUBLISHED`）。 */
+function rowMayTakedownPublish(row: CollectionReviewListItem): boolean {
+  return (
+    row.reviewStatus === 'MACHINE_APPROVED' || row.reviewStatus === 'MANUAL_APPROVED'
+  )
+}
+
+/** 审核来源中文（与 `CollectionContentReviewSource` 对齐）。 */
+const REVIEW_SOURCE_LABELS: Record<string, string> = {
+  SYSTEM: '系统',
+  ADMIN: '管理员',
+}
+
+function formatReviewSource(source: string): string {
+  return REVIEW_SOURCE_LABELS[source] ?? source
+}
+
 function formatReviewStatus(status: string): string {
   return REVIEW_STATUS_LABELS[status] ?? status
 }
@@ -112,6 +131,21 @@ function mapRejectReviewErrorMessage(error: ApiError): string {
   }
 }
 
+function mapTakedownPublishErrorMessage(error: ApiError): string {
+  switch (error.code) {
+    case 'CONTENT_VERSION_NOT_FOUND':
+      return '内容版本不存在或已删除'
+    case 'TAKEDOWN_STATUS_INVALID':
+      return error.message.includes('already taken down')
+        ? '该版本已处于下架状态'
+        : '当前版本不允许下架（需为已通过且公开发布态）'
+    case 'VALIDATION_ERROR':
+      return error.message
+    default:
+      return error.message || '下架失败，请稍后重试'
+  }
+}
+
 /** 列表加载失败时的可读说明（含鉴权与筛选参数错误）。 */
 function mapListCollectionReviewsErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -128,6 +162,29 @@ function mapListCollectionReviewsErrorMessage(error: unknown): string {
     }
   }
   return '审核记录加载失败，请检查网络后重试。'
+}
+
+function mapCollectionReviewHistoryErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    switch (error.code) {
+      case 'VALIDATION_ERROR':
+        return error.message || '请求参数无效。'
+      case 'COLLECTION_NOT_FOUND':
+        return '未找到该藏品编号，请核对后重试。'
+      case 'CONTENT_VERSION_NOT_FOUND':
+        return '该内容版本不属于此藏品或不存在。'
+      case 'REVIEW_HISTORY_LIMIT_EXCEEDED':
+        return '审核记录过多，请缩小筛选范围后重试。'
+      case 'ADMIN_AUTH_TOKEN_MISSING':
+      case 'ADMIN_AUTH_TOKEN_INVALID':
+        return '登录已失效或未携带后台令牌，请重新登录后再试。'
+      case 'ADMIN_AUTH_FORBIDDEN':
+        return '当前账号无「内容复核」权限，请联系管理员开通。'
+      default:
+        return error.message || '审核历史加载失败，请稍后重试。'
+    }
+  }
+  return '审核历史加载失败，请检查网络后重试。'
 }
 
 export function CollectionReviewsPage() {
@@ -147,6 +204,16 @@ export function CollectionReviewsPage() {
     useState<CollectionReviewListItem | null>(null)
   const [rejectReason, setRejectReason] = useState('')
 
+  /** 审核历史弹窗上下文：取当前行的藏品编号与内容版本以拉取时间线。 */
+  const [historyContext, setHistoryContext] = useState<CollectionReviewListItem | null>(
+    null,
+  )
+
+  const [takedownTarget, setTakedownTarget] = useState<CollectionReviewListItem | null>(
+    null,
+  )
+  const [takedownReason, setTakedownReason] = useState('')
+
   const queryParams = useMemo(
     () => ({
       page,
@@ -164,6 +231,22 @@ export function CollectionReviewsPage() {
   const { data, error, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'collection-reviews', queryParams],
     queryFn: () => listCollectionReviews(queryParams),
+  })
+
+  const historyQuery = useQuery({
+    queryKey: [
+      'admin',
+      'collection-reviews',
+      'history',
+      historyContext?.collectionNo,
+      historyContext?.contentVersionId,
+    ],
+    queryFn: () =>
+      listCollectionReviewHistory({
+        collectionNo: historyContext!.collectionNo,
+        contentVersionId: historyContext!.contentVersionId,
+      }),
+    enabled: !!historyContext,
   })
 
   const approveMutation = useMutation({
@@ -207,6 +290,28 @@ export function CollectionReviewsPage() {
         return
       }
       toast.error('人工驳回失败，请稍后重试')
+    },
+  })
+
+  const takedownMutation = useMutation({
+    mutationFn: (variables: { contentVersionId: string; reason?: string }) =>
+      takedownPublishedContentVersion(variables.contentVersionId, {
+        reason: variables.reason?.trim() || undefined,
+      }),
+    onSuccess: async () => {
+      toast.success('已下架该版本的公开展示')
+      setTakedownTarget(null)
+      setTakedownReason('')
+      await queryClient.invalidateQueries({
+        queryKey: ['admin', 'collection-reviews'],
+      })
+    },
+    onError: (error: unknown) => {
+      if (error instanceof ApiError) {
+        toast.error(mapTakedownPublishErrorMessage(error))
+        return
+      }
+      toast.error('下架失败，请稍后重试')
     },
   })
 
@@ -293,8 +398,42 @@ export function CollectionReviewsPage() {
     })
   }
 
+  const handleOpenTakedown = (row: CollectionReviewListItem) => {
+    setTakedownReason('')
+    setTakedownTarget(row)
+  }
+
+  const handleTakedownDialogChange = (open: boolean) => {
+    if (!open) {
+      setTakedownTarget(null)
+      setTakedownReason('')
+    }
+  }
+
+  const handleConfirmTakedown = () => {
+    if (!takedownTarget) {
+      return
+    }
+    takedownMutation.mutate({
+      contentVersionId: takedownTarget.contentVersionId,
+      reason: takedownReason,
+    })
+  }
+
+  const handleOpenHistory = (row: CollectionReviewListItem) => {
+    setHistoryContext(row)
+  }
+
+  const handleHistoryDialogChange = (open: boolean) => {
+    if (!open) {
+      setHistoryContext(null)
+    }
+  }
+
   const isReviewMutating =
-    approveMutation.isPending || rejectMutation.isPending
+    approveMutation.isPending ||
+    rejectMutation.isPending ||
+    takedownMutation.isPending
 
   return (
     <>
@@ -330,7 +469,9 @@ export function CollectionReviewsPage() {
                   description: (
                     <>
                       列表来自审核记录接口；「待人工复核」时可执行人工通过或驳回；「导出当前页
-                      CSV」仅导出本页已加载数据。
+                      CSV」仅导出本页已加载数据。每行可查看该藏品下<strong>当前内容版本</strong>
+                      的审核时间线。对「机审/人工已通过」且公开展示仍在线的记录，可执行<strong>下架公开</strong>
+                      （内容版本标记为 `TAKEDOWN`，小程序公开展示将提示已下架）。
                     </>
                   ),
                 },
@@ -455,28 +596,48 @@ export function CollectionReviewsPage() {
                             {formatSubmittedAt(row.submittedAt)}
                           </TableCell>
                           <TableCell className='text-end'>
-                            {row.reviewStatus === 'PENDING_MANUAL' ? (
-                              <div className='flex flex-wrap justify-end gap-2'>
+                            <div className='flex flex-wrap justify-end gap-2'>
+                              <Button
+                                size='sm'
+                                variant='outline'
+                                type='button'
+                                disabled={isReviewMutating}
+                                onClick={() => handleOpenHistory(row)}
+                              >
+                                审核历史
+                              </Button>
+                              {rowMayTakedownPublish(row) ? (
                                 <Button
                                   size='sm'
-                                  variant='default'
+                                  variant='secondary'
+                                  type='button'
                                   disabled={isReviewMutating}
-                                  onClick={() => handleOpenApprove(row)}
+                                  onClick={() => handleOpenTakedown(row)}
                                 >
-                                  人工通过
+                                  下架公开
                                 </Button>
-                                <Button
-                                  size='sm'
-                                  variant='destructive'
-                                  disabled={isReviewMutating}
-                                  onClick={() => handleOpenReject(row)}
-                                >
-                                  人工驳回
-                                </Button>
-                              </div>
-                            ) : (
-                              <span className='text-xs text-muted-foreground'>—</span>
-                            )}
+                              ) : null}
+                              {row.reviewStatus === 'PENDING_MANUAL' ? (
+                                <>
+                                  <Button
+                                    size='sm'
+                                    variant='default'
+                                    disabled={isReviewMutating}
+                                    onClick={() => handleOpenApprove(row)}
+                                  >
+                                    人工通过
+                                  </Button>
+                                  <Button
+                                    size='sm'
+                                    variant='destructive'
+                                    disabled={isReviewMutating}
+                                    onClick={() => handleOpenReject(row)}
+                                  >
+                                    人工驳回
+                                  </Button>
+                                </>
+                              ) : null}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -597,6 +758,135 @@ export function CollectionReviewsPage() {
               {rejectMutation.isPending ? '提交中…' : '确认驳回'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!takedownTarget} onOpenChange={handleTakedownDialogChange}>
+        <DialogContent className='sm:max-w-md'>
+          <DialogHeader>
+            <DialogTitle>下架公开展示</DialogTitle>
+            <DialogDescription>
+              将藏品{' '}
+              <span className='font-medium text-foreground'>
+                {takedownTarget?.collectionNo}
+              </span>{' '}
+              的内容版本 v{takedownTarget?.versionNo} 标记为下架（
+              <code className='text-xs'>TAKEDOWN</code>
+              ）。小程序公开展示页将提示已下架。
+            </DialogDescription>
+          </DialogHeader>
+          <div className='grid gap-2'>
+            <Label htmlFor='takedown-reason'>下架说明（可选）</Label>
+            <Textarea
+              id='takedown-reason'
+              rows={3}
+              placeholder='可填写风控或运营备注（当前版本仅随请求发送，后续可接入审计台账）'
+              value={takedownReason}
+              onChange={(e) => setTakedownReason(e.target.value)}
+              disabled={isReviewMutating}
+            />
+          </div>
+          <DialogFooter className='gap-2 sm:gap-0'>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => handleTakedownDialogChange(false)}
+              disabled={isReviewMutating}
+            >
+              取消
+            </Button>
+            <Button
+              type='button'
+              variant='destructive'
+              onClick={handleConfirmTakedown}
+              disabled={isReviewMutating}
+            >
+              {takedownMutation.isPending ? '提交中…' : '确认下架'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!historyContext} onOpenChange={handleHistoryDialogChange}>
+        <DialogContent className='flex max-h-[85vh] max-w-3xl flex-col overflow-hidden'>
+          <DialogHeader>
+            <DialogTitle>审核历史</DialogTitle>
+            <DialogDescription>
+              {historyContext ? (
+                <>
+                  藏品{' '}
+                  <span className='font-medium text-foreground'>
+                    {historyContext.collectionNo}
+                  </span>
+                  ，内容版本 v{historyContext.versionNo}；按记录创建时间从早到晚排列。
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className='min-h-0 flex-1 overflow-y-auto'>
+            {historyQuery.isLoading ? (
+              <p className='py-6 text-center text-muted-foreground text-sm'>正在加载审核历史…</p>
+            ) : historyQuery.isError ? (
+              <p className='py-6 text-center text-destructive text-sm'>
+                {mapCollectionReviewHistoryErrorMessage(historyQuery.error)}
+              </p>
+            ) : (
+              <div className='overflow-hidden rounded-md border'>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>记录时间</TableHead>
+                      <TableHead>阶段</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>来源</TableHead>
+                      <TableHead className='max-w-[200px]'>说明</TableHead>
+                      <TableHead>审核人</TableHead>
+                      <TableHead>完成时间</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(historyQuery.data?.items ?? []).length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className='text-center text-muted-foreground text-sm'
+                        >
+                          暂无审核记录。
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      (historyQuery.data?.items ?? []).map((h) => (
+                        <TableRow key={h.reviewId}>
+                          <TableCell className='text-muted-foreground text-xs tabular-nums'>
+                            {formatSubmittedAt(h.createdAt)}
+                          </TableCell>
+                          <TableCell>{formatReviewStage(h.reviewStage)}</TableCell>
+                          <TableCell>
+                            <Badge variant='outline'>{formatReviewStatus(h.reviewStatus)}</Badge>
+                          </TableCell>
+                          <TableCell>{formatReviewSource(h.reviewSource)}</TableCell>
+                          <TableCell
+                            className='max-w-[200px] truncate text-muted-foreground text-xs'
+                            title={h.reviewReason ?? undefined}
+                          >
+                            {h.reviewReason?.trim() ? h.reviewReason : '—'}
+                          </TableCell>
+                          <TableCell className='text-muted-foreground text-xs'>
+                            {h.reviewedByDisplayName?.trim() ? h.reviewedByDisplayName : '—'}
+                          </TableCell>
+                          <TableCell className='text-muted-foreground text-xs tabular-nums'>
+                            {h.reviewedAt != null
+                              ? formatSubmittedAt(h.reviewedAt)
+                              : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>

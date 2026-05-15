@@ -14,6 +14,12 @@ export const ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES =
 export const ADMIN_PERMISSION_COLLECTION_REVIEWS_MANAGE =
   'collection_reviews.manage';
 
+/** 会员列表只读（M3 会员管理入口）。 */
+export const ADMIN_PERMISSION_MEMBERS_READ = 'members.read';
+
+/** 会员状态变更（冻结/解冻等）。 */
+export const ADMIN_PERMISSION_MEMBERS_MANAGE = 'members.manage';
+
 /** 占位：M2+ 页面导航，仅超级管理员可见。 */
 export const ADMIN_PERMISSION_NAV_M2_PLACEHOLDER = 'nav.m2_placeholder';
 
