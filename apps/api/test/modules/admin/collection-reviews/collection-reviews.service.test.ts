@@ -344,7 +344,6 @@ function createCollectionReviewsPrismaMock() {
             collectionContentVersion: typeof collectionContentVersion;
           }) => Promise<unknown>
         )({
-          collection,
           collectionContentReviewRecord,
           collectionContentVersion,
         });
