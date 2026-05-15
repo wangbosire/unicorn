@@ -1,21 +1,43 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
+import { DEFAULT_DEV_MEMBER_ID } from '../../lib/default-dev-member'
 import {
   clearMemberSession,
+  getMemberSessionSummary,
   loginWechatMiniapp,
   MemberApiError,
   persistMemberSession,
 } from '../../apis/member/member-api'
+import { formatMemberApiErrorMessage } from '../../lib/member-api-errors'
+import { formatSessionSourceLabel } from '../../lib/member-session-display'
 import { PageShell } from '../../components/page-shell'
 import { StatusCard } from '../../components/status-card'
 
 /**
  * 小程序首页。
- * 当前作为 M1 领取闭环入口，优先承接“激活藏品”和“查看我的藏品”两条主动作。
+ * 承接 M1 激活与「我的藏品」入口，并作为 M2 内容编辑 / 公开展示联调的总入口说明。
  */
 export default function IndexPage() {
   const [isWechatLoginLoading, setIsWechatLoginLoading] = useState(false)
+  const [sessionSummary, setSessionSummary] = useState(() => getMemberSessionSummary())
+
+  const refreshSessionSummary = useCallback(() => {
+    setSessionSummary(getMemberSessionSummary())
+  }, [])
+
+  useEffect(() => {
+    refreshSessionSummary()
+  }, [refreshSessionSummary])
+
+  useDidShow(() => {
+    refreshSessionSummary()
+  })
+
+  usePullDownRefresh(() => {
+    refreshSessionSummary()
+    void Taro.stopPullDownRefresh()
+  })
 
   async function handleWechatLogin() {
     setIsWechatLoginLoading(true)
@@ -31,10 +53,11 @@ export default function IndexPage() {
         title: `已登录 ${session.member.memberNo}`,
         icon: 'success',
       })
+      refreshSessionSummary()
     } catch (error) {
       const message =
         error instanceof MemberApiError
-          ? mapWechatLoginErrorMessage(error.code, error.message)
+          ? mapWechatLoginErrorMessage(error.code, formatMemberApiErrorMessage(error))
           : error instanceof Error
             ? error.message
             : '登录失败，请稍后重试'
@@ -46,13 +69,14 @@ export default function IndexPage() {
 
   function handleClearSession() {
     clearMemberSession()
-    Taro.showToast({ title: '已恢复默认联调会员 mem_1', icon: 'none' })
+    refreshSessionSummary()
+    Taro.showToast({ title: `已恢复默认联调会员 ${DEFAULT_DEV_MEMBER_ID}`, icon: 'none' })
   }
 
   return (
     <PageShell
       title='Unicorn 数字藏品'
-      description='先完成领取，再进入内容编辑和展示流程。当前首页优先服务 M1 最小发行闭环的联调与演示。'
+      description='先完成领取，再在「我的藏品」中编辑内容、提交审核；机审通过后可查看公开展示。下拉可刷新首页的联调会话摘要。'
       background='linear-gradient(180deg, #fef3c7 0%, #f8fafc 38%, #dbeafe 100%)'
       heroBackground='#1e293b'
       heroTextColor='#f8fafc'
@@ -107,7 +131,7 @@ export default function IndexPage() {
               fontSize: '28rpx',
             }}
           >
-            使用微信登录后，激活与藏品请求会携带后端返回的 mock token；仍可在开发者工具清除存储或点下方按钮恢复 mem_1。
+            使用微信登录后，激活与藏品请求会携带后端返回的 mock token；仍可在开发者工具清除存储或点下方按钮恢复默认种子会员。
           </Text>
           <View style={{ display: 'flex', flexDirection: 'column', gap: '16rpx' }}>
             <Button
@@ -143,28 +167,79 @@ export default function IndexPage() {
                 fontWeight: '500',
               }}
             >
-              恢复默认联调会员 mem_1
+              恢复默认联调会员
             </Button>
+            <View
+              style={{
+                marginTop: '8rpx',
+                paddingTop: '20rpx',
+                borderTop: '2rpx solid rgba(196, 181, 253, 0.55)',
+              }}
+            >
+              <Text
+                style={{
+                  display: 'block',
+                  marginBottom: '8rpx',
+                  fontSize: '22rpx',
+                  fontWeight: '600',
+                  color: '#6d28d9',
+                }}
+              >
+                当前请求上下文
+              </Text>
+              <Text
+                style={{
+                  display: 'block',
+                  fontSize: '22rpx',
+                  color: '#475569',
+                  lineHeight: '1.65',
+                }}
+              >
+                会员主键：{sessionSummary.memberId}
+                {'\n'}
+                会话：{formatSessionSourceLabel(sessionSummary.sessionSource)}
+                {'\n'}
+                API：{sessionSummary.memberApiBaseUrl}
+              </Text>
+            </View>
           </View>
         </View>
 
         <ActionCard
           eyebrow='领取结果'
           title='查看我的藏品'
-          description='查看当前会员已领取的藏品结果，后续内容编辑会从这里继续进入。'
+          description='查看已领取藏品；可进入单件编辑、提交审核，已公开藏品可直接打开公开展示页。'
           buttonLabel='查看藏品'
           background='linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)'
           buttonBackground='#0891b2'
           buttonColor='#ecfeff'
           onClick={() => {
-            void Taro.navigateTo({ url: '/pages/collections/index' })
+            void Taro.switchTab({ url: '/pages/collections/index' })
           }}
         />
+
+        <Button
+          onClick={() => {
+            void Taro.navigateTo({ url: '/pages/messages/index' })
+          }}
+          style={{
+            height: '72rpx',
+            lineHeight: '72rpx',
+            borderRadius: '999rpx',
+            border: '2rpx solid #cbd5e1',
+            background: 'rgba(255, 255, 255, 0.75)',
+            color: '#475569',
+            fontSize: '26rpx',
+            fontWeight: '500',
+          }}
+        >
+          消息中心（规划说明）
+        </Button>
       </View>
 
       <StatusCard
         title='当前联调说明'
-        description='默认使用联调种子会员 mem_1 与本地 member-api。首页支持微信一键登录写入 unicorn_member_access_token 与 unicorn_member_id；亦可手动写入 unicorn_member_api_base_url 覆盖接口基地址。'
+        description={`默认使用联调种子会员 ${DEFAULT_DEV_MEMBER_ID} 与本地 member-api。首页支持微信一键登录写入 unicorn_member_access_token 与 unicorn_member_id；亦可手动写入 unicorn_member_api_base_url 覆盖接口基地址。`}
         background='#eff6ff'
         borderColor='#93c5fd'
         titleColor='#1d4ed8'

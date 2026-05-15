@@ -1,0 +1,20 @@
+# 供根目录 CI 复用：固定 pnpm 版本、缓存依赖并安装 workspace。
+name: Setup pnpm workspace
+description: Install pnpm, Node 20, and frozen workspace dependencies
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 10.10.0
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+      shell: bash

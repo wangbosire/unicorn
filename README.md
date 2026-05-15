@@ -74,3 +74,19 @@ docker compose -f docker-compose.yml -f docker-compose.hot.yml up --build mysql 
 2. 复制 `apps/api/.env.example` 为 `apps/api/.env`，`DATABASE_URL` 指向 `127.0.0.1:3306`。
 3. 在 `apps/api` 执行 `pnpm exec prisma db push` 与 `pnpm exec prisma db seed`。
 4. API / Admin / 小程序在宿主机 `pnpm dev` 连接本机 MySQL 即可。
+
+## 测试（Monorepo）
+
+根目录 `pnpm test` 由 Turborepo 并行执行各 workspace 的 `test` 脚本。
+
+- **`apps/admin`**：Vitest 浏览器模式依赖本机 **Playwright**。若报错提示缺少 Chromium / `chrome-headless-shell`，请在仓库根目录执行 `pnpm exec playwright install`，或先执行 `pnpm --filter @unicorn/admin run test:browser:install`，再重试根目录 `pnpm test`。
+- **不跑 Admin、仅 API + 小程序**（CI / 本机快速校验，无需 Playwright）：`pnpm test:api-miniapp`。
+- **仅跑其中一个包**：`pnpm --filter @unicorn/api test`、`pnpm --filter @unicorn/miniapp test`。
+
+## 持续集成（GitHub Actions）
+
+指向 `main` 的 push 与 pull request 会运行根目录 [.github/workflows/ci.yml](./.github/workflows/ci.yml)（支持 **workflow_dispatch** 手动触发）：**并行**两个 job——其一执行 `pnpm test:api-miniapp`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；其二安装 Playwright 后执行 `pnpm --filter @unicorn/admin test`。依赖安装通过 [.github/actions/setup-pnpm/action.yml](./.github/actions/setup-pnpm/action.yml) 复用。
+
+每日定时任务（可手动触发）见 [.github/workflows/stale.yml](./.github/workflows/stale.yml)，用于标记并关闭长期无活动的 Issue / PR。
+
+依赖与流水线版本由 [.github/dependabot.yml](./.github/dependabot.yml) 每周检查：`github-actions`（**分组**为单条 PR）与根目录 **pnpm**（`npm` 生态；**生产 / 开发依赖分组**，仍由根 `pnpm-lock.yaml` 覆盖全 workspace）。

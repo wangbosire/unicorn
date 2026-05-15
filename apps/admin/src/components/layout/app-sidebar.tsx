@@ -15,6 +15,9 @@ import { NavUser } from './nav-user'
 import { TeamSwitcher } from './team-switcher'
 import type { NavGroup as NavGroupType, NavItem, NavLink } from './types'
 
+/** 未登录或无权限列表时使用同一引用，避免 `useMemo` 依赖在每次渲染间变化。 */
+const EMPTY_PERMISSION_KEYS: string[] = []
+
 function filterNavGroups(
   groups: NavGroupType[],
   permissionKeys: string[]
@@ -48,7 +51,7 @@ function filterNavGroups(
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
   const authUser = useAuthStore((s) => s.auth.user)
-  const permissionKeys = authUser?.permissionKeys ?? []
+  const permissionKeys = authUser?.permissionKeys ?? EMPTY_PERMISSION_KEYS
 
   const navGroups = useMemo(
     () => filterNavGroups(sidebarData.navGroups, permissionKeys),

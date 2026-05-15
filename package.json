@@ -8,6 +8,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:api-miniapp": "pnpm --filter @unicorn/api --filter @unicorn/miniapp test",
     "typecheck": "turbo run typecheck",
     "format": "turbo run format",
     "clean": "turbo run clean"

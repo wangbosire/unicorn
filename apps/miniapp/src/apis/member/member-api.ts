@@ -4,6 +4,13 @@ import type {
   WechatMiniappLoginResponseData,
 } from '@contracts/member/auth'
 import { resolveMemberApiBaseUrl } from '../../config/runtime'
+import { DEFAULT_DEV_MEMBER_ID } from '../../lib/default-dev-member'
+import {
+  MOCK_MEMBER_TOKEN_PREFIX,
+  parseMemberIdFromMockAccessToken,
+} from '../../lib/member-mock-token'
+
+export { DEFAULT_DEV_MEMBER_ID }
 
 type ApiSuccessResponse<T> = {
   code: 'OK'
@@ -31,24 +38,17 @@ export const MEMBER_ID_STORAGE_KEY = 'unicorn_member_id'
  */
 export const MEMBER_ACCESS_TOKEN_STORAGE_KEY = 'unicorn_member_access_token'
 
-const MOCK_MEMBER_TOKEN_PREFIX = 'mock-member-token:'
-
-function parseMemberIdFromMockAccessToken(token: string): string | null {
-  const trimmed = token.trim()
-  const withoutBearer = trimmed.startsWith('Bearer ') ? trimmed.slice(7).trim() : trimmed
-  if (withoutBearer.startsWith(MOCK_MEMBER_TOKEN_PREFIX)) {
-    const id = withoutBearer.slice(MOCK_MEMBER_TOKEN_PREFIX.length).trim()
-    return id.length > 0 ? id : null
-  }
-  return null
+type StoredMemberSession = {
+  memberId: string
+  authorization: string
+  /** 与请求头注入逻辑一致，用于首页联调展示。 */
+  source: 'default' | 'token' | 'id_only'
 }
 
-/**
- * 解析会员请求头：优先使用登录态写入的 accessToken；否则回落到默认种子会员 mem_1。
- */
-function resolveMemberAuthHeaders(): Record<string, string> {
-  let memberId = 'mem_1'
-  let authorization = `Bearer ${MOCK_MEMBER_TOKEN_PREFIX}mem_1`
+function readStoredMemberSession(): StoredMemberSession {
+  let memberId = DEFAULT_DEV_MEMBER_ID
+  let authorization = `Bearer ${MOCK_MEMBER_TOKEN_PREFIX}${DEFAULT_DEV_MEMBER_ID}`
+  let source: StoredMemberSession['source'] = 'default'
 
   try {
     const storedToken = Taro.getStorageSync(MEMBER_ACCESS_TOKEN_STORAGE_KEY)
@@ -63,29 +63,71 @@ function resolveMemberAuthHeaders(): Record<string, string> {
       } else if (typeof storedId === 'string' && storedId.trim()) {
         memberId = storedId.trim()
       }
+      source = 'token'
     } else if (typeof storedId === 'string' && storedId.trim()) {
       memberId = storedId.trim()
       authorization = `Bearer ${MOCK_MEMBER_TOKEN_PREFIX}${memberId}`
+      source = 'id_only'
     }
   } catch {
     // 存储不可用时保持默认联调身份。
   }
 
+  return { memberId, authorization, source }
+}
+
+/**
+ * 读取当前将与 `requestMemberApi` 一并发送的会员上下文摘要（联调页展示用，不含令牌明文）。
+ */
+export function getMemberSessionSummary(): {
+  memberId: string
+  sessionSource: StoredMemberSession['source']
+  memberApiBaseUrl: string
+} {
+  const s = readStoredMemberSession()
+  return {
+    memberId: s.memberId,
+    sessionSource: s.source,
+    memberApiBaseUrl: resolveMemberApiBaseUrl(),
+  }
+}
+
+/**
+ * 解析会员请求头：优先使用登录态写入的 accessToken；否则回落到 `DEFAULT_DEV_MEMBER_ID`。
+ */
+function resolveMemberAuthHeaders(): Record<string, string> {
+  const s = readStoredMemberSession()
   return {
     'content-type': 'application/json',
-    'x-member-id': memberId,
-    authorization,
+    'x-member-id': s.memberId,
+    authorization: s.authorization,
   }
 }
 
 function throwIfMemberApiFailed<T>(
   response: Taro.request.SuccessCallbackResult<ApiSuccessResponse<T> | ApiErrorResponse>
 ): T {
-  if (response.statusCode >= 400 || response.data.code !== 'OK') {
-    const error = response.data as ApiErrorResponse
-    throw new MemberApiError(error.code, error.message || '请求失败')
+  if (response.statusCode === 404) {
+    throw new MemberApiError('NOT_FOUND', '资源不存在或无权访问')
   }
-  return (response.data as ApiSuccessResponse<T>).data
+  if (response.statusCode >= 400) {
+    const body = response.data as ApiErrorResponse | undefined
+    const message =
+      body && typeof body.message === 'string' && body.message
+        ? body.message
+        : `请求失败（${response.statusCode}）`
+    const code = body && typeof body.code === 'string' ? body.code : 'HTTP_ERROR'
+    throw new MemberApiError(code, message)
+  }
+  const payload = response.data
+  if (!payload || typeof payload !== 'object' || !('code' in payload)) {
+    throw new MemberApiError('INVALID_RESPONSE', '响应格式异常')
+  }
+  if (payload.code !== 'OK') {
+    const err = payload as ApiErrorResponse
+    throw new MemberApiError(err.code, err.message || '请求失败')
+  }
+  return (payload as ApiSuccessResponse<T>).data
 }
 
 /**
@@ -131,7 +173,7 @@ export function persistMemberSession(accessToken: string, memberId: string): voi
 }
 
 /**
- * 清除登录态，恢复默认联调种子会员 mem_1。
+ * 清除登录态，恢复默认联调种子会员（`DEFAULT_DEV_MEMBER_ID`）。
  */
 export function clearMemberSession(): void {
   try {

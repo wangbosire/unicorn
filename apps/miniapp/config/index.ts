@@ -29,6 +29,11 @@ export default defineConfig({
       },
     },
   },
+  /** tabBar 图标等纯静态资源：需显式拷贝到 `dist`，否则真机/开发者工具找不到路径。 */
+  copy: {
+    patterns: [{ from: 'src/assets/tab/', to: 'dist/assets/tab/' }],
+    options: {},
+  },
   /**
    * H5 构建：供 Docker 内编译并在网关 `/h5/` 下静态托管。
    * 使用 hash 路由，避免刷新时 nginx 需为每个路由配置 fallback。

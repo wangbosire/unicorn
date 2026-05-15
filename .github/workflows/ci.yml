@@ -1,0 +1,56 @@
+# Monorepo 持续集成：并行跑「单测 + 静态检查 + 构建」与「Admin 浏览器单测」，缩短总耗时。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  monorepo-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm workspace
+        uses: ./.github/actions/setup-pnpm
+
+      - name: API + Miniapp tests
+        run: pnpm test:api-miniapp
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+  admin-browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm workspace
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Install Playwright (Admin)
+        run: pnpm --filter @unicorn/admin run test:browser:install
+
+      - name: Admin tests
+        run: pnpm --filter @unicorn/admin test

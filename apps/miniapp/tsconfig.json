@@ -16,5 +16,5 @@
       "@contracts/*": ["../../packages/api-contracts/src/*"]
     }
   },
-  "include": ["src/**/*", "config/**/*"]
+  "include": ["src/**/*", "config/**/*", "test/**/*"]
 }

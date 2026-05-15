@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Button, Text, View } from '@tarojs/components'
-import { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import type {
   ListMyCollectionsQuery,
   ListMyCollectionsResponseData,
   MyCollectionListItem,
 } from '@contracts/member/my-collections'
-import { requestMemberApi } from '../../apis/member/member-api'
+import { MemberApiError, requestMemberApi } from '../../apis/member/member-api'
+import { formatMemberApiErrorMessage } from '../../lib/member-api-errors'
 import { PageShell } from '../../components/page-shell'
 import { StatusCard } from '../../components/status-card'
 
 /**
  * 我的藏品页。
- * 当前聚焦 M1 领取闭环承接：展示当前会员已领取的藏品结果，便于验证激活成功。
+ * M1：展示已领取藏品；M2：进入内容编辑/提交审核，已公开藏品可直达公开展示页。
  */
 export default function CollectionsPage() {
   const [items, setItems] = useState<MyCollectionListItem[]>([])
@@ -39,7 +40,11 @@ export default function CollectionsPage() {
       setItems(result.items)
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : '加载藏品失败，请稍后重试'
+        error instanceof MemberApiError
+          ? formatMemberApiErrorMessage(error)
+          : error instanceof Error
+            ? error.message
+            : '加载藏品失败，请稍后重试'
       )
     } finally {
       setIsLoading(false)
@@ -54,10 +59,16 @@ export default function CollectionsPage() {
     void loadCollections()
   })
 
+  usePullDownRefresh(() => {
+    void loadCollections().finally(() => {
+      void Taro.stopPullDownRefresh()
+    })
+  })
+
   return (
     <PageShell
       title='我的藏品'
-      description='这里展示当前会员已经领取成功的藏品，后续内容编辑和提交审核都会从这里继续进入。'
+      description='这里展示当前会员已经领取成功的藏品；可从列表进入内容编辑与提交审核，已公开藏品可直接查看公开展示页。下拉可刷新。'
       background='linear-gradient(180deg, #ecfeff 0%, #f8fafc 35%, #fff7ed 100%)'
       heroBackground='#082f49'
       heroTextColor='#ecfeff'
@@ -162,6 +173,52 @@ export default function CollectionsPage() {
               <Text style={{ display: 'block', color: '#64748b' }}>
                 领取时间：{formatClaimedAt(item.claimedAt)}
               </Text>
+              <Button
+                onClick={() =>
+                  Taro.navigateTo({
+                    url: `/pages/collection-edit/index?collectionId=${encodeURIComponent(
+                      item.id
+                    )}&collectionNo=${encodeURIComponent(item.collectionNo)}`,
+                  })
+                }
+                style={{
+                  marginTop: '20rpx',
+                  height: '72rpx',
+                  lineHeight: '72rpx',
+                  borderRadius: '999rpx',
+                  border: 'none',
+                  background: '#0f172a',
+                  color: '#f8fafc',
+                  fontSize: '26rpx',
+                  fontWeight: '600',
+                }}
+              >
+                编辑内容与提交审核
+              </Button>
+              {item.contentPublishStatus === 'PUBLISHED' ? (
+                <Button
+                  onClick={() =>
+                    Taro.navigateTo({
+                      url: `/pages/collection-public/index?slug=${encodeURIComponent(
+                        item.collectionNo
+                      )}`,
+                    })
+                  }
+                  style={{
+                    marginTop: '16rpx',
+                    height: '72rpx',
+                    lineHeight: '72rpx',
+                    borderRadius: '999rpx',
+                    border: '2rpx solid #cbd5e1',
+                    background: '#f8fafc',
+                    color: '#0f172a',
+                    fontSize: '26rpx',
+                    fontWeight: '600',
+                  }}
+                >
+                  查看公开展示
+                </Button>
+              ) : null}
             </View>
           ))}
         </View>

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Button, Text, View } from '@tarojs/components'
-import { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import type { GetCurrentMemberResponseData } from '@contracts/member/auth'
-import { requestMemberApi } from '../../apis/member/member-api'
+import { MemberApiError, requestMemberApi } from '../../apis/member/member-api'
+import { formatMemberApiErrorMessage } from '../../lib/member-api-errors'
 import { PageShell } from '../../components/page-shell'
 import { StatusCard } from '../../components/status-card'
 
 /**
  * 会员信息页。
- * 当前用于展示联调阶段的会员身份和账户状态，便于确认小程序侧上下文是否正确。
+ * 展示当前会员身份；提供「我的藏品」快捷入口，便于从个人页进入 M2 内容编辑与公开展示联调。
  */
 export default function ProfilePage() {
   const [member, setMember] = useState<GetCurrentMemberResponseData | null>(null)
@@ -28,7 +29,11 @@ export default function ProfilePage() {
       setMember(result)
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : '加载会员信息失败，请稍后重试'
+        error instanceof MemberApiError
+          ? formatMemberApiErrorMessage(error)
+          : error instanceof Error
+            ? error.message
+            : '加载会员信息失败，请稍后重试'
       )
     } finally {
       setIsLoading(false)
@@ -43,10 +48,16 @@ export default function ProfilePage() {
     void loadCurrentMember()
   })
 
+  usePullDownRefresh(() => {
+    void loadCurrentMember().finally(() => {
+      void Taro.stopPullDownRefresh()
+    })
+  })
+
   return (
     <PageShell
       title='当前会员'
-      description='这里展示当前小程序会话所使用的会员身份，便于联调时确认 mock 登录上下文和账户状态。'
+      description='这里展示当前小程序会话所使用的会员身份；下方可进入我的藏品，继续编辑内容、提交审核或查看公开展示。下拉可刷新。'
       background='linear-gradient(180deg, #ede9fe 0%, #f8fafc 40%, #ecfeff 100%)'
       heroBackground='#312e81'
       heroTextColor='#eef2ff'
@@ -57,7 +68,7 @@ export default function ProfilePage() {
         loading={isLoading}
         disabled={isLoading}
         style={{
-          marginBottom: '24rpx',
+          marginBottom: '16rpx',
           height: '84rpx',
           lineHeight: '84rpx',
           borderRadius: '999rpx',
@@ -69,6 +80,24 @@ export default function ProfilePage() {
         }}
       >
         {isLoading ? '正在刷新...' : '刷新会员信息'}
+      </Button>
+      <Button
+        onClick={() => {
+          void Taro.switchTab({ url: '/pages/collections/index' })
+        }}
+        style={{
+          marginBottom: '24rpx',
+          height: '84rpx',
+          lineHeight: '84rpx',
+          borderRadius: '999rpx',
+          border: '2rpx solid #a5b4fc',
+          background: 'rgba(255, 255, 255, 0.65)',
+          color: '#312e81',
+          fontSize: '28rpx',
+          fontWeight: '600',
+        }}
+      >
+        前往我的藏品
       </Button>
 
       {isLoading ? (

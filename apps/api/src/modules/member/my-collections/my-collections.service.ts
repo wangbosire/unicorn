@@ -41,6 +41,11 @@ import type {
 } from '@contracts/member/my-collections';
 
 /**
+ * 若内容标题包含该子串，则同步机审占位策略判定为拒绝（仅用于联调与单测；后续接入真实机审服务时可删除）。
+ */
+const MACHINE_REJECT_TITLE_SENTINEL = '__MACHINE_REJECT__';
+
+/**
  * 保存草稿请求校验 schema。
  */
 const saveCollectionDraftSchema = z.object({
@@ -59,7 +64,7 @@ const submitCollectionContentSchema = z.object({
 
 /**
  * 我的藏品服务。
- * 提供会员回看已领取藏品的最小查询能力，用于验证激活结果。
+ * 提供会员名下藏品列表、内容版本读取、草稿保存、提交审核及同步机审占位等能力。
  */
 @Injectable()
 export class MyCollectionsService {
@@ -263,7 +268,7 @@ export class MyCollectionsService {
     }
 
     const submittedAt = new Date();
-    const submittedVersion = await this.prisma.$transaction(async (tx) => {
+    const { finalVersion, reviewStatus } = await this.prisma.$transaction(async (tx) => {
       const updatedVersion = await tx.collectionContentVersion.update({
         where: { id: targetVersion.id },
         data: {
@@ -272,7 +277,7 @@ export class MyCollectionsService {
         },
       });
 
-      await tx.collectionContentReviewRecord.create({
+      const reviewRecord = await tx.collectionContentReviewRecord.create({
         data: {
           collectionId: collection.id,
           contentVersionId: targetVersion.id,
@@ -282,13 +287,88 @@ export class MyCollectionsService {
         },
       });
 
-      return updatedVersion;
+      const machineOutcome = await this.applySynchronizedMachineReview(tx, {
+        reviewRecordId: reviewRecord.id,
+        contentVersionId: updatedVersion.id,
+      });
+
+      return {
+        finalVersion: machineOutcome.version,
+        reviewStatus: machineOutcome.reviewStatus,
+      };
     });
 
     return this.toSubmitCollectionContentResponse(
-      submittedVersion,
+      finalVersion,
       toTimestamp(submittedAt),
+      reviewStatus,
     );
+  }
+
+  /**
+   * 在提交事务内执行同步机审占位逻辑：默认自动通过并公开；命中拒绝子串则机审拒绝并退回可编辑态。
+   */
+  private async applySynchronizedMachineReview(
+    tx: Prisma.TransactionClient,
+    args: { reviewRecordId: string; contentVersionId: string },
+  ): Promise<{
+    version: Prisma.CollectionContentVersionGetPayload<Record<string, never>>;
+    reviewStatus: CollectionContentReviewStatus;
+  }> {
+    const version = await tx.collectionContentVersion.findUnique({
+      where: { id: args.contentVersionId },
+    });
+
+    if (!version) {
+      throw new BizError({
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'content version not found',
+        status: 404,
+      });
+    }
+
+    const reviewedAt = new Date();
+    const reject = version.title.includes(MACHINE_REJECT_TITLE_SENTINEL);
+
+    if (reject) {
+      await tx.collectionContentReviewRecord.update({
+        where: { id: args.reviewRecordId },
+        data: {
+          reviewStatus: CollectionContentReviewStatus.MACHINE_REJECTED,
+          reviewedAt,
+          reviewReason: 'machine policy rejected',
+        },
+      });
+
+      const rejected = await tx.collectionContentVersion.update({
+        where: { id: args.contentVersionId },
+        data: {
+          editStatus: CollectionContentEditStatus.REJECTED,
+          publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
+        },
+      });
+
+      return { version: rejected, reviewStatus: CollectionContentReviewStatus.MACHINE_REJECTED };
+    }
+
+    await tx.collectionContentReviewRecord.update({
+      where: { id: args.reviewRecordId },
+      data: {
+        reviewStatus: CollectionContentReviewStatus.MACHINE_APPROVED,
+        reviewedAt,
+      },
+    });
+
+    const approved = await tx.collectionContentVersion.update({
+      where: { id: args.contentVersionId },
+      data: {
+        editStatus: CollectionContentEditStatus.APPROVED,
+        publishStatus: CollectionContentPublishStatus.PUBLISHED,
+        publishedAt: reviewedAt,
+      },
+    });
+
+    return { version: approved, reviewStatus: CollectionContentReviewStatus.MACHINE_APPROVED };
   }
 
   /**
@@ -354,11 +434,12 @@ export class MyCollectionsService {
   private toSubmitCollectionContentResponse(
     currentVersion: Prisma.CollectionContentVersionGetPayload<Record<string, never>>,
     fallbackSubmittedAt: number,
+    reviewStatus: CollectionContentReviewStatus,
   ): SubmitCollectionContentResponseData {
     return {
       versionId: currentVersion.id,
       editStatus: currentVersion.editStatus,
-      reviewStatus: CollectionContentReviewStatus.PENDING_MACHINE,
+      reviewStatus,
       submittedAt: toNullableTimestamp(currentVersion.submittedAt) ?? fallbackSubmittedAt,
     };
   }

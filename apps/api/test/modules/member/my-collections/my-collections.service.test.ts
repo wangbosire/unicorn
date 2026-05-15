@@ -145,11 +145,7 @@ function createMyCollectionsPrismaMock() {
             updatedAt,
           });
         } else {
-          Object.assign(targetVersion, {
-            editStatus: data.editStatus,
-            submittedAt: data.submittedAt,
-            updatedAt,
-          });
+          Object.assign(targetVersion, data, { updatedAt });
         }
 
         return { ...targetVersion };
@@ -217,6 +213,24 @@ function createMyCollectionsPrismaMock() {
           createdAt,
         };
         reviewRecords.push(record);
+        return { ...record };
+      },
+      update: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: {
+          reviewStatus?: CollectionContentReviewStatus;
+          reviewedAt?: Date | null;
+          reviewReason?: string | null;
+        };
+      }) => {
+        const record = reviewRecords.find((item) => item.id === where.id);
+        if (!record) {
+          throw new Error('review record not found');
+        }
+        Object.assign(record, data);
         return { ...record };
       },
     };
@@ -443,17 +457,43 @@ test('MyCollectionsService.submitCollectionContent updates version status and cr
   );
 
   assert.equal(result.versionId, 'ccv_1');
-  assert.equal(result.editStatus, CollectionContentEditStatus.UNDER_REVIEW);
-  assert.equal(result.reviewStatus, CollectionContentReviewStatus.PENDING_MACHINE);
-  assert.equal(versions[0]?.editStatus, CollectionContentEditStatus.UNDER_REVIEW);
+  assert.equal(result.editStatus, CollectionContentEditStatus.APPROVED);
+  assert.equal(result.reviewStatus, CollectionContentReviewStatus.MACHINE_APPROVED);
+  assert.equal(versions[0]?.editStatus, CollectionContentEditStatus.APPROVED);
+  assert.equal(versions[0]?.publishStatus, CollectionContentPublishStatus.PUBLISHED);
   assert.ok(versions[0]?.submittedAt instanceof Date);
+  assert.ok(versions[0]?.publishedAt instanceof Date);
   assert.equal(reviewRecords.length, 1);
   assert.equal(reviewRecords[0]?.contentVersionId, 'ccv_1');
   assert.equal(reviewRecords[0]?.reviewStage, CollectionContentReviewStage.MACHINE);
   assert.equal(
     reviewRecords[0]?.reviewStatus,
-    CollectionContentReviewStatus.PENDING_MACHINE,
+    CollectionContentReviewStatus.MACHINE_APPROVED,
   );
+});
+
+test('MyCollectionsService.submitCollectionContent machine-rejects when title contains sentinel', async () => {
+  const { prisma, versions, reviewRecords } = createMyCollectionsPrismaMock();
+  versions[0]!.title = `bad${'__MACHINE_REJECT__'}title`;
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new MyCollectionsService(prisma as never, memberContextService);
+
+  const result = await service.submitCollectionContent(
+    {
+      memberId: 'mem_1',
+    },
+    {
+      collectionId: 'col_1',
+    },
+    {
+      versionId: 'ccv_1',
+    },
+  );
+
+  assert.equal(result.reviewStatus, CollectionContentReviewStatus.MACHINE_REJECTED);
+  assert.equal(versions[0]?.editStatus, CollectionContentEditStatus.REJECTED);
+  assert.equal(versions[0]?.publishStatus, CollectionContentPublishStatus.UNPUBLISHED);
+  assert.equal(reviewRecords[0]?.reviewStatus, CollectionContentReviewStatus.MACHINE_REJECTED);
 });
 
 test('MyCollectionsService.submitCollectionContent rejects already submitted version', async () => {

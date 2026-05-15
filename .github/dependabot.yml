@@ -1,0 +1,26 @@
+# 定期提 PR：分组减少 PR 数量——Actions 合并为一条；npm 按生产/开发依赖分两条（仍覆盖根 `pnpm-lock.yaml` 全 workspace）。
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns:
+          - '*'
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 8
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      production-dependencies:
+        dependency-type: production
+      development-dependencies:
+        dependency-type: development
