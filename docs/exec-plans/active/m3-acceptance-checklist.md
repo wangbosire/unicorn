@@ -6,9 +6,9 @@
 
 ## 当前状态
 
-- 状态：`draft`（待 M2 收口后改为 `active` 并补全实现快照）
+- 状态：`active`（M2 已归档；当前作为 M3「审核治理闭环」的进行中验收基线）
 - 上位计划：[V1 执行计划](./v1-exec-plan.md)
-- 前置里程碑：M2（见 [M2 验收清单](./m2-acceptance-checklist.md)）
+- 前置里程碑：M2（见 [M2 验收清单](../completed/m2-acceptance-checklist.md)）
 
 ## 目标结果
 
@@ -77,6 +77,7 @@
 ## 决策日志
 
 - 2026-05-14：新增本清单骨架（`draft`），与里程碑总览 M3 对齐，供 M2 收口后展开实现快照与演示脚本。
+- 2026-05-15：M2 验收清单已归档，本清单由 `draft` 切换为 `active`，前置链接同步更新为归档路径。
 - 2026-05-14：后台「内容复核」页接入审核列表真实接口（`listCollectionReviews`），为人工队列与后续行内操作打基础。
 - 2026-05-14：内容复核页接入「人工通过」：`POST /admin-api/collection-reviews/:reviewId/approve`、备注弹窗与错误码中文映射。
 - 2026-05-15：后端与后台接入「人工驳回」：`POST .../:reviewId/reject`（`MANUAL_REJECTED`、版本 `REJECTED`+`UNPUBLISHED`）；契约 `RejectCollectionReviewResponseData.reviewedAt` 与通过接口一致为毫秒时间戳；Vitest 补服务单测。

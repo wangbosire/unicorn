@@ -1,4 +1,4 @@
-# Monorepo 持续集成：并行跑「单测 + 静态检查 + 构建」与「Admin 浏览器单测」，缩短总耗时。
+# Monorepo 持续集成：并行跑「API 单测 + Admin/API 静态检查与构建」与「Admin 浏览器单测」；不含小程序（@unicorn/miniapp）。
 name: CI
 
 on:
@@ -25,17 +25,17 @@ jobs:
       - name: Setup pnpm workspace
         uses: ./.github/actions/setup-pnpm
 
-      - name: API + Miniapp tests
-        run: pnpm test:api-miniapp
+      - name: API tests
+        run: pnpm --filter @unicorn/api test
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm turbo run lint --filter='...@unicorn/admin' --filter='...@unicorn/api'
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm turbo run typecheck --filter='...@unicorn/admin' --filter='...@unicorn/api'
 
       - name: Build
-        run: pnpm build
+        run: pnpm turbo run build --filter='...@unicorn/admin' --filter='...@unicorn/api'
 
   admin-browser-tests:
     runs-on: ubuntu-latest

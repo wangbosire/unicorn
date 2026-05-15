@@ -45,7 +45,9 @@
 
 补充文档：
 
-- [M2 验收清单](./m2-acceptance-checklist.md)
+- [M2 验收清单](../completed/m2-acceptance-checklist.md)
+
+里程碑状态：**已于 2026-05-15 完成归档**（详见清单内「验收记录」）。
 
 ## M3：审核治理闭环
 
@@ -63,7 +65,7 @@
 
 补充文档：
 
-- [M3 验收清单](./m3-acceptance-checklist.md)（草案，待 M2 收口后激活）
+- [M3 验收清单](./m3-acceptance-checklist.md)
 
 ## M4：流转与通知闭环
 
@@ -82,5 +84,5 @@
 
 - [V1 执行计划](./v1-exec-plan.md)
 - [M1 验收清单](../completed/m1-acceptance-checklist.md)
-- [M2 验收清单](./m2-acceptance-checklist.md)
+- [M2 验收清单](../completed/m2-acceptance-checklist.md)
 - [M3 验收清单](./m3-acceptance-checklist.md)
