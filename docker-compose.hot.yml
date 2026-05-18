@@ -8,7 +8,7 @@
 #   后台（Vite HMR）：http://localhost:5173/
 #   小程序 H5（webpack watch）：http://localhost:10086/
 #
-# 说明：对源码目录做**细粒度卷挂载**（避免宿主机 node_modules 覆盖容器内 Linux 依赖）；若增删依赖或改 pnpm-lock.yaml，需重新 build 本 dev 镜像。
+# 说明：对源码目录做**细粒度卷挂载**（避免宿主机 node_modules 覆盖容器内 Linux 依赖）；若增删依赖、改 pnpm-lock.yaml、改 Prisma schema，或调整 API Docker 入口脚本，需重新 build 本 dev 镜像。
 
 services:
   api:
@@ -37,16 +37,9 @@ services:
     working_dir: /repo
     command:
       [
-        "pnpm",
-        "--filter",
-        "@unicorn/admin",
-        "run",
-        "dev",
-        "--",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "5173",
+        "/bin/sh",
+        "-lc",
+        "pnpm install --frozen-lockfile && pnpm --filter @unicorn/admin run dev -- --host 0.0.0.0 --port 5173",
       ]
     environment:
       DOCKER: "1"
@@ -55,6 +48,11 @@ services:
     ports:
       - "5173:5173"
     volumes:
+      - ./package.json:/repo/package.json
+      - ./pnpm-lock.yaml:/repo/pnpm-lock.yaml
+      - ./pnpm-workspace.yaml:/repo/pnpm-workspace.yaml
+      - ./turbo.json:/repo/turbo.json
+      - ./apps/admin/package.json:/repo/apps/admin/package.json
       - ./apps/admin/src:/repo/apps/admin/src
       - ./apps/admin/public:/repo/apps/admin/public
       - ./apps/admin/test:/repo/apps/admin/test

@@ -1,0 +1,23 @@
+面向 LLM 的 Nixpacks 参考笔记
+
+适用场景
+- 评估是否用 Nixpacks 部署当前 Monorepo
+- 设计后端或静态前端的云端构建方案
+
+本仓库结论
+- 当前仓库是 `pnpm workspace` + `turbo` Monorepo。
+- 若未来使用 Nixpacks，应默认从仓库根目录安装和构建，而不是先假设每个 app 可独立安装。
+- 构建命令应优先复用根脚本或 `turbo` 任务。
+
+部署时优先确认
+- 独立部署目标是 `apps/api`、静态前端，还是整个 Monorepo。
+- Prisma schema、依赖锁文件和镜像缓存如何进入构建链路。
+- 最终执行根构建、过滤构建，还是目标 app 局部构建。
+
+不要做的事
+- 不要直接照搬供应商示例而忽略 Monorepo 结构。
+- 不要绕开根脚本临时拼接一套和仓库脱节的构建命令。
+
+后续待确认
+- `apps/api` 的最终云端构建命令、启动命令和环境变量
+- Monorepo 的 install、prune、cache、start 最佳实践

@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { SeriesStatus } from '@prisma/client';
+import { IssuanceBatchStatus, SeriesStatus } from '@prisma/client';
 import { BizError } from '../../../../src/common/http/biz-error';
 import { SeriesService } from '../../../../src/modules/issuance/series/series.service';
 
@@ -16,6 +16,10 @@ function createSeriesPrismaMock() {
       updatedBy: null,
       createdAt: new Date('2026-05-14T10:00:00.000Z'),
       updatedAt: new Date('2026-05-14T10:30:00.000Z'),
+      _count: {
+        batches: 2,
+        collections: 12,
+      },
     },
     {
       id: 'ser_2',
@@ -27,7 +31,17 @@ function createSeriesPrismaMock() {
       updatedBy: null,
       createdAt: new Date('2026-05-13T10:00:00.000Z'),
       updatedAt: new Date('2026-05-13T10:30:00.000Z'),
+      _count: {
+        batches: 1,
+        collections: 4,
+      },
     },
+  ];
+
+  const batches = [
+    { id: 'bat_1', seriesId: 'ser_1', status: IssuanceBatchStatus.ENABLED },
+    { id: 'bat_2', seriesId: 'ser_1', status: IssuanceBatchStatus.ENABLED },
+    { id: 'bat_3', seriesId: 'ser_2', status: IssuanceBatchStatus.DISABLED },
   ];
 
   const prisma = {
@@ -101,9 +115,54 @@ function createSeriesPrismaMock() {
           updatedBy: null,
           createdAt: new Date('2026-05-14T11:00:00.000Z'),
           updatedAt: new Date('2026-05-14T11:00:00.000Z'),
+          _count: {
+            batches: 0,
+            collections: 0,
+          },
         };
         series.push(record);
         return record;
+      },
+    },
+    issuanceBatch: {
+      count: async ({
+        where,
+      }: {
+        where: {
+          seriesId: string;
+          status: IssuanceBatchStatus;
+        };
+      }) =>
+        batches.filter(
+          (item) =>
+            item.seriesId === where.seriesId && item.status === where.status,
+        ).length,
+      groupBy: async ({
+        by,
+        where,
+      }: {
+        by: ['seriesId'];
+        where: {
+          seriesId: { in: string[] };
+          status: IssuanceBatchStatus;
+        };
+      }) => {
+        assert.deepEqual(by, ['seriesId']);
+
+        const grouped = new Map<string, number>();
+        for (const batch of batches) {
+          if (
+            where.seriesId.in.includes(batch.seriesId) &&
+            batch.status === where.status
+          ) {
+            grouped.set(batch.seriesId, (grouped.get(batch.seriesId) ?? 0) + 1);
+          }
+        }
+
+        return Array.from(grouped.entries()).map(([seriesId, count]) => ({
+          seriesId,
+          _count: { _all: count },
+        }));
       },
     },
     $transaction: async (operations: Promise<unknown>[]) => Promise.all(operations),
@@ -167,7 +226,23 @@ test('SeriesService.listSeries returns paginated list with timestamp fields', as
   assert.equal(result.pageSize, 1);
   assert.equal(result.items.length, 1);
   assert.equal(result.items[0]?.id, 'ser_1');
+  assert.equal(result.items[0]?.batchCount, 2);
+  assert.equal(result.items[0]?.enabledBatchCount, 2);
+  assert.equal(result.items[0]?.collectionCount, 12);
   assert.equal(result.items[0]?.createdAt, new Date('2026-05-14T10:00:00.000Z').getTime());
+});
+
+test('SeriesService.getSeriesById returns derived issuance summary fields', async () => {
+  const { prisma } = createSeriesPrismaMock();
+  const service = new SeriesService(prisma as never);
+
+  const result = await service.getSeriesById('ser_1');
+
+  assert.equal(result.id, 'ser_1');
+  assert.equal(result.batchCount, 2);
+  assert.equal(result.enabledBatchCount, 2);
+  assert.equal(result.collectionCount, 12);
+  assert.equal(result.updatedAt, new Date('2026-05-14T10:30:00.000Z').getTime());
 });
 
 test('SeriesService.listSeries rejects invalid status filter', async () => {

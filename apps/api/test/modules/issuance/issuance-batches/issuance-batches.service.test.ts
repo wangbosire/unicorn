@@ -1,6 +1,11 @@
 import * as assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { IssuanceBatchStatus, SeriesStatus } from '@prisma/client';
+import {
+  ActivationCodeStatus,
+  CollectionStatus,
+  IssuanceBatchStatus,
+  SeriesStatus,
+} from '@prisma/client';
 import { BizError } from '../../../../src/common/http/biz-error';
 import { IssuanceBatchesService } from '../../../../src/modules/issuance/issuance-batches/issuance-batches.service';
 
@@ -53,6 +58,36 @@ function createIssuanceBatchesPrismaMock() {
         activationCodes: 12,
       },
     },
+  ];
+
+  const activationCodes = [
+    { id: 'ac_1', batchId: 'bat_1', status: ActivationCodeStatus.UNISSUED },
+    { id: 'ac_2', batchId: 'bat_1', status: ActivationCodeStatus.UNISSUED },
+    { id: 'ac_3', batchId: 'bat_1', status: ActivationCodeStatus.ISSUED },
+    { id: 'ac_4', batchId: 'bat_1', status: ActivationCodeStatus.USED },
+    { id: 'ac_5', batchId: 'bat_1', status: ActivationCodeStatus.USED },
+    { id: 'ac_6', batchId: 'bat_1', status: ActivationCodeStatus.VOIDED },
+    { id: 'ac_7', batchId: 'bat_1', status: ActivationCodeStatus.EXPIRED },
+    { id: 'ac_8', batchId: 'bat_1', status: ActivationCodeStatus.UNISSUED },
+    { id: 'ac_9', batchId: 'bat_1', status: ActivationCodeStatus.ISSUED },
+    { id: 'ac_10', batchId: 'bat_1', status: ActivationCodeStatus.USED },
+    { id: 'ac_11', batchId: 'bat_1', status: ActivationCodeStatus.UNISSUED },
+    { id: 'ac_12', batchId: 'bat_1', status: ActivationCodeStatus.UNISSUED },
+  ];
+
+  const collections = [
+    { id: 'col_1', batchId: 'bat_1', status: CollectionStatus.PENDING_CLAIM },
+    { id: 'col_2', batchId: 'bat_1', status: CollectionStatus.PENDING_CLAIM },
+    { id: 'col_3', batchId: 'bat_1', status: CollectionStatus.PENDING_CLAIM },
+    { id: 'col_4', batchId: 'bat_1', status: CollectionStatus.PENDING_CLAIM },
+    { id: 'col_5', batchId: 'bat_1', status: CollectionStatus.PENDING_CLAIM },
+    { id: 'col_6', batchId: 'bat_1', status: CollectionStatus.OWNED },
+    { id: 'col_7', batchId: 'bat_1', status: CollectionStatus.OWNED },
+    { id: 'col_8', batchId: 'bat_1', status: CollectionStatus.OWNED },
+    { id: 'col_9', batchId: 'bat_1', status: CollectionStatus.OWNED },
+    { id: 'col_10', batchId: 'bat_1', status: CollectionStatus.OWNED },
+    { id: 'col_11', batchId: 'bat_1', status: CollectionStatus.FROZEN },
+    { id: 'col_12', batchId: 'bat_1', status: CollectionStatus.FROZEN },
   ];
 
   const prisma = {
@@ -128,6 +163,92 @@ function createIssuanceBatchesPrismaMock() {
       findUnique: async ({ where }: { where: { id: string } }) =>
         series.find((item) => item.id === where.id) ?? null,
     },
+    activationCode: {
+      groupBy: async ({
+        by,
+        where,
+      }: {
+        by: ['status'] | ['batchId', 'status'];
+        where: {
+          batchId?: string | { in: string[] };
+        };
+      }) => {
+        const grouped = new Map<string, number>();
+
+        for (const item of activationCodes) {
+          const matchesBatch =
+            typeof where.batchId === 'string'
+              ? item.batchId === where.batchId
+              : where.batchId?.in.includes(item.batchId);
+
+          if (!matchesBatch) {
+            continue;
+          }
+
+          const key = by[0] === 'status' ? item.status : `${item.batchId}:${item.status}`;
+          grouped.set(key, (grouped.get(key) ?? 0) + 1);
+        }
+
+        return Array.from(grouped.entries()).map(([key, count]) => {
+          if (by[0] === 'status') {
+            return {
+              status: key as ActivationCodeStatus,
+              _count: { _all: count },
+            };
+          }
+
+          const [batchId, status] = key.split(':');
+          return {
+            batchId,
+            status: status as ActivationCodeStatus,
+            _count: { _all: count },
+          };
+        });
+      },
+    },
+    collection: {
+      groupBy: async ({
+        by,
+        where,
+      }: {
+        by: ['status'] | ['batchId', 'status'];
+        where: {
+          batchId?: string | { in: string[] };
+        };
+      }) => {
+        const grouped = new Map<string, number>();
+
+        for (const item of collections) {
+          const matchesBatch =
+            typeof where.batchId === 'string'
+              ? item.batchId === where.batchId
+              : where.batchId?.in.includes(item.batchId);
+
+          if (!matchesBatch) {
+            continue;
+          }
+
+          const key = by[0] === 'status' ? item.status : `${item.batchId}:${item.status}`;
+          grouped.set(key, (grouped.get(key) ?? 0) + 1);
+        }
+
+        return Array.from(grouped.entries()).map(([key, count]) => {
+          if (by[0] === 'status') {
+            return {
+              status: key as CollectionStatus,
+              _count: { _all: count },
+            };
+          }
+
+          const [batchId, status] = key.split(':');
+          return {
+            batchId,
+            status: status as CollectionStatus,
+            _count: { _all: count },
+          };
+        });
+      },
+    },
     $transaction: async (operations: Promise<unknown>[]) => Promise.all(operations),
   };
 
@@ -198,6 +319,15 @@ test('IssuanceBatchesService.listIssuanceBatches returns paginated list with tim
   assert.equal(result.items.length, 1);
   assert.equal(result.items[0]?.seriesName, '星辉远征');
   assert.equal(result.items[0]?.seriesStatus, 'ENABLED');
+  assert.equal(result.items[0]?.remainingQuantity, 38);
+  assert.equal(result.items[0]?.unissuedActivationCodesCount, 5);
+  assert.equal(result.items[0]?.issuedActivationCodesCount, 2);
+  assert.equal(result.items[0]?.usedActivationCodesCount, 3);
+  assert.equal(result.items[0]?.voidedActivationCodesCount, 1);
+  assert.equal(result.items[0]?.expiredActivationCodesCount, 1);
+  assert.equal(result.items[0]?.pendingClaimCollectionsCount, 5);
+  assert.equal(result.items[0]?.claimedCollectionsCount, 5);
+  assert.equal(result.items[0]?.frozenCollectionsCount, 2);
   assert.equal(
     result.items[0]?.activateValidFrom,
     new Date('2026-05-14T00:00:00.000Z').getTime(),
@@ -218,6 +348,15 @@ test('IssuanceBatchesService.getIssuanceBatchById returns detail with seriesStat
   assert.equal(result.seriesName, '星辉远征');
   assert.equal(result.seriesStatus, 'ENABLED');
   assert.equal(result.generatedCount, 12);
+  assert.equal(result.remainingQuantity, 38);
+  assert.equal(result.unissuedActivationCodesCount, 5);
+  assert.equal(result.issuedActivationCodesCount, 2);
+  assert.equal(result.usedActivationCodesCount, 3);
+  assert.equal(result.voidedActivationCodesCount, 1);
+  assert.equal(result.expiredActivationCodesCount, 1);
+  assert.equal(result.pendingClaimCollectionsCount, 5);
+  assert.equal(result.claimedCollectionsCount, 5);
+  assert.equal(result.frozenCollectionsCount, 2);
   assert.equal(result.remark, '首发批次');
   assert.equal(result.activateValidFrom, new Date('2026-05-14T00:00:00.000Z').getTime());
 });

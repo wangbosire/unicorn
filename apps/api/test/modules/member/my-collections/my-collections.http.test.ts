@@ -21,9 +21,17 @@ test('GET /member-api/my/collections returns wrapped member collection list', as
                 id: 'col_1',
                 collectionNo: 'COL-20260514-AAAAA',
                 status: 'OWNED',
+                seriesNo: 'SER-001',
                 seriesName: '星辉远征',
+                currentVersionId: 'ccv_1',
+                currentVersionNo: 1,
+                currentVersionTitle: '我的第一件藏品',
                 coverImageUrl: null,
+                contentEditStatus: 'APPROVED',
                 contentPublishStatus: 'PUBLISHED',
+                contentReviewStatus: 'MANUAL_APPROVED',
+                contentSubmittedAt: new Date('2026-05-14T07:00:00.000Z').getTime(),
+                contentPublishedAt: new Date('2026-05-14T08:00:00.000Z').getTime(),
                 claimedAt: new Date('2026-05-14T08:00:00.000Z').getTime(),
               },
             ],
@@ -45,8 +53,7 @@ test('GET /member-api/my/collections returns wrapped member collection list', as
   try {
     const response = await request(app.getHttpServer())
       .get('/member-api/my/collections')
-      .set('x-member-id', 'mem_1')
-      .set('authorization', 'Bearer mock-member-token:mem_1')
+      .set('authorization', 'Bearer member.jwt.token')
       .query({ page: '1', pageSize: '20', status: 'OWNED' })
       .expect(200);
 
@@ -59,9 +66,17 @@ test('GET /member-api/my/collections returns wrapped member collection list', as
             id: 'col_1',
             collectionNo: 'COL-20260514-AAAAA',
             status: 'OWNED',
+            seriesNo: 'SER-001',
             seriesName: '星辉远征',
+            currentVersionId: 'ccv_1',
+            currentVersionNo: 1,
+            currentVersionTitle: '我的第一件藏品',
             coverImageUrl: null,
+            contentEditStatus: 'APPROVED',
             contentPublishStatus: 'PUBLISHED',
+            contentReviewStatus: 'MANUAL_APPROVED',
+            contentSubmittedAt: new Date('2026-05-14T07:00:00.000Z').getTime(),
+            contentPublishedAt: new Date('2026-05-14T08:00:00.000Z').getTime(),
             claimedAt: new Date('2026-05-14T08:00:00.000Z').getTime(),
           },
         ],

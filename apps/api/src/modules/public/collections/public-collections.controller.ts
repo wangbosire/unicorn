@@ -17,4 +17,12 @@ export class PublicCollectionsController {
   async getPublicCollection(@Param() params: GetPublicCollectionParams) {
     return this.publicCollectionsService.getPublicCollectionBySlug(params.slug);
   }
+
+  /**
+   * 读取公开展示页统计摘要。
+   */
+  @Get(':slug/stats')
+  async getPublicCollectionStats(@Param() params: GetPublicCollectionParams) {
+    return this.publicCollectionsService.getPublicCollectionStatsBySlug(params.slug);
+  }
 }

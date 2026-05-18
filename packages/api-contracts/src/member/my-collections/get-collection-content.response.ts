@@ -24,6 +24,14 @@ export type CollectionContentVersionView = {
    * 无记录时为 `null`，用于 C 端展示「待人工复核」等口径。
    */
   contentReviewStatus: string | null
+  /** 最新审核原因；无记录或无原因时为 `null`。 */
+  contentReviewReason: string | null
+  /** 提交审核时间戳，单位毫秒；未提交时为 `null`。 */
+  submittedAt: number | null
+  /** 发布时间戳，单位毫秒；未发布时为 `null`。 */
+  publishedAt: number | null
+  /** 最新更新时间戳，单位毫秒。 */
+  updatedAt: number
 }
 
 /**

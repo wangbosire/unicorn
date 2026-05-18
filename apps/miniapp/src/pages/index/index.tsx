@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { DEFAULT_DEV_MEMBER_ID } from '../../lib/default-dev-member'
 import {
   clearMemberSession,
   getMemberSessionSummary,
@@ -70,7 +69,7 @@ export default function IndexPage() {
   function handleClearSession() {
     clearMemberSession()
     refreshSessionSummary()
-    Taro.showToast({ title: `已恢复默认联调会员 ${DEFAULT_DEV_MEMBER_ID}`, icon: 'none' })
+    Taro.showToast({ title: '已退出当前会员登录', icon: 'none' })
   }
 
   return (
@@ -131,7 +130,7 @@ export default function IndexPage() {
               fontSize: '28rpx',
             }}
           >
-            使用微信登录后，激活与藏品请求会携带后端返回的 mock token；仍可在开发者工具清除存储或点下方按钮恢复默认种子会员。
+            使用微信登录后，激活与藏品请求会携带后端返回的正式 access token；退出登录后，会员接口请求会被统一视为未登录。
           </Text>
           <View style={{ display: 'flex', flexDirection: 'column', gap: '16rpx' }}>
             <Button
@@ -167,7 +166,7 @@ export default function IndexPage() {
                 fontWeight: '500',
               }}
             >
-              恢复默认联调会员
+              退出当前登录
             </Button>
             <View
               style={{
@@ -195,7 +194,7 @@ export default function IndexPage() {
                   lineHeight: '1.65',
                 }}
               >
-                会员主键：{sessionSummary.memberId}
+                会员主键：{sessionSummary.memberId ?? '—'}
                 {'\n'}
                 会话：{formatSessionSourceLabel(sessionSummary.sessionSource)}
                 {'\n'}
@@ -233,13 +232,31 @@ export default function IndexPage() {
             fontWeight: '500',
           }}
         >
-          消息中心（规划说明）
+          查看消息中心
+        </Button>
+
+        <Button
+          onClick={() => {
+            void Taro.navigateTo({ url: '/pages/transfers/index' })
+          }}
+          style={{
+            height: '72rpx',
+            lineHeight: '72rpx',
+            borderRadius: '999rpx',
+            border: '2rpx solid #bbf7d0',
+            background: 'rgba(255, 255, 255, 0.75)',
+            color: '#166534',
+            fontSize: '26rpx',
+            fontWeight: '500',
+          }}
+        >
+          查看我的转让
         </Button>
       </View>
 
       <StatusCard
         title='当前联调说明'
-        description={`默认使用联调种子会员 ${DEFAULT_DEV_MEMBER_ID} 与本地 member-api。首页支持微信一键登录写入 unicorn_member_access_token 与 unicorn_member_id；亦可手动写入 unicorn_member_api_base_url 覆盖接口基地址。`}
+        description='会员相关请求现已要求先通过微信登录获取正式 access token。当前已接入公开评论、站内消息与会员转让记录；如需切换接口环境，仍可手动写入 unicorn_member_api_base_url 覆盖接口基地址。'
         background='#eff6ff'
         borderColor='#93c5fd'
         titleColor='#1d4ed8'

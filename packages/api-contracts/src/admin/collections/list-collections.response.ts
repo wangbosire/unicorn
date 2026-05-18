@@ -16,6 +16,14 @@ export type CollectionListItem = {
   status: string
   /** 当前拥有者会员主键，未领取时为空。 */
   currentOwnerMemberId: string | null
+  /** 当前拥有者会员编号，未领取时为空。 */
+  ownerMemberNo: string | null
+  /** 当前拥有者会员昵称，未领取时为空。 */
+  ownerMemberNickname: string | null
+  /** 最新内容版本的公开状态；无内容版本时为 `null`。 */
+  latestContentPublishStatus: string | null
+  /** 最新内容版本的最新审核状态；无记录时为 `null`。 */
+  latestContentReviewStatus: string | null
   /** 实际领取时间。 */
   claimedAt: string | null
 }

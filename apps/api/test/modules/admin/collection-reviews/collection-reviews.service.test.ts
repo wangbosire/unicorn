@@ -27,11 +27,36 @@ function createCollectionReviewsPrismaMock() {
       collectionNo: string;
       seriesId: string;
       batchId: string;
+      series?: {
+        id: string;
+        seriesNo: string;
+        name: string;
+      };
+      batch?: {
+        id: string;
+        batchNo: string;
+        name: string;
+      };
+      currentOwnerMember?: {
+        id: string;
+        memberNo: string;
+        nickname: string;
+      } | null;
     };
     contentVersion: {
       id: string;
       versionNo: number;
       submittedAt: Date | null;
+      title?: string;
+      summary?: string;
+      coverImageUrl?: string | null;
+      contentPayload?: Record<string, unknown>;
+      createdByMember?: {
+        id: string;
+        memberNo: string;
+        nickname: string;
+      } | null;
+      createdByMemberId?: string | null;
       editStatus?: CollectionContentEditStatus;
       publishStatus?: CollectionContentPublishStatus;
       publishedAt?: Date | null;
@@ -53,11 +78,38 @@ function createCollectionReviewsPrismaMock() {
         collectionNo: 'COL-001',
         seriesId: 'ser_1',
         batchId: 'bat_1',
+        series: {
+          id: 'ser_1',
+          seriesNo: 'SER-001',
+          name: '星辉远征',
+        },
+        batch: {
+          id: 'bat_1',
+          batchNo: 'BAT-001',
+          name: '星辉远征首发',
+        },
+        currentOwnerMember: {
+          id: 'mem_1',
+          memberNo: 'M-001',
+          nickname: '小宇',
+        },
       },
       contentVersion: {
         id: 'ccv_2',
         versionNo: 2,
         submittedAt: new Date('2026-05-14T04:30:00.000Z'),
+        title: '星辉远征第二版',
+        summary: '更新后的内容摘要',
+        coverImageUrl: 'https://example.com/cover-2.png',
+        contentPayload: { blocks: [{ type: 'paragraph', text: 'hello' }] },
+        createdByMemberId: 'mem_1',
+        createdByMember: {
+          id: 'mem_1',
+          memberNo: 'M-001',
+          nickname: '小宇',
+        },
+        editStatus: CollectionContentEditStatus.UNDER_REVIEW,
+        publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
       },
     },
     {
@@ -76,11 +128,38 @@ function createCollectionReviewsPrismaMock() {
         collectionNo: 'COL-001',
         seriesId: 'ser_1',
         batchId: 'bat_1',
+        series: {
+          id: 'ser_1',
+          seriesNo: 'SER-001',
+          name: '星辉远征',
+        },
+        batch: {
+          id: 'bat_1',
+          batchNo: 'BAT-001',
+          name: '星辉远征首发',
+        },
+        currentOwnerMember: {
+          id: 'mem_1',
+          memberNo: 'M-001',
+          nickname: '小宇',
+        },
       },
       contentVersion: {
         id: 'ccv_2',
         versionNo: 2,
         submittedAt: new Date('2026-05-14T04:30:00.000Z'),
+        title: '星辉远征第二版',
+        summary: '更新后的内容摘要',
+        coverImageUrl: 'https://example.com/cover-2.png',
+        contentPayload: { blocks: [{ type: 'paragraph', text: 'hello' }] },
+        createdByMemberId: 'mem_1',
+        createdByMember: {
+          id: 'mem_1',
+          memberNo: 'M-001',
+          nickname: '小宇',
+        },
+        editStatus: CollectionContentEditStatus.UNDER_REVIEW,
+        publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
       },
     },
     {
@@ -99,11 +178,38 @@ function createCollectionReviewsPrismaMock() {
         collectionNo: 'COL-002',
         seriesId: 'ser_2',
         batchId: 'bat_2',
+        series: {
+          id: 'ser_2',
+          seriesNo: 'SER-002',
+          name: '旧城复苏',
+        },
+        batch: {
+          id: 'bat_2',
+          batchNo: 'BAT-002',
+          name: '旧城首发',
+        },
+        currentOwnerMember: {
+          id: 'mem_2',
+          memberNo: 'M-002',
+          nickname: '阿洛',
+        },
       },
       contentVersion: {
         id: 'ccv_3',
         versionNo: 1,
         submittedAt: new Date('2026-05-14T05:40:00.000Z'),
+        title: '旧城复苏第一版',
+        summary: '首个版本摘要',
+        coverImageUrl: null,
+        contentPayload: { blocks: [] },
+        createdByMemberId: 'mem_2',
+        createdByMember: {
+          id: 'mem_2',
+          memberNo: 'M-002',
+          nickname: '阿洛',
+        },
+        editStatus: CollectionContentEditStatus.UNDER_REVIEW,
+        publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
       },
     },
   ];
@@ -369,11 +475,37 @@ test('CollectionReviewsService.listCollectionReviews returns paginated review qu
   assert.equal(result.items.length, 3);
   assert.equal(result.items[0]?.reviewId, 'crr_2');
   assert.equal(result.items[0]?.collectionNo, 'COL-002');
+  assert.equal(result.items[0]?.seriesNo, 'SER-002');
+  assert.equal(result.items[0]?.batchNo, 'BAT-002');
+  assert.equal(result.items[0]?.ownerMemberNo, 'M-002');
+  assert.equal(result.items[0]?.title, '旧城复苏第一版');
+  assert.equal(result.items[0]?.editStatus, CollectionContentEditStatus.UNDER_REVIEW);
   assert.equal(result.items[1]?.reviewStatus, CollectionContentReviewStatus.PENDING_MANUAL);
   assert.equal(
     result.items[1]?.reviewReason,
     '同步机审策略已通过，待人工复核',
   );
+});
+
+test('CollectionReviewsService.getCollectionReviewById returns enriched review detail', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  const result = await service.getCollectionReviewById('crr_1');
+
+  assert.equal(result.reviewId, 'crr_1');
+  assert.equal(result.seriesNo, 'SER-001');
+  assert.equal(result.seriesName, '星辉远征');
+  assert.equal(result.batchNo, 'BAT-001');
+  assert.equal(result.ownerMemberNo, 'M-001');
+  assert.equal(result.createdByMemberNo, 'M-001');
+  assert.equal(result.title, '星辉远征第二版');
+  assert.equal(result.coverImageUrl, 'https://example.com/cover-2.png');
+  assert.deepEqual(result.contentPayload, {
+    blocks: [{ type: 'paragraph', text: 'hello' }],
+  });
+  assert.equal(result.editStatus, CollectionContentEditStatus.UNDER_REVIEW);
+  assert.equal(result.publishStatus, CollectionContentPublishStatus.UNPUBLISHED);
 });
 
 test('CollectionReviewsService.listCollectionReviews supports filtering by collectionNo', async () => {
@@ -476,6 +608,19 @@ test('CollectionReviewsService.approveCollectionReview rejects missing review re
   );
 });
 
+test('CollectionReviewsService.approveCollectionReview rejects empty review id', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.approveCollectionReview('   ', {}),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'VALIDATION_ERROR' &&
+      error.message.includes('review id'),
+  );
+});
+
 test('CollectionReviewsService.approveCollectionReview rejects invalid review status', async () => {
   const { prisma, reviewRecords } = createCollectionReviewsPrismaMock();
   const pendingManual = reviewRecords.find((row) => row.id === 'crr_1');
@@ -529,6 +674,39 @@ test('CollectionReviewsService.rejectCollectionReview rejects empty reason', asy
   );
 });
 
+test('CollectionReviewsService.rejectCollectionReview rejects missing review record', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.rejectCollectionReview('missing_review', {
+        reason: '不符合公开展示规范',
+      }),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'REVIEW_RECORD_NOT_FOUND' &&
+      error.status === 404,
+  );
+});
+
+test('CollectionReviewsService.rejectCollectionReview rejects invalid review status', async () => {
+  const { prisma, reviewRecords } = createCollectionReviewsPrismaMock();
+  const pendingManual = reviewRecords.find((row) => row.id === 'crr_1');
+  assert.ok(pendingManual);
+  pendingManual.reviewStatus = CollectionContentReviewStatus.MANUAL_APPROVED;
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () =>
+      service.rejectCollectionReview('crr_1', {
+        reason: '不符合公开展示规范',
+      }),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'REVIEW_STATUS_INVALID',
+  );
+});
+
 test('CollectionReviewsService.listCollectionReviewHistory rejects missing collectionNo', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
   const service = new CollectionReviewsService(prisma as never);
@@ -568,6 +746,58 @@ test('CollectionReviewsService.listCollectionReviewHistory returns ascending rec
   assert.equal(result.items[0]?.reviewStatus, CollectionContentReviewStatus.MACHINE_APPROVED);
   assert.equal(result.items[1]?.reviewId, 'crr_1');
   assert.equal(result.items[1]?.reviewStatus, CollectionContentReviewStatus.PENDING_MANUAL);
+});
+
+test('CollectionReviewsService.listCollectionReviewHistory supports filtering by content version', async () => {
+  const { prisma } = createCollectionReviewsPrismaMock();
+  const service = new CollectionReviewsService(prisma as never);
+
+  const result = await service.listCollectionReviewHistory({
+    collectionNo: 'COL-001',
+    contentVersionId: 'ccv_2',
+  });
+
+  assert.equal(result.items.length, 2);
+  assert.equal(result.items[0]?.contentVersionId, 'ccv_2');
+  assert.equal(result.items[1]?.contentVersionId, 'ccv_2');
+});
+
+test('CollectionReviewsService.listCollectionReviewHistory rejects when result exceeds max records', async () => {
+  const { prisma, reviewRecords } = createCollectionReviewsPrismaMock();
+  for (let i = 0; i < 205; i += 1) {
+    reviewRecords.push({
+      id: `crr_limit_${i}`,
+      collectionId: 'col_1',
+      contentVersionId: 'ccv_2',
+      reviewStage: CollectionContentReviewStage.MANUAL,
+      reviewStatus: CollectionContentReviewStatus.PENDING_MANUAL,
+      reviewSource: CollectionContentReviewSource.SYSTEM,
+      reviewReason: null,
+      reviewedByAdminUserId: null,
+      reviewedAt: null,
+      createdAt: new Date(`2026-05-15T06:${String(i % 60).padStart(2, '0')}:00.000Z`),
+      collection: {
+        id: 'col_1',
+        collectionNo: 'COL-001',
+        seriesId: 'ser_1',
+        batchId: 'bat_1',
+      },
+      contentVersion: {
+        id: 'ccv_2',
+        versionNo: 2,
+        submittedAt: new Date('2026-05-14T04:30:00.000Z'),
+      },
+    });
+  }
+  const service = new CollectionReviewsService(prisma as never);
+
+  await assert.rejects(
+    () => service.listCollectionReviewHistory({ collectionNo: 'COL-001' }),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'REVIEW_HISTORY_LIMIT_EXCEEDED' &&
+      error.status === 400,
+  );
 });
 
 test('CollectionReviewsService.listCollectionReviewHistory rejects version not belonging to collection', async () => {

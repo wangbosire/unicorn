@@ -20,13 +20,28 @@ export default defineConfig({
   plugins: ['@tarojs/plugin-platform-h5'],
   /** 与 `apps/admin` 一致：通过别名引用 workspace 契约包，避免深层相对路径。 */
   alias: {
-    '@contracts': path.resolve(__dirname, '..', '..', 'packages', 'api-contracts', 'src'),
+    '@contracts': path.resolve(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      'packages',
+      'api-contracts',
+      'src'
+    ),
   },
   mini: {
     postcss: {
       pxtransform: {
         enable: true,
       },
+    },
+    /**
+     * Taro 在 weapp webpack 配置中会注入 `@tarojs/shared: null`。
+     * 显式改成 `false`，避免 webpack schema 校验把 `null` 视为非法 alias 值。
+     */
+    webpackChain(chain) {
+      chain.resolve.alias.set('@tarojs/shared', false);
     },
   },
   /** tabBar 图标等纯静态资源：需显式拷贝到 `dist`，否则真机/开发者工具找不到路径。 */

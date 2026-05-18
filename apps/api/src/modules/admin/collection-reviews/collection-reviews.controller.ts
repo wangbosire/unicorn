@@ -41,6 +41,14 @@ export class CollectionReviewsController {
   }
 
   /**
+   * 查询单条审核记录详情。
+   */
+  @Get(':reviewId')
+  async getCollectionReviewById(@Param('reviewId') reviewId: string) {
+    return this.collectionReviewsService.getCollectionReviewById(reviewId);
+  }
+
+  /**
    * 运营下架：将已公开发布的已通过内容版本标记为 `TAKEDOWN`。
    * 路由需置于 `:reviewId/*` 之前，避免 `reviewId` 误匹配 `content-versions`。
    */

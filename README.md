@@ -13,16 +13,30 @@
 ## 文档入口
 
 - [AGENTS.md](./AGENTS.md) 仓库导航与阅读入口。
-- [ARCHITECTURE.md](./ARCHITECTURE.md) 顶层架构说明。
-- [docs/PRODUCT_SENSE.md](./docs/PRODUCT_SENSE.md) 产品理解入口。
-- [docs/DESIGN.md](./docs/DESIGN.md) 设计文档入口。
-- [docs/FRONTEND.md](./docs/FRONTEND.md) 前端研发入口。
-- [docs/PLANS.md](./docs/PLANS.md) 执行计划入口。
-- [docs/QUALITY_SCORE.md](./docs/QUALITY_SCORE.md) 质量治理入口。
-- [docs/RELIABILITY.md](./docs/RELIABILITY.md) 可靠性入口。
-- [docs/SECURITY.md](./docs/SECURITY.md) 安全入口。
-- [docs/generated/index.md](./docs/generated/index.md) 生成文档入口。
-- [docs/references/index.md](./docs/references/index.md) 参考资料入口。
+- [docs/索引.md](./docs/索引.md) `docs/` 总索引。
+- [架构总览.md](./架构总览.md) 顶层架构说明。
+- [docs/产品理解.md](./docs/产品理解.md) 产品理解入口。
+- [docs/设计.md](./docs/设计.md) 设计文档入口。
+- [docs/前端研发.md](./docs/前端研发.md) 前端研发入口。
+- [docs/执行计划.md](./docs/执行计划.md) 执行计划入口。
+- [docs/exec-plans/active/二期准备与文档收口计划.md](./docs/exec-plans/active/二期准备与文档收口计划.md) 当前进行中计划。
+- [docs/exec-plans/completed/一期V1归档总览.md](./docs/exec-plans/completed/一期V1归档总览.md) 已归档一期总览。
+- [docs/质量评分.md](./docs/质量评分.md) 质量治理入口。
+- [docs/可靠性.md](./docs/可靠性.md) 可靠性入口。
+- [docs/安全.md](./docs/安全.md) 安全入口。
+- [docs/generated/索引.md](./docs/generated/索引.md) 生成文档入口。
+- [docs/references/索引.md](./docs/references/索引.md) 参考资料入口。
+
+## 当前阶段
+
+一期主链路与运营治理相关任务已经完成收口，仓库当前处于“文档归档整理、技术债治理与后续阶段规划”阶段：
+
+- `apps/admin`：已形成后台运营主链路页面基线，覆盖审核治理、通知、转让、会员治理与仪表盘等能力。
+- `apps/miniapp`：已形成会员登录、激活、我的藏品、内容编辑、公开展示、消息与基础转让链路。
+- `apps/api`：已具备支撑 `admin-api`、`member-api`、`public-api` 的一期核心业务闭环。
+- `docs/`：已沉淀一期 PRD、设计、执行计划、里程碑验收与专项归档资料。
+
+如需判断“现在该看哪份计划”，优先从 [docs/执行计划.md](./docs/执行计划.md) 进入，再根据需要跳转到进行中或已归档索引。
 
 ## 工程约定
 
@@ -46,7 +60,11 @@
 - 小程序 H5：`http://localhost:8080/h5/`
 - API：同源路径前缀 **`/api/`**（由 Nginx 反代到 API 容器），或直连 **`http://localhost:3000/api/`**。
 
+M4 收口验收可直接执行 `pnpm verify:m4`；若只想在手工演示前做接口级预检，可执行 `pnpm smoke:m4`。
+
 排障：执行 **`docker logs -f unicorn-api`** 查看带栈日志；若需在 **HTTP 响应**里附带 `debug.stack`（仅 5xx），在 compose 或根目录 `.env` 中设置 **`API_DEBUG_ERRORS=1`**（默认在 `docker-compose.yml` 已为本地打开；勿用于生产）。
+
+若修改了 `apps/api/prisma/schema.prisma`、`apps/api/package.json`、根 `pnpm-lock.yaml`，或 `docker/Dockerfile.api` / `docker/api-entrypoint.sh`，请显式执行 `docker compose up -d --build api`，避免继续运行旧的 API 镜像与 Prisma Client。
 
 可选：在仓库根目录 `.env` 或 shell 中设置 `ADMIN_JWT_SECRET`（至少 16 字符），否则使用 compose 内默认值。
 
@@ -77,18 +95,18 @@ docker compose -f docker-compose.yml -f docker-compose.hot.yml up --build mysql 
 
 ## 测试（Monorepo）
 
-根目录 `pnpm test` 由 Turborepo 并行执行各 workspace 的 `test` 脚本。
+当前仓库默认**不要求前端 UI 自动化测试**。前端项目以 `lint`、`typecheck`、`build` 与必要的纯函数 / 服务层单测作为交付基线；若后续某个项目确有必要引入 UI 自动化测试，应先在执行计划中单独说明。
 
-- **`apps/admin`**：Vitest 浏览器模式依赖本机 **Playwright**。若报错提示缺少 Chromium / `chrome-headless-shell`，请在仓库根目录执行 `pnpm exec playwright install`，或先执行 `pnpm --filter @unicorn/admin run test:browser:install`，再重试根目录 `pnpm test`。
-- **不跑 Admin、仅 API + 小程序**（CI / 本机快速校验，无需 Playwright）：`pnpm test:api-miniapp`。
+- **根目录 `pnpm test`**：当前默认执行 API 与小程序单测，不拉起 Admin 浏览器测试，也不依赖 Playwright。
+- **仅跑 API + 小程序**：`pnpm test:api-miniapp`。
 - **仅跑其中一个包**：`pnpm --filter @unicorn/api test`、`pnpm --filter @unicorn/miniapp test`。
 
 ## 持续集成（GitHub Actions）
 
-指向 `main` 的 push 与 pull request 会运行根目录 [.github/workflows/ci.yml](./.github/workflows/ci.yml)（支持 **workflow_dispatch** 手动触发）：**并行**两个 job——其一执行 `pnpm test:api-miniapp`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；其二安装 Playwright 后执行 `pnpm --filter @unicorn/admin test`。依赖安装通过 [.github/actions/setup-pnpm/action.yml](./.github/actions/setup-pnpm/action.yml) 复用。
+指向 `main` 的 push 与 pull request 会运行根目录 [.github/workflows/ci.yml](./.github/workflows/ci.yml)（支持 **workflow_dispatch** 手动触发）：当前默认执行 `pnpm test:api-miniapp`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；不再将 Admin Playwright / 浏览器 UI 自动化测试作为必经门禁。依赖安装通过 [.github/actions/setup-pnpm/action.yml](./.github/actions/setup-pnpm/action.yml) 复用。
 
 每日定时任务（可手动触发）见 [.github/workflows/stale.yml](./.github/workflows/stale.yml)，用于标记并关闭长期无活动的 Issue / PR。
 
 依赖与流水线版本由 [.github/dependabot.yml](./.github/dependabot.yml) 每周检查：`github-actions`（**分组**为单条 PR）与根目录 **pnpm**（`npm` 生态；**生产 / 开发依赖分组**，仍由根 `pnpm-lock.yaml` 覆盖全 workspace）。
 
-若在 GitHub 为 `main` 开启 **Required status checks**，请将 **`monorepo-quality`** 与 **`admin-browser-tests`** 一并设为必过（与 [.github/workflows/ci.yml](./.github/workflows/ci.yml) 中两个 job 名称一致）；仅勾选旧名称会导致合并前漏跑其中一条。
+若在 GitHub 为 `main` 开启 **Required status checks**，当前仅需将 **`monorepo-quality`** 设为必过；若仓库中仍保留旧的 **`admin-browser-tests`** 规则，请同步移除，避免合并门禁继续依赖已废弃的前端 UI 自动化测试。

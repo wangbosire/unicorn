@@ -21,6 +21,7 @@ import { PrismaService } from '../../../platform/prisma/prisma.service';
 import type {
   ApproveCollectionReviewRequest,
   ApproveCollectionReviewResponseData,
+  CollectionReviewDetail,
   CollectionReviewHistoryItem,
   CollectionReviewListItem,
   ListCollectionReviewHistoryQuery,
@@ -43,6 +44,94 @@ export class CollectionReviewsService {
   private static readonly REVIEW_HISTORY_MAX = 200;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * 查询单条审核记录详情，供后台查看具体版本内容与状态快照。
+   */
+  async getCollectionReviewById(reviewId: string): Promise<CollectionReviewDetail> {
+    const id = reviewId?.trim();
+    if (!id) {
+      throw new BizError({
+        code: 'VALIDATION_ERROR',
+        message: 'review id is required',
+      });
+    }
+
+    const reviewRecord = await this.prisma.collectionContentReviewRecord.findUnique({
+      where: { id },
+      include: {
+        collection: {
+          include: {
+            series: true,
+            batch: true,
+            currentOwnerMember: {
+              select: {
+                id: true,
+                memberNo: true,
+                nickname: true,
+              },
+            },
+          },
+        },
+        contentVersion: {
+          include: {
+            createdByMember: {
+              select: {
+                id: true,
+                memberNo: true,
+                nickname: true,
+              },
+            },
+          },
+        },
+        reviewedByAdminUser: { select: { displayName: true } },
+      },
+    });
+
+    if (!reviewRecord) {
+      throw new BizError({
+        code: 'REVIEW_RECORD_NOT_FOUND',
+        message: 'review record not found',
+        status: 404,
+      });
+    }
+
+    return {
+      reviewId: reviewRecord.id,
+      collectionId: reviewRecord.collectionId,
+      collectionNo: reviewRecord.collection.collectionNo,
+      seriesId: reviewRecord.collection.seriesId,
+      seriesNo: reviewRecord.collection.series.seriesNo,
+      seriesName: reviewRecord.collection.series.name,
+      batchId: reviewRecord.collection.batchId,
+      batchNo: reviewRecord.collection.batch.batchNo,
+      batchName: reviewRecord.collection.batch.name,
+      ownerMemberId: reviewRecord.collection.currentOwnerMember?.id ?? null,
+      ownerMemberNo: reviewRecord.collection.currentOwnerMember?.memberNo ?? null,
+      ownerMemberNickname: reviewRecord.collection.currentOwnerMember?.nickname ?? null,
+      contentVersionId: reviewRecord.contentVersionId,
+      versionNo: reviewRecord.contentVersion.versionNo,
+      createdByMemberId: reviewRecord.contentVersion.createdByMember?.id ?? null,
+      createdByMemberNo: reviewRecord.contentVersion.createdByMember?.memberNo ?? null,
+      createdByMemberNickname:
+        reviewRecord.contentVersion.createdByMember?.nickname ?? null,
+      reviewStage: reviewRecord.reviewStage,
+      reviewStatus: reviewRecord.reviewStatus,
+      reviewSource: reviewRecord.reviewSource,
+      reviewReason: reviewRecord.reviewReason ?? null,
+      title: reviewRecord.contentVersion.title,
+      summary: reviewRecord.contentVersion.summary,
+      coverImageUrl: reviewRecord.contentVersion.coverImageUrl,
+      contentPayload: reviewRecord.contentVersion.contentPayload as Record<string, unknown>,
+      editStatus: reviewRecord.contentVersion.editStatus,
+      publishStatus: reviewRecord.contentVersion.publishStatus,
+      submittedAt: toNullableTimestamp(reviewRecord.contentVersion.submittedAt),
+      reviewedAt: toNullableTimestamp(reviewRecord.reviewedAt),
+      createdAt: toTimestamp(reviewRecord.createdAt),
+      reviewedByDisplayName:
+        reviewRecord.reviewedByAdminUser?.displayName?.trim() || null,
+    };
+  }
 
   /**
    * 按藏品编号（及可选内容版本）查询审核轨迹，按记录创建时间升序。
@@ -151,7 +240,18 @@ export class CollectionReviewsService {
       this.prisma.collectionContentReviewRecord.findMany({
         where,
         include: {
-          collection: true,
+          collection: {
+            include: {
+              series: true,
+              batch: true,
+              currentOwnerMember: {
+                select: {
+                  memberNo: true,
+                  nickname: true,
+                },
+              },
+            },
+          },
           contentVersion: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -432,7 +532,18 @@ export class CollectionReviewsService {
   private toCollectionReviewListItem(
     reviewRecord: Prisma.CollectionContentReviewRecordGetPayload<{
       include: {
-        collection: true;
+        collection: {
+          include: {
+            series: true;
+            batch: true;
+            currentOwnerMember: {
+              select: {
+                memberNo: true;
+                nickname: true;
+              };
+            };
+          };
+        };
         contentVersion: true;
       };
     }>,
@@ -441,10 +552,22 @@ export class CollectionReviewsService {
       reviewId: reviewRecord.id,
       collectionId: reviewRecord.collectionId,
       collectionNo: reviewRecord.collection.collectionNo,
+      seriesId: reviewRecord.collection.seriesId,
+      seriesNo: reviewRecord.collection.series.seriesNo,
+      seriesName: reviewRecord.collection.series.name,
+      batchId: reviewRecord.collection.batchId,
+      batchNo: reviewRecord.collection.batch.batchNo,
+      batchName: reviewRecord.collection.batch.name,
+      ownerMemberNo: reviewRecord.collection.currentOwnerMember?.memberNo ?? null,
+      ownerMemberNickname:
+        reviewRecord.collection.currentOwnerMember?.nickname ?? null,
       contentVersionId: reviewRecord.contentVersionId,
       versionNo: reviewRecord.contentVersion.versionNo,
+      title: reviewRecord.contentVersion.title,
       reviewStage: reviewRecord.reviewStage,
       reviewStatus: reviewRecord.reviewStatus,
+      editStatus: reviewRecord.contentVersion.editStatus,
+      publishStatus: reviewRecord.contentVersion.publishStatus,
       reviewReason: reviewRecord.reviewReason ?? null,
       submittedAt:
         toNullableTimestamp(reviewRecord.contentVersion.submittedAt) ??

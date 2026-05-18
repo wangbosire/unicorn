@@ -32,8 +32,10 @@ import type {
   CollectionContentVersionView,
   GetCollectionContentParams,
   GetCollectionContentResponseData,
+  GetMyCollectionResponseData,
   ListMyCollectionsQuery,
   ListMyCollectionsResponseData,
+  MyCollectionContentSummary,
   MyCollectionListItem,
   SaveCollectionDraftRequest,
   SaveCollectionDraftResponseData,
@@ -82,7 +84,7 @@ export class MyCollectionsService {
 
   /**
    * 查询当前会员名下藏品列表。
-   * 当前支持 x-member-id 或 mock bearer token 两种会员上下文来源。
+   * 当前通过 Bearer access token 解析会员身份；历史 mock token 仅保留兼容校验。
    */
   async listMyCollections(
     authContext: {
@@ -111,6 +113,12 @@ export class MyCollectionsService {
           contentVersions: {
             orderBy: { versionNo: 'desc' },
             take: 1,
+            include: {
+              reviewRecords: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
+            },
           },
         },
         orderBy: { claimedAt: 'desc' },
@@ -126,6 +134,38 @@ export class MyCollectionsService {
       pageSize: pagination.pageSize,
       total,
     });
+  }
+
+  /**
+   * 查询当前会员某个藏品的详情摘要。
+   * 仅允许读取当前会员自己名下的藏品，与内容编辑入口保持同一归属校验。
+   */
+  async getMyCollectionById(
+    authContext: {
+      memberId?: string;
+      authorization?: string;
+    },
+    params: GetCollectionContentParams,
+  ): Promise<GetMyCollectionResponseData> {
+    const member = await this.memberContextService.getCurrentActiveMember(authContext);
+    const collection = await this.getOwnedCollectionWithLatestVersion(member.id, params);
+    const currentVersion = collection.contentVersions[0] ?? null;
+
+    return {
+      id: collection.id,
+      collectionNo: collection.collectionNo,
+      status: collection.status,
+      series: {
+        id: collection.series.id,
+        seriesNo: collection.series.seriesNo,
+        name: collection.series.name,
+        description: collection.series.description,
+      },
+      currentVersion: currentVersion
+        ? this.toMyCollectionContentSummary(currentVersion)
+        : null,
+      claimedAt: toNullableTimestamp(collection.claimedAt),
+    };
   }
 
   /**
@@ -433,19 +473,30 @@ export class MyCollectionsService {
     collection: Prisma.CollectionGetPayload<{
       include: {
         series: true;
-        contentVersions: true;
+        contentVersions: {
+          include: { reviewRecords: true };
+        };
       };
     }>,
   ): MyCollectionListItem {
     const currentVersion = collection.contentVersions[0];
+    const latestReview = currentVersion?.reviewRecords[0];
 
     return {
       id: collection.id,
       collectionNo: collection.collectionNo,
       status: collection.status,
+      seriesNo: collection.series.seriesNo,
       seriesName: collection.series.name,
+      currentVersionId: currentVersion?.id ?? null,
+      currentVersionNo: currentVersion?.versionNo ?? null,
+      currentVersionTitle: currentVersion?.title ?? null,
       coverImageUrl: currentVersion?.coverImageUrl ?? null,
+      contentEditStatus: currentVersion?.editStatus ?? 'DRAFT',
       contentPublishStatus: currentVersion?.publishStatus ?? 'UNPUBLISHED',
+      contentReviewStatus: latestReview?.reviewStatus ?? null,
+      contentSubmittedAt: toNullableTimestamp(currentVersion?.submittedAt ?? null),
+      contentPublishedAt: toNullableTimestamp(currentVersion?.publishedAt ?? null),
       claimedAt: toNullableTimestamp(collection.claimedAt),
     };
   }
@@ -470,6 +521,36 @@ export class MyCollectionsService {
       editStatus: currentVersion.editStatus,
       publishStatus: currentVersion.publishStatus,
       contentReviewStatus: latestReview?.reviewStatus ?? null,
+      contentReviewReason: latestReview?.reviewReason ?? null,
+      submittedAt: toNullableTimestamp(currentVersion.submittedAt),
+      publishedAt: toNullableTimestamp(currentVersion.publishedAt),
+      updatedAt: toTimestamp(currentVersion.updatedAt),
+    };
+  }
+
+  /**
+   * 转换为会员藏品详情中的最新内容摘要。
+   */
+  private toMyCollectionContentSummary(
+    currentVersion: Prisma.CollectionContentVersionGetPayload<{
+      include: { reviewRecords: true };
+    }>,
+  ): MyCollectionContentSummary {
+    const latestReview = currentVersion.reviewRecords[0];
+
+    return {
+      id: currentVersion.id,
+      versionNo: currentVersion.versionNo,
+      title: currentVersion.title,
+      summary: currentVersion.summary,
+      coverImageUrl: currentVersion.coverImageUrl ?? null,
+      editStatus: currentVersion.editStatus,
+      publishStatus: currentVersion.publishStatus,
+      contentReviewStatus: latestReview?.reviewStatus ?? null,
+      contentReviewReason: latestReview?.reviewReason ?? null,
+      submittedAt: toNullableTimestamp(currentVersion.submittedAt),
+      publishedAt: toNullableTimestamp(currentVersion.publishedAt),
+      updatedAt: toTimestamp(currentVersion.updatedAt),
     };
   }
 
@@ -524,6 +605,7 @@ export class MyCollectionsService {
     const collection = await this.prisma.collection.findUnique({
       where: { id: collectionId },
       include: {
+        series: true,
         contentVersions: {
           orderBy: { versionNo: 'desc' },
           take: 1,

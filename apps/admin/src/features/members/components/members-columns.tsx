@@ -1,9 +1,9 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type ColumnDef } from '@tanstack/react-table'
 import type { AdminMemberListItem } from '@contracts/admin/members'
+import { ProTableColumnHeader } from '@/components/pro'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { DataTableColumnHeader } from '@/components/data-table'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,7 +30,7 @@ export function createMembersColumns(
     {
       accessorKey: 'memberNo',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='会员编号' />
+        <ProTableColumnHeader column={column} title='会员编号' />
       ),
       cell: ({ row }) => (
         <div className='font-mono text-xs'>{row.getValue('memberNo')}</div>
@@ -41,7 +41,7 @@ export function createMembersColumns(
     {
       accessorKey: 'nickname',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='昵称' />
+        <ProTableColumnHeader column={column} title='昵称' />
       ),
       cell: ({ row }) => (
         <div className='font-medium'>{row.getValue('nickname')}</div>
@@ -51,7 +51,7 @@ export function createMembersColumns(
     {
       accessorKey: 'mobile',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='手机号' />
+        <ProTableColumnHeader column={column} title='手机号' />
       ),
       cell: ({ row }) => {
         const v = row.getValue('mobile') as string | null
@@ -66,7 +66,7 @@ export function createMembersColumns(
     {
       accessorKey: 'status',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='状态' />
+        <ProTableColumnHeader column={column} title='状态' />
       ),
       cell: ({ row }) => {
         const status = String(row.getValue('status'))
@@ -76,16 +76,12 @@ export function createMembersColumns(
           </Badge>
         )
       },
-      filterFn: (row, id, value) => {
-        const selected = value as string[]
-        return selected.includes(String(row.getValue(id)))
-      },
       enableSorting: false,
     },
     {
       accessorKey: 'wechatChannelsSummary',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='微信渠道' />
+        <ProTableColumnHeader column={column} title='微信渠道' />
       ),
       cell: ({ row }) => {
         const v = row.getValue('wechatChannelsSummary') as string | null
@@ -98,7 +94,7 @@ export function createMembersColumns(
     {
       accessorKey: 'ownedCollectionsCount',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='藏品数' />
+        <ProTableColumnHeader column={column} title='藏品数' />
       ),
       meta: { className: 'text-end tabular-nums', thClassName: 'text-end' },
       cell: ({ row }) => (
@@ -111,7 +107,7 @@ export function createMembersColumns(
     {
       accessorKey: 'registeredAt',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='注册时间' />
+        <ProTableColumnHeader column={column} title='注册时间' />
       ),
       cell: ({ row }) => (
         <div className='text-muted-foreground text-sm tabular-nums'>

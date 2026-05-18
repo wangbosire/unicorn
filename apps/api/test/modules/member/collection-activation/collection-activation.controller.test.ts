@@ -23,16 +23,14 @@ test('CollectionActivationController.activateCollection forwards auth context an
     activationCode: 'ABCD-EFGH-IJKL',
   };
   const result = await controller.activateCollection(
-    'mem_1',
-    'Bearer mock-member-token:mem_1',
+    'Bearer member.jwt.token',
     body,
   );
 
   assert.deepEqual(result, expectedResult);
   assert.equal(receivedCalls.length, 1);
   assert.deepEqual(receivedCalls[0]?.authContext, {
-    memberId: 'mem_1',
-    authorization: 'Bearer mock-member-token:mem_1',
+    authorization: 'Bearer member.jwt.token',
   });
   assert.deepEqual(receivedCalls[0]?.body, body);
 });

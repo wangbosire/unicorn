@@ -26,6 +26,7 @@ import { parseWithSchema } from '../../../common/validation/schema';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { z } from 'zod';
 import type {
+  ActivationCodeDetail,
   ActivationCodeListItem,
   GenerateActivationCodesRequest,
   GenerateActivationCodesResponseData,
@@ -81,6 +82,11 @@ export class ActivationCodesService {
         include: {
           batch: true,
           collection: true,
+          usedByMember: {
+            select: {
+              memberNo: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: pagination.skip,
@@ -95,6 +101,64 @@ export class ActivationCodesService {
       pageSize: pagination.pageSize,
       total,
     });
+  }
+
+  /**
+   * 查询单个激活码详情，供后台查看发放、使用与作废轨迹。
+   */
+  async getActivationCodeById(
+    activationCodeId: string,
+  ): Promise<ActivationCodeDetail> {
+    const id = activationCodeId?.trim();
+    if (!id) {
+      throw new BizError({
+        code: 'ACTIVATION_CODE_ID_REQUIRED',
+        message: 'activation code id is required',
+        status: 400,
+      });
+    }
+
+    const activationCode = await this.prisma.activationCode.findUnique({
+      where: { id },
+      include: {
+        batch: true,
+        collection: true,
+        usedByMember: {
+          select: {
+            id: true,
+            memberNo: true,
+          },
+        },
+      },
+    });
+
+    if (!activationCode) {
+      throw new BizError({
+        code: 'ACTIVATION_CODE_NOT_FOUND',
+        message: 'activation code not found',
+        status: 404,
+      });
+    }
+
+    return {
+      id: activationCode.id,
+      code: activationCode.code,
+      batchId: activationCode.batchId,
+      batchNo: activationCode.batch.batchNo,
+      batchName: activationCode.batch.name,
+      collectionId: activationCode.collectionId,
+      collectionNo: activationCode.collection.collectionNo,
+      status: activationCode.status,
+      issuedChannel: activationCode.issuedChannel,
+      issuedAt: toNullableTimestamp(activationCode.issuedAt),
+      usedByMemberId: activationCode.usedByMember?.id ?? null,
+      usedByMemberNo: activationCode.usedByMember?.memberNo ?? null,
+      usedAt: toNullableTimestamp(activationCode.usedAt),
+      expiredAt: toNullableTimestamp(activationCode.expiredAt),
+      voidedAt: toNullableTimestamp(activationCode.voidedAt),
+      createdAt: activationCode.createdAt.getTime(),
+      updatedAt: activationCode.updatedAt.getTime(),
+    };
   }
 
   /**
@@ -172,7 +236,7 @@ export class ActivationCodesService {
   async voidActivationCode(
     activationCodeId: string,
   ): Promise<VoidActivationCodeResponseData> {
-    const id = activationCodeId.trim();
+    const id = activationCodeId?.trim();
     if (!id) {
       throw new BizError({
         code: 'ACTIVATION_CODE_ID_REQUIRED',
@@ -252,6 +316,11 @@ export class ActivationCodesService {
       include: {
         batch: true;
         collection: true;
+        usedByMember: {
+          select: {
+            memberNo: true;
+          };
+        };
       };
     }>,
   ): ActivationCodeListItem {
@@ -263,6 +332,9 @@ export class ActivationCodesService {
       collectionId: activationCode.collectionId,
       collectionNo: activationCode.collection.collectionNo,
       status: activationCode.status,
+      issuedChannel: activationCode.issuedChannel,
+      usedByMemberNo: activationCode.usedByMember?.memberNo ?? null,
+      usedAt: toNullableTimestamp(activationCode.usedAt),
       expiredAt: toNullableTimestamp(activationCode.expiredAt),
     };
   }

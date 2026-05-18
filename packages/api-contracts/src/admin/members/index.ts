@@ -1,3 +1,5 @@
+export * from './get-member.params'
+export * from './get-member.response'
 export * from './list-members.query'
 export * from './list-members.response'
 export * from './update-member-status.request'

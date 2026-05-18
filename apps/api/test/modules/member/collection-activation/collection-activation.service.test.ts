@@ -1,5 +1,6 @@
-import { test } from 'vitest';
 import * as assert from 'node:assert/strict';
+import * as jwt from 'jsonwebtoken';
+import { test } from 'vitest';
 import {
   ActivationCodeStatus,
   CollectionContentEditStatus,
@@ -10,6 +11,19 @@ import {
 import { MemberContextService } from '../../../../src/modules/member/auth/member-context.service';
 import { CollectionActivationService } from '../../../../src/modules/member/collection-activation/collection-activation.service';
 import { BizError } from '../../../../src/common/http/biz-error';
+
+function createMemberAuthContext(memberId = 'mem_1') {
+  return {
+    authorization: `Bearer ${jwt.sign(
+      {
+        sub: memberId,
+        typ: 'member',
+      },
+      'dev-member-jwt-secret-change-me',
+      { algorithm: 'HS256', expiresIn: '30d' },
+    )}`,
+  };
+}
 
 function createCollectionActivationPrismaMock() {
   const member: {
@@ -202,9 +216,7 @@ test('CollectionActivationService.activateCollection claims collection and initi
   );
 
   const result = await service.activateCollection(
-    {
-      memberId: 'mem_1',
-    },
+    createMemberAuthContext(),
     {
       activationCode: 'ABCD-EFGH-IJKL',
     },
@@ -238,9 +250,7 @@ test('CollectionActivationService.activateCollection rejects already used activa
   await assert.rejects(
     () =>
       service.activateCollection(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           activationCode: 'ABCD-EFGH-IJKL',
         },
@@ -261,9 +271,7 @@ test('CollectionActivationService.activateCollection rejects invalid activation 
   await assert.rejects(
     () =>
       service.activateCollection(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           activationCode: 'INVALID-CODE',
         },
@@ -285,9 +293,7 @@ test('CollectionActivationService.activateCollection rejects expired activation 
   await assert.rejects(
     () =>
       service.activateCollection(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           activationCode: 'ABCD-EFGH-IJKL',
         },
@@ -309,9 +315,7 @@ test('CollectionActivationService.activateCollection rejects voided activation c
   await assert.rejects(
     () =>
       service.activateCollection(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           activationCode: 'ABCD-EFGH-IJKL',
         },
@@ -332,9 +336,7 @@ test('CollectionActivationService.activateCollection rejects empty activation co
   await assert.rejects(
     () =>
       service.activateCollection(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           activationCode: '   ',
         },
@@ -357,9 +359,7 @@ test('CollectionActivationService.activateCollection rejects activation code wit
   await assert.rejects(
     () =>
       service.activateCollection(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           activationCode: 'ABCD-EFGH-IJKL',
         },
@@ -394,9 +394,7 @@ test('CollectionActivationService.activateCollection rejects when member account
   await assert.rejects(
     () =>
       service.activateCollection(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           activationCode: 'ABCD-EFGH-IJKL',
         },
@@ -417,9 +415,7 @@ test('CollectionActivationService.activateCollection rejects when member does no
   await assert.rejects(
     () =>
       service.activateCollection(
-        {
-          memberId: 'mem_missing',
-        },
+        createMemberAuthContext('mem_missing'),
         {
           activationCode: 'ABCD-EFGH-IJKL',
         },

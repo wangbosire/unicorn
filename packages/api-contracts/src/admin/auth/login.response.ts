@@ -10,6 +10,12 @@ export type AdminAuthUser = {
   username: string
   /** 展示名称。 */
   displayName: string
+  /** 当前账号状态。 */
+  status: string
+  /** 最近登录时间戳；从未登录时为 `null`。 */
+  lastLoginAt: number | null
+  /** 角色显示名称列表。 */
+  roleNames: string[]
   /** 当前用户拥有的角色 key 列表。 */
   roles: string[]
   /**
@@ -17,6 +23,10 @@ export type AdminAuthUser = {
    * 包含 `*` 时表示拥有全部权限；权限变更后需重新登录以刷新令牌内声明。
    */
   permissionKeys: string[]
+  /** 已审核内容记录数量。 */
+  reviewedContentCount: number
+  /** 已审核评论记录数量。 */
+  reviewedCommentCount: number
 }
 
 /**

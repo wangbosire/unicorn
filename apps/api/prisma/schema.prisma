@@ -141,6 +141,90 @@ enum CollectionContentReviewSource {
   ADMIN
 }
 
+/// 评论审核状态。
+enum CollectionCommentStatus {
+  /// 待机器审核。
+  PENDING_MACHINE
+  /// 机器审核通过。
+  MACHINE_APPROVED
+  /// 机器审核拒绝。
+  MACHINE_REJECTED
+  /// 待人工审核。
+  PENDING_MANUAL
+  /// 人工审核通过。
+  MANUAL_APPROVED
+  /// 人工审核拒绝。
+  MANUAL_REJECTED
+  /// 已公开评论被后台屏蔽。
+  BLOCKED
+}
+
+/// 评论审核来源。
+enum CollectionCommentReviewSource {
+  /// 由系统自动执行审核。
+  SYSTEM
+  /// 由后台管理员执行审核。
+  ADMIN
+}
+
+/// 通知消息类型。
+enum NotificationMessageType {
+  /// 激活成功通知。
+  ACTIVATE_SUCCESS
+  /// 内容审核通过通知。
+  CONTENT_APPROVED
+  /// 内容审核驳回通知。
+  CONTENT_REJECTED
+  /// 内容被人工下架通知。
+  CONTENT_TAKEDOWN
+  /// 评论审核结果通知。
+  COMMENT_REVIEW_RESULT
+  /// 转让待接收通知。
+  TRANSFER_PENDING_ACCEPT
+  /// 转让完成通知。
+  TRANSFER_COMPLETED
+}
+
+/// 通知触达渠道。
+enum NotificationChannel {
+  /// 站内信。
+  IN_APP
+  /// 小程序订阅消息。
+  MINIAPP_SUBSCRIPTION
+  /// 公众号通知。
+  WECHAT_MP
+}
+
+/// 通知发送状态。
+enum NotificationDispatchStatus {
+  /// 待发送。
+  PENDING
+  /// 已发送成功。
+  SENT
+  /// 发送失败。
+  FAILED
+}
+
+/// 转让方式。
+enum CollectionTransferMode {
+  /// 指定会员转让。
+  DIRECT_MEMBER
+  /// 转让码转让。
+  TRANSFER_CODE
+}
+
+/// 转让单状态。
+enum CollectionTransferStatus {
+  /// 已创建，等待目标会员接收。
+  PENDING_ACCEPT
+  /// 转让已完成。
+  COMPLETED
+  /// 转让已取消。
+  CANCELLED
+  /// 转让已过期。
+  EXPIRED
+}
+
 /// 健康检查种子表。
 model HealthcheckSeed {
   /// 自增主键。
@@ -156,27 +240,29 @@ model HealthcheckSeed {
 /// 后台用户。
 model AdminUser {
   /// 后台用户主键。
-  id            String                          @id @default(cuid())
+  id               String                          @id @default(cuid())
   /// 对外展示和审计使用的后台账号编号。
-  accountNo     String                          @unique @map("account_no")
+  accountNo        String                          @unique @map("account_no")
   /// 登录用户名。
-  username      String                          @unique
+  username         String                          @unique
   /// 展示名称。
-  displayName   String                          @map("display_name")
+  displayName      String                          @map("display_name")
   /// 密码哈希值。
-  passwordHash  String                          @map("password_hash")
+  passwordHash     String                          @map("password_hash")
   /// 用户状态。
-  status        AdminUserStatus                 @default(ACTIVE)
+  status           AdminUserStatus                 @default(ACTIVE)
   /// 最近一次登录时间。
-  lastLoginAt   DateTime?                       @map("last_login_at")
+  lastLoginAt      DateTime?                       @map("last_login_at")
   /// 创建时间。
-  createdAt     DateTime                        @default(now()) @map("created_at")
+  createdAt        DateTime                        @default(now()) @map("created_at")
   /// 更新时间。
-  updatedAt     DateTime                        @updatedAt @map("updated_at")
+  updatedAt        DateTime                        @updatedAt @map("updated_at")
   /// 后台用户拥有的角色关系。
-  roles         AdminUserRole[]
+  roles            AdminUserRole[]
   /// 该管理员审核过的内容记录。
-  reviewedItems CollectionContentReviewRecord[]
+  reviewedItems    CollectionContentReviewRecord[]
+  /// 该管理员审核过的评论记录。
+  reviewedComments CollectionCommentReviewRecord[]
 
   @@map("admin_users")
 }
@@ -291,6 +377,14 @@ model Member {
   usedActivationCodes   ActivationCode[]           @relation("ActivationCodeUsedByMember")
   /// 由该会员创建的内容版本。
   createdContentVersion CollectionContentVersion[]
+  /// 由该会员发布的评论。
+  comments              CollectionComment[]
+  /// 面向该会员的通知消息。
+  notifications         NotificationMessage[]
+  /// 该会员发起的转让单。
+  outgoingTransfers     CollectionTransferOrder[]    @relation("CollectionTransferFromMember")
+  /// 该会员接收的转让单。
+  incomingTransfers     CollectionTransferOrder[]    @relation("CollectionTransferToMember")
 
   /// 支撑按手机号检索会员的后台查询场景。
   @@index([mobile])
@@ -432,6 +526,10 @@ model Collection {
   contentVersions      CollectionContentVersion[]
   /// 藏品下的审核记录列表。
   reviewRecords        CollectionContentReviewRecord[]
+  /// 藏品下的公开评论。
+  comments             CollectionComment[]
+  /// 藏品关联的转让单列表。
+  transferOrders       CollectionTransferOrder[]
 
   /// 支撑按所属系列聚合或筛选藏品。
   @@index([seriesId])
@@ -527,6 +625,8 @@ model CollectionContentVersion {
   createdByMember   Member?                         @relation(fields: [createdByMemberId], references: [id])
   /// 该版本关联的审核记录。
   reviewRecords     CollectionContentReviewRecord[]
+  /// 该版本关联的评论快照。
+  comments          CollectionComment[]
 
   /// 保证同一藏品下的版本号唯一且单调递增。
   @@unique([collectionId, versionNo])
@@ -578,4 +678,199 @@ model CollectionContentReviewRecord {
   /// 支撑区分机审与人工审核阶段的处理队列。
   @@index([reviewStage])
   @@map("collection_content_review_records")
+}
+
+/// 公开评论实体。
+/// 一期支持一级评论和二级回复，评论绑定到公开内容版本快照。
+model CollectionComment {
+  /// 评论主键。
+  id               String                          @id @default(cuid())
+  /// 所属藏品外键。
+  collectionId     String                          @map("collection_id")
+  /// 关联的内容版本外键。
+  contentVersionId String                          @map("content_version_id")
+  /// 评论会员外键。
+  memberId         String                          @map("member_id")
+  /// 父评论外键；一级评论为空。
+  parentCommentId  String?                         @map("parent_comment_id")
+  /// 根评论外键；一级评论为空。
+  rootCommentId    String?                         @map("root_comment_id")
+  /// 评论正文。
+  content          String
+  /// 当前评论审核/展示状态。
+  status           CollectionCommentStatus         @map("status")
+  /// 实际公开发布时间。
+  publishedAt      DateTime?                       @map("published_at")
+  /// 创建时间。
+  createdAt        DateTime                        @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt        DateTime                        @updatedAt @map("updated_at")
+  /// 所属藏品实体。
+  collection       Collection                      @relation(fields: [collectionId], references: [id])
+  /// 对应内容版本实体。
+  contentVersion   CollectionContentVersion        @relation(fields: [contentVersionId], references: [id])
+  /// 发布该评论的会员实体。
+  member           Member                          @relation(fields: [memberId], references: [id])
+  /// 父评论实体。
+  parentComment    CollectionComment?              @relation("CollectionCommentReplies", fields: [parentCommentId], references: [id])
+  /// 当前评论的回复列表。
+  replies          CollectionComment[]             @relation("CollectionCommentReplies")
+  /// 根评论实体。
+  rootComment      CollectionComment?              @relation("CollectionCommentRoot", fields: [rootCommentId], references: [id])
+  /// 作为根评论时的全部后代回复。
+  threadedReplies  CollectionComment[]             @relation("CollectionCommentRoot")
+  /// 该评论关联的审核记录。
+  reviewRecords    CollectionCommentReviewRecord[]
+
+  /// 支撑按藏品查询评论列表。
+  @@index([collectionId])
+  /// 支撑按内容版本查询评论快照。
+  @@index([contentVersionId])
+  /// 支撑按会员查询评论行为。
+  @@index([memberId])
+  /// 支撑公开列表按状态筛选。
+  @@index([status])
+  /// 支撑回复树读取。
+  @@index([parentCommentId])
+  /// 支撑根评论聚合读取。
+  @@index([rootCommentId])
+  @@map("collection_comments")
+}
+
+/// 评论审核记录。
+/// 记录评论从机审到人工审核的过程，供后台治理与会员反馈使用。
+model CollectionCommentReviewRecord {
+  /// 审核记录主键。
+  id                    String                        @id @default(cuid())
+  /// 对应评论外键。
+  commentId             String                        @map("comment_id")
+  /// 审核结果状态。
+  reviewStatus          CollectionCommentStatus       @map("review_status")
+  /// 审核来源。
+  reviewSource          CollectionCommentReviewSource @map("review_source")
+  /// 审核原因或备注。
+  reviewReason          String?                       @map("review_reason")
+  /// 执行人工审核的后台用户外键。
+  reviewedByAdminUserId String?                       @map("reviewed_by_admin_user_id")
+  /// 审核完成时间。
+  reviewedAt            DateTime?                     @map("reviewed_at")
+  /// 审核记录创建时间。
+  createdAt             DateTime                      @default(now()) @map("created_at")
+  /// 对应评论实体。
+  comment               CollectionComment             @relation(fields: [commentId], references: [id])
+  /// 执行人工审核的后台用户实体。
+  reviewedByAdminUser   AdminUser?                    @relation(fields: [reviewedByAdminUserId], references: [id])
+
+  /// 支撑按评论追溯审核轨迹。
+  @@index([commentId])
+  /// 支撑按审核状态筛选队列。
+  @@index([reviewStatus])
+  @@map("collection_comment_review_records")
+}
+
+/// 藏品转让单。
+/// 记录指定会员转让与转让码转让的发起、接收与完成状态。
+model CollectionTransferOrder {
+  /// 转让单主键。
+  id           String                   @id @default(cuid())
+  /// 对外展示的转让单号。
+  transferNo   String                   @unique @map("transfer_no")
+  /// 所属藏品外键。
+  collectionId String                   @map("collection_id")
+  /// 转出会员外键。
+  fromMemberId String                   @map("from_member_id")
+  /// 转入会员外键；转让码待接收时允许为空。
+  toMemberId   String?                  @map("to_member_id")
+  /// 转让方式。
+  transferMode CollectionTransferMode   @map("transfer_mode")
+  /// 转让码；指定会员转让时为空。
+  transferCode String?                  @map("transfer_code")
+  /// 当前转让状态。
+  status       CollectionTransferStatus @map("status")
+  /// 失效时间。
+  expiredAt    DateTime?                @map("expired_at")
+  /// 完成时间。
+  completedAt  DateTime?                @map("completed_at")
+  /// 创建时间。
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+  /// 所属藏品实体。
+  collection   Collection               @relation(fields: [collectionId], references: [id])
+  /// 转出会员实体。
+  fromMember   Member                   @relation("CollectionTransferFromMember", fields: [fromMemberId], references: [id])
+  /// 转入会员实体。
+  toMember     Member?                  @relation("CollectionTransferToMember", fields: [toMemberId], references: [id])
+
+  /// 支撑按藏品追溯流转历史。
+  @@index([collectionId])
+  /// 支撑按转出会员查询其发起记录。
+  @@index([fromMemberId])
+  /// 支撑按转入会员查询待接收/已接收记录。
+  @@index([toMemberId])
+  /// 支撑按状态筛选后台转让列表。
+  @@index([status])
+  /// 支撑按转让方式筛选后台转让列表。
+  @@index([transferMode])
+  @@map("collection_transfer_orders")
+}
+
+/// 会员通知消息。
+/// 一期默认承载站内信主记录，并挂接站外发送明细。
+model NotificationMessage {
+  /// 通知消息主键。
+  id              String                  @id @default(cuid())
+  /// 目标会员外键。
+  memberId        String                  @map("member_id")
+  /// 消息类型。
+  messageType     NotificationMessageType @map("message_type")
+  /// 消息标题。
+  title           String
+  /// 消息正文。
+  content         String
+  /// 已读时间；未读时为空。
+  readAt          DateTime?               @map("read_at")
+  /// 创建时间。
+  createdAt       DateTime                @default(now()) @map("created_at")
+  /// 目标会员实体。
+  member          Member                  @relation(fields: [memberId], references: [id])
+  /// 该消息的发送记录。
+  dispatchRecords NotificationDispatchRecord[]
+
+  /// 支撑按会员读取消息中心。
+  @@index([memberId])
+  /// 支撑按消息类型汇总后台通知中心。
+  @@index([messageType])
+  /// 支撑按未读态统计。
+  @@index([readAt])
+  @@map("notification_messages")
+}
+
+/// 通知发送记录。
+/// 记录站内外各渠道的派发结果与失败原因。
+model NotificationDispatchRecord {
+  /// 发送记录主键。
+  id               String                   @id @default(cuid())
+  /// 对应消息外键。
+  messageId        String                   @map("message_id")
+  /// 发送渠道。
+  channel          NotificationChannel
+  /// 发送状态。
+  status           NotificationDispatchStatus
+  /// 渠道侧返回或失败原因。
+  providerResponse String?                  @map("provider_response")
+  /// 实际发送时间；未发送成功时可为空。
+  sentAt           DateTime?                @map("sent_at")
+  /// 创建时间。
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  /// 对应通知消息实体。
+  message          NotificationMessage      @relation(fields: [messageId], references: [id])
+
+  /// 支撑按消息追溯全部派发记录。
+  @@index([messageId])
+  /// 支撑按渠道汇总发送情况。
+  @@index([channel])
+  /// 支撑按发送状态筛选失败/待发送。
+  @@index([status])
+  @@map("notification_dispatch_records")
 }

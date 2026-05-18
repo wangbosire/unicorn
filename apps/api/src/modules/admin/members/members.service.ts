@@ -5,10 +5,14 @@ import {
   buildPaginatedResult,
   parsePaginationQuery,
 } from '../../../common/pagination/pagination';
-import { toTimestamp } from '../../../common/serializers/timestamp';
+import {
+  toNullableTimestamp,
+  toTimestamp,
+} from '../../../common/serializers/timestamp';
 import { parseOptionalEnumValue } from '../../../common/validation/enum';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import type {
+  AdminMemberDetail,
   AdminMemberListItem,
   ListMembersQuery,
   ListMembersResponseData,
@@ -66,6 +70,63 @@ export class MembersService {
       pageSize: pagination.pageSize,
       total,
     });
+  }
+
+  /**
+   * 查询单个会员详情，供后台治理页查看基础身份与资产摘要。
+   */
+  async getMemberById(memberId: string): Promise<AdminMemberDetail> {
+    const id = memberId?.trim();
+    if (!id) {
+      throw new BizError({
+        code: 'VALIDATION_ERROR',
+        message: 'member id is required',
+      });
+    }
+
+    const member = await this.prisma.member.findUnique({
+      where: { id },
+      include: {
+        wechatBindings: { select: { channelType: true } },
+        comments: {
+          select: { createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        _count: {
+          select: {
+            ownedCollections: true,
+            createdContentVersion: true,
+            comments: true,
+          },
+        },
+      },
+    });
+
+    if (!member) {
+      throw new BizError({
+        code: 'MEMBER_NOT_FOUND',
+        message: 'member not found',
+        status: 404,
+      });
+    }
+
+    return {
+      memberId: member.id,
+      memberNo: member.memberNo,
+      nickname: member.nickname,
+      avatarUrl: member.avatarUrl,
+      mobile: member.mobile,
+      status: member.status,
+      registeredAt: toTimestamp(member.registeredAt),
+      wechatChannels: this.toWechatChannelLabels(member.wechatBindings),
+      ownedCollectionsCount: member._count.ownedCollections,
+      createdContentVersionsCount: member._count.createdContentVersion,
+      commentsCount: member._count.comments,
+      latestCommentAt: toNullableTimestamp(member.comments[0]?.createdAt ?? null),
+      createdAt: toTimestamp(member.createdAt),
+      updatedAt: toTimestamp(member.updatedAt),
+    };
   }
 
   /**
@@ -153,16 +214,11 @@ export class MembersService {
   private formatWechatChannelsSummary(
     bindings: { channelType: WechatChannelType }[],
   ): string | null {
-    if (!bindings.length) {
+    const labels = this.toWechatChannelLabels(bindings);
+    if (!labels.length) {
       return null;
     }
-    const labels = new Set<string>();
-    for (const binding of bindings) {
-      labels.add(
-        binding.channelType === WechatChannelType.MINIAPP ? '微信小程序' : '微信公众号',
-      );
-    }
-    return [...labels].join('、');
+    return labels.join('、');
   }
 
   private parseMemberStatus(value: string | undefined): MemberStatus | undefined {
@@ -172,5 +228,20 @@ export class MembersService {
       'INVALID_MEMBER_STATUS',
       'invalid member status',
     );
+  }
+
+  /**
+   * 将微信绑定渠道去重并按中文标签输出。
+   */
+  private toWechatChannelLabels(
+    bindings: { channelType: WechatChannelType }[],
+  ): string[] {
+    const labels = new Set<string>();
+    for (const binding of bindings) {
+      labels.add(
+        binding.channelType === WechatChannelType.MINIAPP ? '微信小程序' : '微信公众号',
+      );
+    }
+    return [...labels];
   }
 }

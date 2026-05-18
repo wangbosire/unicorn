@@ -5,7 +5,7 @@ export const MOCK_MEMBER_TOKEN_PREFIX = 'mock-member-token:'
 
 /**
  * 从已存储的 accessToken 字符串中解析 mock 会员主键（支持带或不带 `Bearer ` 前缀）。
- * 非 mock 形态返回 `null`，由调用方决定是否回落到 `unicorn_member_id`。
+ * 非 mock 形态返回 `null`，供客户端识别“当前已切换为正式 JWT”。
  */
 export function parseMemberIdFromMockAccessToken(token: string): string | null {
   const trimmed = token.trim()

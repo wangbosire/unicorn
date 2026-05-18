@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import type {
   GenerateActivationCodesRequest,
   ListActivationCodesQuery,
@@ -27,6 +27,16 @@ export class ActivationCodesController {
   }
 
   /**
+   * 查询单个激活码详情。
+   */
+  @Get(':activationCodeId')
+  async getActivationCodeById(
+    @Param('activationCodeId') activationCodeId: string,
+  ) {
+    return this.activationCodesService.getActivationCodeById(activationCodeId);
+  }
+
+  /**
    * 批量生成激活码并同步创建待领取藏品。
    */
   @Post('generate')
@@ -37,7 +47,7 @@ export class ActivationCodesController {
   /**
    * 作废单条激活码（仅未使用且未过期状态可操作）。
    */
-  @Post(':activationCodeId/void')
+  @Patch(':activationCodeId/void')
   async voidActivationCode(
     @Param('activationCodeId') activationCodeId: string,
   ) {

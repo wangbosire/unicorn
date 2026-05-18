@@ -143,8 +143,98 @@ function createActivationCodesPrismaMock() {
         batches.find((item) => item.id === where.id) ?? null,
     },
     activationCode: {
-      findUnique: async ({ where }: { where: { id: string } }) =>
-        activationCodes.find((item) => item.id === where.id) ?? null,
+      findMany: async ({
+        where,
+        skip,
+        take,
+      }: {
+        where: {
+          batchId?: string;
+          status?: ActivationCodeStatus;
+          OR?: Array<
+            | { code?: { contains: string } }
+            | { collection?: { collectionNo?: { contains: string } } }
+          >;
+        };
+        skip: number;
+        take: number;
+      }) =>
+        activationCodes
+          .filter((item) => {
+            if (where.batchId && item.batchId !== where.batchId) {
+              return false;
+            }
+            if (where.status && item.status !== where.status) {
+              return false;
+            }
+            if (where.OR && where.OR.length > 0) {
+              const keyword = String(
+                where.OR
+                  .map((entry) => {
+                    if ('code' in entry) {
+                      return entry.code?.contains ?? '';
+                    }
+                    if ('collection' in entry) {
+                      return entry.collection?.collectionNo?.contains ?? '';
+                    }
+                    return '';
+                  })
+                  .find((value) => value.length > 0) ?? '',
+              ).toLowerCase();
+              if (keyword) {
+                const collection =
+                  collections.find((entry) => entry.id === item.collectionId) ?? null;
+                return (
+                  item.code.toLowerCase().includes(keyword) ||
+                  collection?.collectionNo.toLowerCase().includes(keyword) === true
+                );
+              }
+            }
+            return true;
+          })
+          .slice(skip, skip + take)
+          .map((item) => ({
+            ...item,
+            batch: batches.find((entry) => entry.id === item.batchId)!,
+            collection: collections.find((entry) => entry.id === item.collectionId)!,
+            usedByMember: item.usedByMemberId
+              ? { memberNo: 'MEM-001' }
+              : null,
+          })),
+      count: async ({
+        where,
+      }: {
+        where: {
+          batchId?: string;
+          status?: ActivationCodeStatus;
+          OR?: Array<
+            | { code?: { contains: string } }
+            | { collection?: { collectionNo?: { contains: string } } }
+          >;
+        };
+      }) =>
+        activationCodes.filter((item) => {
+          if (where.batchId && item.batchId !== where.batchId) {
+            return false;
+          }
+          if (where.status && item.status !== where.status) {
+            return false;
+          }
+          return true;
+        }).length,
+      findUnique: async ({
+        where,
+      }: {
+        where: { id?: string; code?: string };
+      }) => {
+        if (where.id) {
+          return activationCodes.find((item) => item.id === where.id) ?? null;
+        }
+        if (where.code) {
+          return activationCodes.find((item) => item.code === where.code) ?? null;
+        }
+        return null;
+      },
       update: async ({
         where,
         data,
@@ -169,11 +259,64 @@ function createActivationCodesPrismaMock() {
         return { ...item };
       },
     },
-    $transaction: async <T>(callback: (client: typeof tx) => Promise<T>) => callback(tx),
+    $transaction: async <T>(
+      arg: ((client: typeof tx) => Promise<T>) | Promise<unknown>[],
+    ) => {
+      if (typeof arg === 'function') {
+        return arg(tx);
+      }
+      return Promise.all(arg) as Promise<T>;
+    },
   };
 
   return { prisma, activationCodes, collections, batches };
 }
+
+test('ActivationCodesService.listActivationCodes returns paginated list with usage summary', async () => {
+  const { prisma, activationCodes, collections } = createActivationCodesPrismaMock();
+  collections.push({
+    id: 'col_list_1',
+    collectionNo: 'COL-LIST-001',
+    seriesId: 'ser_1',
+    batchId: 'bat_1',
+    status: CollectionStatus.OWNED,
+    currentOwnerMemberId: 'mem_1',
+    claimedAt: new Date('2026-05-15T09:00:00.000Z'),
+    createdAt: new Date('2026-05-14T08:00:00.000Z'),
+    updatedAt: new Date('2026-05-15T09:00:00.000Z'),
+  });
+  activationCodes.push({
+    id: 'ac_list_1',
+    code: 'LIST-AAAA-BBBB',
+    batchId: 'bat_1',
+    collectionId: 'col_list_1',
+    status: ActivationCodeStatus.USED,
+    issuedChannel: 'offline_event',
+    issuedAt: new Date('2026-05-14T09:00:00.000Z'),
+    usedByMemberId: 'mem_1',
+    usedAt: new Date('2026-05-15T09:00:00.000Z'),
+    expiredAt: new Date('2026-06-14T00:00:00.000Z'),
+    voidedAt: null,
+    createdAt: new Date('2026-05-14T08:00:00.000Z'),
+    updatedAt: new Date('2026-05-15T09:00:00.000Z'),
+  });
+
+  const service = new ActivationCodesService(prisma as never);
+  const result = await service.listActivationCodes({
+    page: '1',
+    pageSize: '20',
+    status: 'USED',
+  });
+
+  assert.equal(result.total, 1);
+  assert.equal(result.items[0]?.code, 'LIST-AAAA-BBBB');
+  assert.equal(result.items[0]?.issuedChannel, 'offline_event');
+  assert.equal(result.items[0]?.usedByMemberNo, 'MEM-001');
+  assert.equal(
+    result.items[0]?.usedAt,
+    new Date('2026-05-15T09:00:00.000Z').getTime(),
+  );
+});
 
 test('ActivationCodesService.generateActivationCodes creates activation codes and collections in pairs', async () => {
   const { prisma, activationCodes, collections } = createActivationCodesPrismaMock();
@@ -264,6 +407,77 @@ test('ActivationCodesService.generateActivationCodes rejects when issuance batch
       }),
     (error: unknown) =>
       error instanceof BizError && error.code === 'ISSUANCE_BATCH_NOT_FOUND',
+  );
+});
+
+test('ActivationCodesService.getActivationCodeById returns detail summary', async () => {
+  const { prisma, activationCodes, collections, batches } =
+    createActivationCodesPrismaMock();
+  activationCodes.push({
+    id: 'ac_detail_1',
+    code: 'AAAA-BBBB-CCCC',
+    batchId: 'bat_1',
+    collectionId: 'col_detail_1',
+    status: ActivationCodeStatus.USED,
+    issuedChannel: 'offline_event',
+    issuedAt: new Date('2026-05-14T09:00:00.000Z'),
+    usedByMemberId: 'mem_1',
+    usedAt: new Date('2026-05-15T09:00:00.000Z'),
+    expiredAt: new Date('2026-06-14T00:00:00.000Z'),
+    voidedAt: null,
+    createdAt: new Date('2026-05-14T08:00:00.000Z'),
+    updatedAt: new Date('2026-05-15T09:00:00.000Z'),
+  });
+  collections.push({
+    id: 'col_detail_1',
+    collectionNo: 'COL-DETAIL-001',
+    seriesId: batches[0]!.seriesId,
+    batchId: 'bat_1',
+    status: CollectionStatus.OWNED,
+    currentOwnerMemberId: 'mem_1',
+    claimedAt: new Date('2026-05-15T09:00:00.000Z'),
+    createdAt: new Date('2026-05-14T08:00:00.000Z'),
+    updatedAt: new Date('2026-05-15T09:00:00.000Z'),
+  });
+
+  (prisma.activationCode.findUnique as unknown as Function) = async ({
+    where,
+  }: {
+    where: { id?: string; code?: string };
+  }) => {
+    if (where.code) {
+      return activationCodes.find((item) => item.code === where.code) ?? null;
+    }
+    const activationCode = activationCodes.find((item) => item.id === where.id) ?? null;
+    if (!activationCode) {
+      return null;
+    }
+    return {
+      ...activationCode,
+      batch: batches[0],
+      collection:
+        collections.find((item: { id: string }) => item.id === activationCode.collectionId)!,
+      usedByMember: { id: 'mem_1', memberNo: 'MEM-001' },
+    };
+  };
+
+  const service = new ActivationCodesService(prisma as never);
+  const result = await service.getActivationCodeById('ac_detail_1');
+
+  assert.equal(result.code, 'AAAA-BBBB-CCCC');
+  assert.equal(result.batchNo, 'BAT-001');
+  assert.equal(result.collectionNo, 'COL-DETAIL-001');
+  assert.equal(result.usedByMemberNo, 'MEM-001');
+});
+
+test('ActivationCodesService.getActivationCodeById throws when missing', async () => {
+  const { prisma } = createActivationCodesPrismaMock();
+  const service = new ActivationCodesService(prisma as never);
+
+  await assert.rejects(
+    () => service.getActivationCodeById('missing'),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'ACTIVATION_CODE_NOT_FOUND',
   );
 });
 

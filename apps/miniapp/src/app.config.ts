@@ -7,6 +7,7 @@ export default defineAppConfig({
     'pages/collection-edit/index',
     'pages/collection-public/index',
     'pages/messages/index',
+    'pages/transfers/index',
   ],
   window: {
     navigationBarTitleText: 'Unicorn',

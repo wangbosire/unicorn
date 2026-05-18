@@ -1,9 +1,9 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type ColumnDef } from '@tanstack/react-table'
 import type { IssuanceBatchListItem } from '@contracts/admin/issuance-batches'
+import { ProTableColumnHeader } from '@/components/pro'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { DataTableColumnHeader } from '@/components/data-table'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +32,7 @@ export function createBatchesColumns(
     {
       accessorKey: 'batchNo',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='批次编号' />
+        <ProTableColumnHeader column={column} title='批次编号' />
       ),
       cell: ({ row }) => <div className='font-medium'>{row.getValue('batchNo')}</div>,
       enableHiding: false,
@@ -40,14 +40,14 @@ export function createBatchesColumns(
     {
       accessorKey: 'name',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='批次名称' />
+        <ProTableColumnHeader column={column} title='批次名称' />
       ),
       cell: ({ row }) => row.getValue('name'),
     },
     {
       accessorKey: 'seriesName',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='所属系列' />
+        <ProTableColumnHeader column={column} title='所属系列' />
       ),
       cell: ({ row }) => row.getValue('seriesName'),
       enableSorting: false,
@@ -55,7 +55,7 @@ export function createBatchesColumns(
     {
       accessorKey: 'seriesStatus',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='系列状态' />
+        <ProTableColumnHeader column={column} title='系列状态' />
       ),
       enableSorting: false,
       cell: ({ row }) => {
@@ -75,14 +75,14 @@ export function createBatchesColumns(
     {
       accessorKey: 'quantity',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='发行数量' />
+        <ProTableColumnHeader column={column} title='发行数量' />
       ),
       cell: ({ row }) => row.getValue('quantity'),
     },
     {
       accessorKey: 'activateValidFrom',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='激活有效期' />
+        <ProTableColumnHeader column={column} title='激活有效期' />
       ),
       enableSorting: false,
       meta: { className: 'w-70' },
@@ -94,7 +94,7 @@ export function createBatchesColumns(
     {
       accessorKey: 'status',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title='状态' />
+        <ProTableColumnHeader column={column} title='状态' />
       ),
       cell: ({ row }) => {
         const status = String(row.getValue('status'))
@@ -105,7 +105,8 @@ export function createBatchesColumns(
           </Badge>
         )
       },
-      filterFn: (row, id, value) => value.includes(row.getValue(id)),
+      filterFn: (row, id, value) =>
+        Array.isArray(value) && value.includes(row.getValue(id)),
     },
     {
       id: 'actions',

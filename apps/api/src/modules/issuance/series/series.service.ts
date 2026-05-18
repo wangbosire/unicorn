@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, SeriesStatus } from '@prisma/client';
+import { IssuanceBatchStatus, Prisma, SeriesStatus } from '@prisma/client';
 import type {
   CreateSeriesRequest,
   ListSeriesQuery,
@@ -80,6 +80,14 @@ export class SeriesService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.series.findMany({
         where,
+        include: {
+          _count: {
+            select: {
+              batches: true,
+              collections: true,
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         skip: pagination.skip,
         take: pagination.take,
@@ -87,8 +95,14 @@ export class SeriesService {
       this.prisma.series.count({ where }),
     ]);
 
+    const enabledBatchCounts = await this.listEnabledBatchCountsBySeriesIds(
+      items.map((item) => item.id),
+    );
+
     return buildPaginatedResult({
-      items: items.map((item) => this.toSeriesListItem(item)),
+      items: items.map((item) =>
+        this.toSeriesListItem(item, enabledBatchCounts.get(item.id) ?? 0),
+      ),
       page: pagination.page,
       pageSize: pagination.pageSize,
       total,
@@ -101,6 +115,14 @@ export class SeriesService {
   async getSeriesById(seriesId: string): Promise<SeriesDetail> {
     const series = await this.prisma.series.findUnique({
       where: { id: seriesId },
+      include: {
+        _count: {
+          select: {
+            batches: true,
+            collections: true,
+          },
+        },
+      },
     });
 
     if (!series) {
@@ -111,12 +133,22 @@ export class SeriesService {
       });
     }
 
+    const enabledBatchCount = await this.prisma.issuanceBatch.count({
+      where: {
+        seriesId: series.id,
+        status: IssuanceBatchStatus.ENABLED,
+      },
+    });
+
     return {
       id: series.id,
       seriesNo: series.seriesNo,
       name: series.name,
       description: series.description,
       status: series.status,
+      batchCount: series._count.batches,
+      enabledBatchCount,
+      collectionCount: series._count.collections,
       createdAt: toTimestamp(series.createdAt),
       updatedAt: toTimestamp(series.updatedAt),
     };
@@ -236,15 +268,56 @@ export class SeriesService {
   /**
    * 将查询结果转换为列表项视图，避免直接暴露 Prisma 实体。
    */
-  private toSeriesListItem(series: Prisma.SeriesGetPayload<object>): SeriesListItem {
+  private toSeriesListItem(
+    series: Prisma.SeriesGetPayload<{
+      include: {
+        _count: {
+          select: {
+            batches: true;
+            collections: true;
+          };
+        };
+      };
+    }>,
+    enabledBatchCount: number,
+  ): SeriesListItem {
     return {
       id: series.id,
       seriesNo: series.seriesNo,
       name: series.name,
       description: series.description,
       status: series.status,
+      batchCount: series._count.batches,
+      enabledBatchCount,
+      collectionCount: series._count.collections,
       createdAt: toTimestamp(series.createdAt),
     };
+  }
+
+  /**
+   * 批量查询系列下启用中的发行批次数，避免列表接口逐条统计。
+   */
+  private async listEnabledBatchCountsBySeriesIds(
+    seriesIds: string[],
+  ): Promise<Map<string, number>> {
+    if (seriesIds.length === 0) {
+      return new Map();
+    }
+
+    const grouped = await this.prisma.issuanceBatch.groupBy({
+      by: ['seriesId'],
+      where: {
+        seriesId: { in: seriesIds },
+        status: IssuanceBatchStatus.ENABLED,
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    return new Map(
+      grouped.map((item) => [item.seriesId, item._count._all]),
+    );
   }
 
   /**
