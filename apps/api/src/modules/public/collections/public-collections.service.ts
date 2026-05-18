@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import {
+  CollectionCommentStatus,
   CollectionContentEditStatus,
   CollectionContentPublishStatus,
 } from '@prisma/client';
-import type { GetPublicCollectionResponseData } from '@contracts/public/collections';
+import type {
+  GetPublicCollectionResponseData,
+  PublicCollectionStats,
+} from '@contracts/public/collections';
 import { BizError } from '../../../common/http/biz-error';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 
@@ -34,6 +38,8 @@ export class PublicCollectionsService {
     const collection = await this.prisma.collection.findUnique({
       where: { collectionNo: normalized },
       include: {
+        series: true,
+        batch: true,
         currentOwnerMember: true,
         contentVersions: {
           where: { editStatus: CollectionContentEditStatus.APPROVED },
@@ -89,9 +95,41 @@ export class PublicCollectionsService {
       });
     }
 
+    const visibleStatuses = [
+      CollectionCommentStatus.MACHINE_APPROVED,
+      CollectionCommentStatus.MANUAL_APPROVED,
+    ];
+
+    const visibleCommentWhere = {
+      collectionId: collection.id,
+      status: {
+        in: visibleStatuses,
+      },
+    };
+
+    const [topLevelCommentCount, totalCommentCount] = await Promise.all([
+      this.prisma.collectionComment.count({
+        where: {
+          ...visibleCommentWhere,
+          parentCommentId: null,
+        },
+      }),
+      this.prisma.collectionComment.count({
+        where: visibleCommentWhere,
+      }),
+    ]);
+
     return {
       collectionNo: collection.collectionNo,
       slug: collection.collectionNo,
+      seriesId: collection.seriesId,
+      seriesNo: collection.series.seriesNo,
+      seriesName: collection.series.name,
+      batchId: collection.batchId,
+      batchNo: collection.batch.batchNo,
+      batchName: collection.batch.name,
+      contentVersionId: publishedVersion.id,
+      versionNo: publishedVersion.versionNo,
       title: publishedVersion.title,
       summary: publishedVersion.summary,
       coverImageUrl: publishedVersion.coverImageUrl,
@@ -99,8 +137,99 @@ export class PublicCollectionsService {
       owner: {
         memberNo: owner.memberNo,
         nickname: owner.nickname,
+        avatarUrl: owner.avatarUrl,
       },
+      topLevelCommentCount,
+      totalCommentCount,
       publishedAt: publishedVersion.publishedAt.toISOString(),
+    };
+  }
+
+  /**
+   * 返回公开展示页统计摘要。
+   * 当前聚焦一期已存在模型：已审核版本数量、是否存在公开快照与最近公开时间。
+   */
+  async getPublicCollectionStatsBySlug(slug: string): Promise<PublicCollectionStats> {
+    const normalized = slug?.trim();
+
+    if (!normalized) {
+      throw new BizError({
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'public collection not found',
+        status: 404,
+      });
+    }
+
+    const collection = await this.prisma.collection.findUnique({
+      where: { collectionNo: normalized },
+      include: {
+        currentOwnerMember: {
+          select: {
+            memberNo: true,
+            nickname: true,
+          },
+        },
+        contentVersions: {
+          where: { editStatus: CollectionContentEditStatus.APPROVED },
+          orderBy: { versionNo: 'desc' },
+          take: 50,
+        },
+      },
+    });
+
+    if (!collection) {
+      throw new BizError({
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'public collection not found',
+        status: 404,
+      });
+    }
+
+    const approvedVersions = collection.contentVersions;
+    const latestApproved = approvedVersions[0] ?? null;
+    const publishedVersion =
+      approvedVersions.find(
+        (version) =>
+          version.publishStatus === CollectionContentPublishStatus.PUBLISHED &&
+          version.publishedAt != null,
+      ) ?? null;
+
+    const visibleStatuses = [
+      CollectionCommentStatus.MACHINE_APPROVED,
+      CollectionCommentStatus.MANUAL_APPROVED,
+    ];
+
+    const visibleCommentWhere = {
+      collectionId: collection.id,
+      status: {
+        in: visibleStatuses,
+      },
+    };
+
+    const [topLevelCommentCount, totalCommentCount] = await Promise.all([
+      this.prisma.collectionComment.count({
+        where: {
+          ...visibleCommentWhere,
+          parentCommentId: null,
+        },
+      }),
+      this.prisma.collectionComment.count({
+        where: visibleCommentWhere,
+      }),
+    ]);
+
+    return {
+      collectionNo: collection.collectionNo,
+      slug: collection.collectionNo,
+      ownerMemberNo: collection.currentOwnerMember?.memberNo ?? null,
+      ownerNickname: collection.currentOwnerMember?.nickname ?? null,
+      approvedVersionCount: approvedVersions.length,
+      hasPublishedContent: publishedVersion != null,
+      latestApprovedVersionNo: latestApproved?.versionNo ?? null,
+      publishedVersionNo: publishedVersion?.versionNo ?? null,
+      topLevelCommentCount,
+      totalCommentCount,
+      publishedAt: publishedVersion?.publishedAt?.toISOString() ?? null,
     };
   }
 }

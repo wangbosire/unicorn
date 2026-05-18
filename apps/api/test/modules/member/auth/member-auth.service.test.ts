@@ -40,12 +40,28 @@ function createMemberAuthPrismaMock() {
       }: {
         where: { memberNo?: string; id?: string };
       }) => {
+        const attachCount = (
+          member: (typeof members)[number] | null,
+        ) =>
+          member
+            ? {
+                ...member,
+                _count: {
+                  wechatBindings: bindings.filter((item) => item.memberId === member.id).length,
+                  ownedCollections: 0,
+                  comments: 0,
+                },
+              }
+            : null;
+
         if (where.memberNo) {
-          return members.find((item) => item.memberNo === where.memberNo) ?? null;
+          return attachCount(
+            members.find((item) => item.memberNo === where.memberNo) ?? null,
+          );
         }
 
         if (where.id) {
-          return members.find((item) => item.id === where.id) ?? null;
+          return attachCount(members.find((item) => item.id === where.id) ?? null);
         }
 
         return null;
@@ -107,8 +123,21 @@ function createMemberAuthPrismaMock() {
 
   const prisma = {
     member: {
-      findUnique: async ({ where }: { where: { id: string } }) =>
-        members.find((item) => item.id === where.id) ?? null,
+      findUnique: async ({ where }: { where: { id: string } }) => {
+        const member = members.find((item) => item.id === where.id) ?? null;
+        if (!member) {
+          return null;
+        }
+
+        return {
+          ...member,
+          _count: {
+            wechatBindings: bindings.filter((item) => item.memberId === member.id).length,
+            ownedCollections: 0,
+            comments: 0,
+          },
+        };
+      },
     },
     memberWechatBinding: {
       findUnique: async ({
@@ -157,6 +186,26 @@ test('MemberAuthService.loginWithWechatMiniapp creates member and binding for fi
   assert.equal(result.member.id, members[0]?.id);
   assert.equal(result.member.memberNo, 'MEM000001');
   assert.equal(result.member.status, MemberStatus.ACTIVE);
+  assert.equal(result.member.mobile, null);
+  assert.equal(result.member.wechatBindingCount, 1);
+  assert.equal(result.member.ownedCollectionCount, 0);
+  assert.equal(result.member.commentCount, 0);
+  assert.equal(result.member.registeredAt, new Date('2026-05-14T03:00:00.000Z').getTime());
+});
+
+test('MemberAuthService.loginWithWechatMp creates mp binding for first login', async () => {
+  const { prisma, members, bindings } = createMemberAuthPrismaMock();
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new MemberAuthService(prisma as never, memberContextService);
+
+  const result = await service.loginWithWechatMp({
+    code: 'mp-code-001',
+  });
+
+  assert.equal(members.length, 1);
+  assert.equal(bindings.length, 1);
+  assert.equal(bindings[0]?.channelType, WechatChannelType.MP);
+  assert.equal(result.member.memberNo, 'MEM000001');
 });
 
 test('MemberAuthService.getCurrentMember supports bearer mock token', async () => {
@@ -173,6 +222,9 @@ test('MemberAuthService.getCurrentMember supports bearer mock token', async () =
 
   assert.equal(currentMember.id, members[0]?.id);
   assert.equal(currentMember.memberNo, 'MEM000001');
+  assert.equal(currentMember.wechatBindingCount, 1);
+  assert.equal(currentMember.ownedCollectionCount, 0);
+  assert.equal(currentMember.commentCount, 0);
 });
 
 test('MemberAuthService.getCurrentMember rejects when auth context is missing', async () => {

@@ -35,6 +35,25 @@ export class MyCollectionsController {
   }
 
   /**
+   * 查询当前会员某个藏品详情。
+   * 当前兼容 x-member-id 和 mock bearer token，方便前后端并行联调。
+   */
+  @Get(':collectionId')
+  async getMyCollectionById(
+    @Headers('x-member-id') memberId: string | undefined,
+    @Headers('authorization') authorization: string | undefined,
+    @Param() params: GetCollectionContentParams,
+  ) {
+    return this.myCollectionsService.getMyCollectionById(
+      {
+        memberId,
+        authorization,
+      },
+      params,
+    );
+  }
+
+  /**
    * 查询当前会员某个藏品的可编辑内容版本。
    * 当前兼容 x-member-id 和 mock bearer token，方便前后端并行联调。
    */

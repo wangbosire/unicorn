@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
-import type { WechatMiniappLoginRequest } from '@contracts/member/auth';
+import type { WechatMiniappLoginRequest, WechatMpLoginRequest } from '@contracts/member/auth';
 import { MemberAuthService } from './member-auth.service';
 
 /**
@@ -17,6 +17,15 @@ export class MemberAuthController {
   @Post('wechat-miniapp')
   async loginWithWechatMiniapp(@Body() body: WechatMiniappLoginRequest) {
     return this.memberAuthService.loginWithWechatMiniapp(body);
+  }
+
+  /**
+   * 微信公众号登录。
+   * 当前与小程序登录共享账号归并和 mock token 逻辑，仅区分渠道绑定类型。
+   */
+  @Post('wechat-mp')
+  async loginWithWechatMp(@Body() body: WechatMpLoginRequest) {
+    return this.memberAuthService.loginWithWechatMp(body);
   }
 
   /**

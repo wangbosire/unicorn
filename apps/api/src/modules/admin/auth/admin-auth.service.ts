@@ -8,12 +8,20 @@ import type {
   AdminGetMeResponseData,
   AdminLoginRequest,
   AdminLoginResponseData,
+  AdminLogoutResponseData,
 } from '@contracts/admin/auth';
 import { BizError } from '../../../common/http/biz-error';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { ADMIN_PERMISSION_WILDCARD } from './admin-permission-keys';
+import { toNullableTimestamp } from '../../../common/serializers/timestamp';
 
 const adminUserInclude = {
+  reviewedItems: {
+    select: { id: true },
+  },
+  reviewedComments: {
+    select: { id: true },
+  },
   roles: {
     include: {
       role: {
@@ -138,6 +146,14 @@ export class AdminAuthService {
     };
   }
 
+  /**
+   * 后台退出登录。
+   * 当前 JWT 为无状态实现，这里返回统一成功响应，由客户端自行清理令牌。
+   */
+  logout(): AdminLogoutResponseData {
+    return { success: true };
+  }
+
   private toAuthUser(
     user: AdminUserWithRoles,
     roles: string[],
@@ -148,8 +164,13 @@ export class AdminAuthService {
       accountNo: user.accountNo,
       username: user.username,
       displayName: user.displayName,
+      status: user.status,
+      lastLoginAt: toNullableTimestamp(user.lastLoginAt),
+      roleNames: user.roles.map((ur) => ur.role.roleName),
       roles,
       permissionKeys,
+      reviewedContentCount: user.reviewedItems.length,
+      reviewedCommentCount: user.reviewedComments.length,
     };
   }
 

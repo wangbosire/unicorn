@@ -9,6 +9,7 @@ import type {
   WechatMiniappLoginResponseData,
 } from '@contracts/member/auth';
 import { MemberContextService } from './member-context.service';
+import { toTimestamp } from '../../../common/serializers/timestamp';
 
 /**
  * 会员认证服务。
@@ -29,25 +30,55 @@ export class MemberAuthService {
   async loginWithWechatMiniapp(
     payload: WechatMiniappLoginRequest,
   ): Promise<WechatMiniappLoginResponseData> {
-    const loginCode = payload.code?.trim();
+    return this.loginWithWechatCode(payload.code, WechatChannelType.MINIAPP);
+  }
+
+  /**
+   * 通过微信公众号临时 code 登录。
+   * 当前与小程序共享 mock 令牌与账号绑定流程，仅渠道类型不同。
+   */
+  async loginWithWechatMp(
+    payload: WechatMiniappLoginRequest,
+  ): Promise<WechatMiniappLoginResponseData> {
+    return this.loginWithWechatCode(payload.code, WechatChannelType.MP);
+  }
+
+  /**
+   * 统一处理微信渠道登录。
+   */
+  private async loginWithWechatCode(
+    rawCode: string | undefined,
+    channelType: WechatChannelType,
+  ): Promise<WechatMiniappLoginResponseData> {
+    const loginCode = rawCode?.trim();
 
     if (!loginCode) {
       throw new BizError({
         code: 'VALIDATION_ERROR',
-        message: 'wechat miniapp login code is required',
+        message: 'wechat login code is required',
       });
     }
 
-    const openid = this.buildMiniappOpenid(loginCode);
+    const openid = this.buildWechatOpenid(channelType, loginCode);
     const existingBinding = await this.prisma.memberWechatBinding.findUnique({
       where: {
         channelType_openid: {
-          channelType: WechatChannelType.MINIAPP,
+          channelType,
           openid,
         },
       },
       include: {
-        member: true,
+        member: {
+          include: {
+            _count: {
+              select: {
+                wechatBindings: true,
+                ownedCollections: true,
+                comments: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -74,13 +105,32 @@ export class MemberAuthService {
       await tx.memberWechatBinding.create({
         data: {
           memberId: createdMember.id,
-          channelType: WechatChannelType.MINIAPP,
+          channelType,
           openid,
         },
       });
 
-      return createdMember;
+      return tx.member.findUnique({
+        where: { id: createdMember.id },
+        include: {
+          _count: {
+            select: {
+              wechatBindings: true,
+              ownedCollections: true,
+              comments: true,
+            },
+          },
+        },
+      });
     });
+
+    if (!member) {
+      throw new BizError({
+        code: 'INTERNAL_ERROR',
+        message: 'member created but reloading failed',
+        status: 500,
+      });
+    }
 
     return {
       accessToken: this.buildMockAccessToken(member.id),
@@ -97,7 +147,28 @@ export class MemberAuthService {
     authorization?: string;
   }): Promise<GetCurrentMemberResponseData> {
     const member = await this.memberContextService.getCurrentActiveMember(authContext);
-    return this.toCurrentMember(member);
+    const hydratedMember = await this.prisma.member.findUnique({
+      where: { id: member.id },
+      include: {
+        _count: {
+          select: {
+            wechatBindings: true,
+            ownedCollections: true,
+            comments: true,
+          },
+        },
+      },
+    });
+
+    if (!hydratedMember) {
+      throw new BizError({
+        code: 'UNAUTHORIZED',
+        message: 'member context missing',
+        status: 401,
+      });
+    }
+
+    return this.toCurrentMember(hydratedMember);
   }
 
   /**
@@ -115,8 +186,13 @@ export class MemberAuthService {
   /**
    * 生成联调阶段使用的 mock openid。
    */
-  private buildMiniappOpenid(code: string): string {
-    return `miniapp-openid:${code}`;
+  private buildWechatOpenid(
+    channelType: WechatChannelType,
+    code: string,
+  ): string {
+    return `${
+      channelType === WechatChannelType.MINIAPP ? 'miniapp-openid' : 'mp-openid'
+    }:${code}`;
   }
 
   /**
@@ -155,13 +231,32 @@ export class MemberAuthService {
   /**
    * 转换为会员接口统一视图。
    */
-  private toCurrentMember(member: Member): CurrentMember {
+  private toCurrentMember(
+    member:
+      | Member
+      | Prisma.MemberGetPayload<{
+          include: {
+            _count: {
+              select: {
+                wechatBindings: true;
+                ownedCollections: true;
+                comments: true;
+              };
+            };
+          };
+        }>,
+  ): CurrentMember {
     return {
       id: member.id,
       memberNo: member.memberNo,
       nickname: member.nickname,
       avatarUrl: member.avatarUrl ?? '',
+      mobile: member.mobile ?? null,
       status: member.status,
+      registeredAt: toTimestamp(member.registeredAt),
+      wechatBindingCount: '_count' in member ? member._count.wechatBindings : 0,
+      ownedCollectionCount: '_count' in member ? member._count.ownedCollections : 0,
+      commentCount: '_count' in member ? member._count.comments : 0,
     };
   }
 }

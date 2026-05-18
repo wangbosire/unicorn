@@ -11,8 +11,13 @@ export const ADMIN_PERMISSION_ISSUANCE_BATCHES = 'issuance.batches';
 export const ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES =
   'issuance.activation_codes';
 
+export const ADMIN_PERMISSION_COLLECTIONS_MANAGE = 'collections.manage';
+
 export const ADMIN_PERMISSION_COLLECTION_REVIEWS_MANAGE =
   'collection_reviews.manage';
+
+export const ADMIN_PERMISSION_COLLECTION_COMMENTS_MANAGE =
+  'collection_comments.manage';
 
 /** 会员列表只读（M3 会员管理入口）。 */
 export const ADMIN_PERMISSION_MEMBERS_READ = 'members.read';

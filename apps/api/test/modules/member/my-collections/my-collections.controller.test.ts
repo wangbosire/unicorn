@@ -87,3 +87,33 @@ test('MyCollectionsController.saveCollectionDraft forwards auth context, params 
   assert.deepEqual(receivedSaveCalls[0]?.params, params);
   assert.deepEqual(receivedSaveCalls[0]?.body, body);
 });
+
+test('MyCollectionsController.getMyCollectionById forwards auth context and params', async () => {
+  const expectedResult = {
+    id: 'col_1',
+    collectionNo: 'COL-001',
+  };
+  const receivedDetailCalls: Array<{ authContext: unknown; params: unknown }> = [];
+  const getMyCollectionById = async (authContext: unknown, params: unknown) => {
+    receivedDetailCalls.push({ authContext, params });
+    return expectedResult;
+  };
+  const controller = new MyCollectionsController({
+    getMyCollectionById,
+  } as never);
+
+  const params = { collectionId: 'col_1' };
+  const result = await controller.getMyCollectionById(
+    'mem_1',
+    'Bearer mock-member-token:mem_1',
+    params,
+  );
+
+  assert.deepEqual(result, expectedResult);
+  assert.equal(receivedDetailCalls.length, 1);
+  assert.deepEqual(receivedDetailCalls[0]?.authContext, {
+    memberId: 'mem_1',
+    authorization: 'Bearer mock-member-token:mem_1',
+  });
+  assert.deepEqual(receivedDetailCalls[0]?.params, params);
+});

@@ -15,8 +15,9 @@
     "strict": true,
     "skipLibCheck": true,
     "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
     "types": ["node"],
-    "baseUrl": ".",
+    "rootDir": "../..",
     "paths": {
       "@contracts/*": ["../../packages/api-contracts/src/*"]
     }

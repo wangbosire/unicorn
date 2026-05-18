@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict';
 import { test } from 'vitest';
 import {
+  CollectionCommentStatus,
   CollectionContentEditStatus,
   CollectionContentPublishStatus,
   CollectionStatus,
@@ -81,9 +82,40 @@ function createPrismaMock(overrides: {
           claimedAt: new Date('2026-05-14T01:00:00.000Z'),
           createdAt: new Date('2026-05-14T00:00:00.000Z'),
           updatedAt: new Date('2026-05-14T00:00:00.000Z'),
+          series: {
+            id: 'ser_1',
+            seriesNo: 'SER-001',
+            name: '星辉远征',
+          },
+          batch: {
+            id: 'bat_1',
+            batchNo: 'BAT-001',
+            name: '首发批次',
+          },
           currentOwnerMember: member,
           contentVersions: approvedVersions,
         };
+      },
+    },
+    collectionComment: {
+      count: async ({
+        where,
+      }: {
+        where: {
+          collectionId: string;
+          parentCommentId?: null;
+          status: {
+            in: CollectionCommentStatus[];
+          };
+        };
+      }) => {
+        assert.equal(where.collectionId, 'col_1');
+        assert.deepEqual(where.status.in, [
+          CollectionCommentStatus.MACHINE_APPROVED,
+          CollectionCommentStatus.MANUAL_APPROVED,
+        ]);
+
+        return where.parentCommentId === null ? 2 : 5;
       },
     },
   };
@@ -99,9 +131,16 @@ test('PublicCollectionsService.getPublicCollectionBySlug returns published snaps
 
   assert.equal(result.collectionNo, 'COL-PUB-1');
   assert.equal(result.slug, 'COL-PUB-1');
+  assert.equal(result.seriesNo, 'SER-001');
+  assert.equal(result.batchNo, 'BAT-001');
+  assert.equal(result.contentVersionId, 'ccv_1');
+  assert.equal(result.versionNo, 1);
   assert.equal(result.title, '公开标题');
   assert.equal(result.owner.memberNo, 'MEM-001');
   assert.equal(result.owner.nickname, '展示用户');
+  assert.equal(result.owner.avatarUrl, null);
+  assert.equal(result.topLevelCommentCount, 2);
+  assert.equal(result.totalCommentCount, 5);
   assert.ok(result.publishedAt.includes('2026-05-14'));
 });
 
@@ -168,4 +207,50 @@ test('PublicCollectionsService.getPublicCollectionBySlug returns older published
 
   const result = await service.getPublicCollectionBySlug('COL-PUB-1');
   assert.equal(result.title, '仍公开的一版');
+});
+
+test('PublicCollectionsService.getPublicCollectionStatsBySlug returns summary', async () => {
+  const { prisma } = createPrismaMock({
+    approvedVersions: [
+      buildApprovedVersionRow({
+        id: 'ccv_2',
+        versionNo: 2,
+        publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
+        publishedAt: null,
+      }),
+      buildApprovedVersionRow({
+        id: 'ccv_1',
+        versionNo: 1,
+        publishStatus: CollectionContentPublishStatus.PUBLISHED,
+        publishedAt: new Date('2026-05-14T12:00:00.000Z'),
+      }),
+    ],
+  });
+  const service = new PublicCollectionsService(prisma as never);
+
+  const result = await service.getPublicCollectionStatsBySlug('COL-PUB-1');
+
+  assert.equal(result.collectionNo, 'COL-PUB-1');
+  assert.equal(result.ownerMemberNo, 'MEM-001');
+  assert.equal(result.ownerNickname, '展示用户');
+  assert.equal(result.approvedVersionCount, 2);
+  assert.equal(result.hasPublishedContent, true);
+  assert.equal(result.latestApprovedVersionNo, 2);
+  assert.equal(result.publishedVersionNo, 1);
+  assert.equal(result.topLevelCommentCount, 2);
+  assert.equal(result.totalCommentCount, 5);
+  assert.ok(result.publishedAt?.includes('2026-05-14'));
+});
+
+test('PublicCollectionsService.getPublicCollectionStatsBySlug throws when collection missing', async () => {
+  const { prisma } = createPrismaMock();
+  const service = new PublicCollectionsService(prisma as never);
+
+  await assert.rejects(
+    () => service.getPublicCollectionStatsBySlug('missing'),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'RESOURCE_NOT_FOUND' &&
+      error.status === 404,
+  );
 });

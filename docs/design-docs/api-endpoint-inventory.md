@@ -22,6 +22,11 @@
 - `GET /admin-api/auth/me`
   - 获取当前后台用户与权限信息
 
+### 仪表盘
+
+- `GET /admin-api/dashboard/overview`
+  - 查询后台首页总览统计
+
 ### 系列管理
 
 - `GET /admin-api/series`
@@ -89,6 +94,8 @@
   - 审核通过评论
 - `POST /admin-api/collection-comments/:commentId/reject`
   - 审核驳回评论
+- `POST /admin-api/collection-comments/:commentId/block`
+  - 屏蔽已公开或已通过审核的评论
 
 ### 会员管理
 

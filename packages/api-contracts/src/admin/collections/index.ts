@@ -1,2 +1,6 @@
 export * from './list-collections.query'
 export * from './list-collections.response'
+export * from './get-collection.params'
+export * from './get-collection.response'
+export * from './update-collection-status.request'
+export * from './update-collection-status.response'

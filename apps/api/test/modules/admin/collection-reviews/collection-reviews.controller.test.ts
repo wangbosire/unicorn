@@ -33,6 +33,26 @@ test('CollectionReviewsController.listCollectionReviews forwards query to servic
   assert.deepEqual(receivedQueries[0], query);
 });
 
+test('CollectionReviewsController.getCollectionReviewById forwards reviewId to service', async () => {
+  const expectedResult = {
+    reviewId: 'crr_1',
+    collectionNo: 'COL-001',
+  };
+  const receivedIds: string[] = [];
+  const getCollectionReviewById = async (reviewId: string) => {
+    receivedIds.push(reviewId);
+    return expectedResult;
+  };
+  const controller = new CollectionReviewsController({
+    getCollectionReviewById,
+  } as never);
+
+  const result = await controller.getCollectionReviewById('crr_1');
+
+  assert.deepEqual(result, expectedResult);
+  assert.deepEqual(receivedIds, ['crr_1']);
+});
+
 test('CollectionReviewsController.approveCollectionReview forwards reviewId and body to service', async () => {
   const expectedResult = {
     reviewId: 'crr_1',
@@ -56,6 +76,26 @@ test('CollectionReviewsController.approveCollectionReview forwards reviewId and 
   assert.equal(receivedCalls.length, 1);
   assert.equal(receivedCalls[0]?.reviewId, 'crr_1');
   assert.deepEqual(receivedCalls[0]?.body, body);
+});
+
+test('CollectionReviewsController.listCollectionReviewHistory forwards query to service', async () => {
+  const expectedResult = {
+    items: [],
+  };
+  const receivedQueries: unknown[] = [];
+  const listCollectionReviewHistory = async (query: unknown) => {
+    receivedQueries.push(query);
+    return expectedResult;
+  };
+  const controller = new CollectionReviewsController({
+    listCollectionReviewHistory,
+  } as never);
+
+  const query = { collectionNo: 'COL-001', contentVersionId: 'ccv_1' };
+  const result = await controller.listCollectionReviewHistory(query);
+
+  assert.deepEqual(result, expectedResult);
+  assert.deepEqual(receivedQueries, [query]);
 });
 
 test('CollectionReviewsController.rejectCollectionReview forwards reviewId and body to service', async () => {

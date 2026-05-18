@@ -17,7 +17,9 @@ type CollectionReviewsHttpServiceMock = Pick<
   Partial<
     Pick<
       CollectionReviewsService,
-      'listCollectionReviewHistory' | 'takedownPublishedContentVersion'
+      | 'getCollectionReviewById'
+      | 'listCollectionReviewHistory'
+      | 'takedownPublishedContentVersion'
     >
   >;
 
@@ -31,6 +33,9 @@ async function createCollectionReviewsHttpApp(
         provide: CollectionReviewsService,
         useValue: {
           listCollectionReviewHistory: async () => {
+            throw new Error('not used');
+          },
+          getCollectionReviewById: async () => {
             throw new Error('not used');
           },
           takedownPublishedContentVersion: async () => {
@@ -60,10 +65,21 @@ test('GET /admin-api/collection-reviews returns wrapped paginated list', async (
           reviewId: 'crr_1',
           collectionId: 'col_1',
           collectionNo: 'COL-001',
+          seriesId: 'ser_1',
+          seriesNo: 'SER-001',
+          seriesName: '星辉远征',
+          batchId: 'bat_1',
+          batchNo: 'BAT-001',
+          batchName: '星辉远征首发',
+          ownerMemberNo: 'M-001',
+          ownerMemberNickname: '小宇',
           contentVersionId: 'ccv_1',
           versionNo: 1,
+          title: '标题',
           reviewStage: 'MANUAL',
           reviewStatus: 'PENDING_MANUAL',
+          editStatus: 'UNDER_REVIEW',
+          publishStatus: 'UNPUBLISHED',
           reviewReason: '同步机审策略已通过，待人工复核',
           submittedAt: 1_715_668_800_000,
         },
@@ -94,6 +110,71 @@ test('GET /admin-api/collection-reviews returns wrapped paginated list', async (
       response.body.data.items[0]?.reviewReason,
       '同步机审策略已通过，待人工复核',
     );
+  } finally {
+    await app.close();
+  }
+});
+
+test('GET /admin-api/collection-reviews/:reviewId returns wrapped detail', async () => {
+  const app = await createCollectionReviewsHttpApp({
+    listCollectionReviews: async () => {
+      throw new Error('not used');
+    },
+    getCollectionReviewById: async (reviewId) => {
+      assert.equal(reviewId, 'crr_1');
+      return {
+        reviewId: 'crr_1',
+        collectionId: 'col_1',
+        collectionNo: 'COL-001',
+        seriesId: 'ser_1',
+        seriesNo: 'SER-001',
+        seriesName: '星辉远征',
+        batchId: 'bat_1',
+        batchNo: 'BAT-001',
+        batchName: '星辉远征首发',
+        ownerMemberId: 'mem_1',
+        ownerMemberNo: 'M-001',
+        ownerMemberNickname: '小宇',
+        contentVersionId: 'ccv_1',
+        versionNo: 1,
+        createdByMemberId: 'mem_1',
+        createdByMemberNo: 'M-001',
+        createdByMemberNickname: '小宇',
+        reviewStage: 'MANUAL',
+        reviewStatus: 'PENDING_MANUAL',
+        reviewSource: 'SYSTEM',
+        reviewReason: '待人工审核',
+        title: '标题',
+        summary: '摘要',
+        coverImageUrl: 'https://example.com/cover.png',
+        contentPayload: { blocks: [] },
+        editStatus: 'UNDER_REVIEW',
+        publishStatus: 'UNPUBLISHED',
+        submittedAt: 1_000,
+        reviewedAt: null,
+        createdAt: 900,
+        reviewedByDisplayName: null,
+      };
+    },
+    approveCollectionReview: async () => {
+      throw new Error('not used');
+    },
+    rejectCollectionReview: async () => {
+      throw new Error('not used');
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .get('/admin-api/collection-reviews/crr_1')
+      .expect(200);
+
+    assert.equal(response.body.code, 'OK');
+    assert.equal(response.body.data.reviewId, 'crr_1');
+    assert.equal(response.body.data.title, '标题');
+    assert.equal(response.body.data.seriesNo, 'SER-001');
+    assert.equal(response.body.data.batchNo, 'BAT-001');
+    assert.equal(response.body.data.ownerMemberNo, 'M-001');
   } finally {
     await app.close();
   }

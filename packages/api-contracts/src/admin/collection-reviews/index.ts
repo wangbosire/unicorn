@@ -1,3 +1,5 @@
+export * from './get-collection-review.params'
+export * from './get-collection-review.response'
 export * from './list-collection-reviews.query'
 export * from './list-collection-reviews.response'
 export * from './list-collection-review-history.query'

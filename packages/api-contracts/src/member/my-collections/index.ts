@@ -1,5 +1,6 @@
 export * from './list-my-collections.query'
 export * from './list-my-collections.response'
+export * from './get-my-collection.response'
 export * from './get-collection-content.params'
 export * from './get-collection-content.response'
 export * from './save-collection-draft.request'

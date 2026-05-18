@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { IssuanceBatchStatus, Prisma, SeriesStatus } from '@prisma/client';
+import {
+  ActivationCodeStatus,
+  CollectionStatus,
+  IssuanceBatchStatus,
+  Prisma,
+  SeriesStatus,
+} from '@prisma/client';
 import type {
   CreateIssuanceBatchRequest,
   IssuanceBatchDetail,
@@ -65,6 +71,20 @@ const updateIssuanceBatchStatusSchema = z.object({
   }),
 });
 
+type ActivationCodeStats = {
+  unissuedActivationCodesCount: number;
+  issuedActivationCodesCount: number;
+  usedActivationCodesCount: number;
+  voidedActivationCodesCount: number;
+  expiredActivationCodesCount: number;
+};
+
+type CollectionStats = {
+  pendingClaimCollectionsCount: number;
+  claimedCollectionsCount: number;
+  frozenCollectionsCount: number;
+};
+
 /**
  * 发行批次管理服务。
  * 负责后台批次的增删改查和状态切换，并收口批次级业务校验。
@@ -115,8 +135,20 @@ export class IssuanceBatchesService {
       this.prisma.issuanceBatch.count({ where }),
     ]);
 
+    const batchIds = items.map((item) => item.id);
+    const [activationCodeStats, collectionStats] = await Promise.all([
+      this.listActivationCodeStatsByBatchIds(batchIds),
+      this.listCollectionStatsByBatchIds(batchIds),
+    ]);
+
     return buildPaginatedResult({
-      items: items.map((item) => this.toIssuanceBatchListItem(item)),
+      items: items.map((item) =>
+        this.toIssuanceBatchListItem(
+          item,
+          activationCodeStats.get(item.id) ?? this.createEmptyActivationCodeStats(),
+          collectionStats.get(item.id) ?? this.createEmptyCollectionStats(),
+        ),
+      ),
       page: pagination.page,
       pageSize: pagination.pageSize,
       total,
@@ -145,6 +177,11 @@ export class IssuanceBatchesService {
       });
     }
 
+    const [activationCodeStats, collectionStats] = await Promise.all([
+      this.getActivationCodeStats(batch.id),
+      this.getCollectionStats(batch.id),
+    ]);
+
     return {
       id: batch.id,
       batchNo: batch.batchNo,
@@ -154,6 +191,15 @@ export class IssuanceBatchesService {
       name: batch.name,
       quantity: batch.quantity,
       generatedCount: batch._count.activationCodes,
+      remainingQuantity: Math.max(batch.quantity - batch._count.activationCodes, 0),
+      unissuedActivationCodesCount: activationCodeStats.unissuedActivationCodesCount,
+      issuedActivationCodesCount: activationCodeStats.issuedActivationCodesCount,
+      usedActivationCodesCount: activationCodeStats.usedActivationCodesCount,
+      voidedActivationCodesCount: activationCodeStats.voidedActivationCodesCount,
+      expiredActivationCodesCount: activationCodeStats.expiredActivationCodesCount,
+      pendingClaimCollectionsCount: collectionStats.pendingClaimCollectionsCount,
+      claimedCollectionsCount: collectionStats.claimedCollectionsCount,
+      frozenCollectionsCount: collectionStats.frozenCollectionsCount,
       status: batch.status,
       activateValidFrom: toTimestamp(batch.activateValidFrom),
       activateValidTo: toTimestamp(batch.activateValidTo),
@@ -313,6 +359,8 @@ export class IssuanceBatchesService {
         _count: { select: { activationCodes: true } };
       };
     }>,
+    activationCodeStats: ActivationCodeStats,
+    collectionStats: CollectionStats,
   ): IssuanceBatchListItem {
     return {
       id: batch.id,
@@ -323,10 +371,219 @@ export class IssuanceBatchesService {
       name: batch.name,
       quantity: batch.quantity,
       generatedCount: batch._count.activationCodes,
+      remainingQuantity: Math.max(batch.quantity - batch._count.activationCodes, 0),
+      unissuedActivationCodesCount: activationCodeStats.unissuedActivationCodesCount,
+      issuedActivationCodesCount: activationCodeStats.issuedActivationCodesCount,
+      usedActivationCodesCount: activationCodeStats.usedActivationCodesCount,
+      voidedActivationCodesCount: activationCodeStats.voidedActivationCodesCount,
+      expiredActivationCodesCount: activationCodeStats.expiredActivationCodesCount,
+      pendingClaimCollectionsCount: collectionStats.pendingClaimCollectionsCount,
+      claimedCollectionsCount: collectionStats.claimedCollectionsCount,
+      frozenCollectionsCount: collectionStats.frozenCollectionsCount,
       status: batch.status,
       activateValidFrom: toTimestamp(batch.activateValidFrom),
       activateValidTo: toTimestamp(batch.activateValidTo),
     };
+  }
+
+  /**
+   * 聚合单个批次下各激活码状态数量。
+   */
+  private async getActivationCodeStats(batchId: string): Promise<ActivationCodeStats> {
+    const grouped = await this.prisma.activationCode.groupBy({
+      by: ['status'],
+      where: { batchId },
+      _count: {
+        _all: true,
+      },
+    });
+
+    return this.buildActivationCodeStats(grouped);
+  }
+
+  /**
+   * 批量聚合多个批次下各激活码状态数量，供列表接口复用。
+   */
+  private async listActivationCodeStatsByBatchIds(
+    batchIds: string[],
+  ): Promise<Map<string, ActivationCodeStats>> {
+    if (batchIds.length === 0) {
+      return new Map();
+    }
+
+    const grouped = await this.prisma.activationCode.groupBy({
+      by: ['batchId', 'status'],
+      where: {
+        batchId: { in: batchIds },
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    const statsMap = new Map<string, ActivationCodeStats>();
+
+    for (const item of grouped) {
+      const current = statsMap.get(item.batchId) ?? this.createEmptyActivationCodeStats();
+      this.applyActivationCodeCount(current, item.status, item._count._all);
+      statsMap.set(item.batchId, current);
+    }
+
+    return statsMap;
+  }
+
+  /**
+   * 聚合单个批次下各藏品领取状态数量。
+   */
+  private async getCollectionStats(batchId: string): Promise<CollectionStats> {
+    const grouped = await this.prisma.collection.groupBy({
+      by: ['status'],
+      where: { batchId },
+      _count: {
+        _all: true,
+      },
+    });
+
+    return this.buildCollectionStats(grouped);
+  }
+
+  /**
+   * 批量聚合多个批次下各藏品状态数量，供列表接口复用。
+   */
+  private async listCollectionStatsByBatchIds(
+    batchIds: string[],
+  ): Promise<Map<string, CollectionStats>> {
+    if (batchIds.length === 0) {
+      return new Map();
+    }
+
+    const grouped = await this.prisma.collection.groupBy({
+      by: ['batchId', 'status'],
+      where: {
+        batchId: { in: batchIds },
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    const statsMap = new Map<string, CollectionStats>();
+
+    for (const item of grouped) {
+      const current = statsMap.get(item.batchId) ?? this.createEmptyCollectionStats();
+      this.applyCollectionCount(current, item.status, item._count._all);
+      statsMap.set(item.batchId, current);
+    }
+
+    return statsMap;
+  }
+
+  /**
+   * 构造空激活码统计结构，保持缺省返回稳定。
+   */
+  private createEmptyActivationCodeStats(): ActivationCodeStats {
+    return {
+      unissuedActivationCodesCount: 0,
+      issuedActivationCodesCount: 0,
+      usedActivationCodesCount: 0,
+      voidedActivationCodesCount: 0,
+      expiredActivationCodesCount: 0,
+    };
+  }
+
+  /**
+   * 根据 groupBy 结果组装单批次激活码统计。
+   */
+  private buildActivationCodeStats(
+    grouped: Array<{
+      status: ActivationCodeStatus;
+      _count: { _all: number };
+    }>,
+  ): ActivationCodeStats {
+    const stats = this.createEmptyActivationCodeStats();
+
+    for (const item of grouped) {
+      this.applyActivationCodeCount(stats, item.status, item._count._all);
+    }
+
+    return stats;
+  }
+
+  /**
+   * 将单个状态计数写入激活码统计对象。
+   */
+  private applyActivationCodeCount(
+    stats: ActivationCodeStats,
+    status: ActivationCodeStatus,
+    count: number,
+  ) {
+    switch (status) {
+      case ActivationCodeStatus.UNISSUED:
+        stats.unissuedActivationCodesCount = count;
+        break;
+      case ActivationCodeStatus.ISSUED:
+        stats.issuedActivationCodesCount = count;
+        break;
+      case ActivationCodeStatus.USED:
+        stats.usedActivationCodesCount = count;
+        break;
+      case ActivationCodeStatus.VOIDED:
+        stats.voidedActivationCodesCount = count;
+        break;
+      case ActivationCodeStatus.EXPIRED:
+        stats.expiredActivationCodesCount = count;
+        break;
+    }
+  }
+
+  /**
+   * 构造空藏品状态统计结构，保持缺省返回稳定。
+   */
+  private createEmptyCollectionStats(): CollectionStats {
+    return {
+      pendingClaimCollectionsCount: 0,
+      claimedCollectionsCount: 0,
+      frozenCollectionsCount: 0,
+    };
+  }
+
+  /**
+   * 根据 groupBy 结果组装单批次藏品统计。
+   */
+  private buildCollectionStats(
+    grouped: Array<{
+      status: CollectionStatus;
+      _count: { _all: number };
+    }>,
+  ): CollectionStats {
+    const stats = this.createEmptyCollectionStats();
+
+    for (const item of grouped) {
+      this.applyCollectionCount(stats, item.status, item._count._all);
+    }
+
+    return stats;
+  }
+
+  /**
+   * 将单个状态计数写入藏品统计对象。
+   */
+  private applyCollectionCount(
+    stats: CollectionStats,
+    status: CollectionStatus,
+    count: number,
+  ) {
+    switch (status) {
+      case CollectionStatus.PENDING_CLAIM:
+        stats.pendingClaimCollectionsCount = count;
+        break;
+      case CollectionStatus.OWNED:
+        stats.claimedCollectionsCount = count;
+        break;
+      case CollectionStatus.FROZEN:
+        stats.frozenCollectionsCount = count;
+        break;
+    }
   }
 
   /**

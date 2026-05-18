@@ -11,21 +11,29 @@ function createMembersPrismaMock() {
       id: 'm1',
       memberNo: 'MEM-A',
       nickname: 'Alpha',
+      avatarUrl: 'https://example.com/a.png',
       mobile: '13800000000',
       status: MemberStatus.ACTIVE,
       registeredAt: new Date('2026-05-10T08:00:00.000Z'),
+      createdAt: new Date('2026-05-10T08:00:00.000Z'),
+      updatedAt: new Date('2026-05-15T08:00:00.000Z'),
       wechatBindings: [{ channelType: WechatChannelType.MINIAPP }],
-      _count: { ownedCollections: 3 },
+      comments: [{ createdAt: new Date('2026-05-15T07:00:00.000Z') }],
+      _count: { ownedCollections: 3, createdContentVersion: 4, comments: 2 },
     },
     {
       id: 'm2',
       memberNo: 'MEM-B',
       nickname: 'Beta',
+      avatarUrl: null,
       mobile: null,
       status: MemberStatus.FROZEN,
       registeredAt: new Date('2026-05-11T09:00:00.000Z'),
+      createdAt: new Date('2026-05-11T09:00:00.000Z'),
+      updatedAt: new Date('2026-05-16T09:00:00.000Z'),
       wechatBindings: [],
-      _count: { ownedCollections: 0 },
+      comments: [],
+      _count: { ownedCollections: 0, createdContentVersion: 0, comments: 0 },
     },
   ];
 
@@ -87,6 +95,8 @@ function createMembersPrismaMock() {
         }
         return list.length;
       },
+      findUnique: async ({ where }: { where: { id: string } }) =>
+        members.find((m) => m.id === where.id) ?? null,
     },
     $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
   };
@@ -127,6 +137,46 @@ test('MembersService.listMembers rejects invalid status', async () => {
   await assert.rejects(
     () => service.listMembers({ status: 'UNKNOWN' }),
     (e: unknown) => e instanceof BizError && e.code === 'INVALID_MEMBER_STATUS',
+  );
+});
+
+test('MembersService.getMemberById returns detail summary', async () => {
+  const { prisma } = createMembersPrismaMock();
+  const service = new MembersService(prisma as never);
+
+  const result = await service.getMemberById('m1');
+
+  assert.equal(result.memberId, 'm1');
+  assert.equal(result.memberNo, 'MEM-A');
+  assert.equal(result.avatarUrl, 'https://example.com/a.png');
+  assert.deepEqual(result.wechatChannels, ['微信小程序']);
+  assert.equal(result.ownedCollectionsCount, 3);
+  assert.equal(result.createdContentVersionsCount, 4);
+  assert.equal(result.commentsCount, 2);
+  assert.equal(
+    result.latestCommentAt,
+    toTimestamp(new Date('2026-05-15T07:00:00.000Z')),
+  );
+  assert.equal(result.updatedAt, toTimestamp(new Date('2026-05-15T08:00:00.000Z')));
+});
+
+test('MembersService.getMemberById throws when missing', async () => {
+  const { prisma } = createMembersPrismaMock();
+  const service = new MembersService(prisma as never);
+
+  await assert.rejects(
+    () => service.getMemberById('missing'),
+    (e: unknown) => e instanceof BizError && e.code === 'MEMBER_NOT_FOUND',
+  );
+});
+
+test('MembersService.getMemberById rejects blank id', async () => {
+  const { prisma } = createMembersPrismaMock();
+  const service = new MembersService(prisma as never);
+
+  await assert.rejects(
+    () => service.getMemberById('   '),
+    (e: unknown) => e instanceof BizError && e.code === 'VALIDATION_ERROR',
   );
 });
 

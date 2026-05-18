@@ -27,6 +27,15 @@ export class MembersController {
   }
 
   /**
+   * 查询会员详情。
+   */
+  @Get(':memberId')
+  @RequireAdminPermissions(ADMIN_PERMISSION_MEMBERS_READ)
+  async getMemberById(@Param('memberId') memberId: string) {
+    return this.membersService.getMemberById(memberId);
+  }
+
+  /**
    * 更新会员状态（冻结 / 解冻）。
    */
   @Patch(':memberId/status')
@@ -36,5 +45,29 @@ export class MembersController {
     @Body() body: UpdateMemberStatusRequest,
   ) {
     return this.membersService.updateMemberStatus(memberId, body);
+  }
+
+  /**
+   * 冻结会员。
+   * 为兼容接口清单中的动作型路由，内部复用统一状态更新逻辑。
+   */
+  @Patch(':memberId/freeze')
+  @RequireAdminPermissions(ADMIN_PERMISSION_MEMBERS_MANAGE)
+  async freezeMember(@Param('memberId') memberId: string) {
+    return this.membersService.updateMemberStatus(memberId, {
+      status: 'FROZEN',
+    });
+  }
+
+  /**
+   * 解冻会员。
+   * 为兼容接口清单中的动作型路由，内部复用统一状态更新逻辑。
+   */
+  @Patch(':memberId/unfreeze')
+  @RequireAdminPermissions(ADMIN_PERMISSION_MEMBERS_MANAGE)
+  async unfreezeMember(@Param('memberId') memberId: string) {
+    return this.membersService.updateMemberStatus(memberId, {
+      status: 'ACTIVE',
+    });
   }
 }

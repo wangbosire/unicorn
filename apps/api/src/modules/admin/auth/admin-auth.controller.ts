@@ -22,6 +22,16 @@ export class AdminAuthController {
   }
 
   /**
+   * 后台退出登录。
+   * 当前为无状态 JWT，接口仅返回成功确认，便于前端统一收口退出流程。
+   */
+  @Post('logout')
+  @UseGuards(AdminAccessGuard)
+  async logout() {
+    return this.adminAuthService.logout();
+  }
+
+  /**
    * 获取当前登录后台用户（含权限点，用于菜单裁剪）。
    */
   @Get('me')

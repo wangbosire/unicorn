@@ -141,6 +141,32 @@ enum CollectionContentReviewSource {
   ADMIN
 }
 
+/// 评论审核状态。
+enum CollectionCommentStatus {
+  /// 待机器审核。
+  PENDING_MACHINE
+  /// 机器审核通过。
+  MACHINE_APPROVED
+  /// 机器审核拒绝。
+  MACHINE_REJECTED
+  /// 待人工审核。
+  PENDING_MANUAL
+  /// 人工审核通过。
+  MANUAL_APPROVED
+  /// 人工审核拒绝。
+  MANUAL_REJECTED
+  /// 已公开评论被后台屏蔽。
+  BLOCKED
+}
+
+/// 评论审核来源。
+enum CollectionCommentReviewSource {
+  /// 由系统自动执行审核。
+  SYSTEM
+  /// 由后台管理员执行审核。
+  ADMIN
+}
+
 /// 健康检查种子表。
 model HealthcheckSeed {
   /// 自增主键。
@@ -156,27 +182,29 @@ model HealthcheckSeed {
 /// 后台用户。
 model AdminUser {
   /// 后台用户主键。
-  id            String                          @id @default(cuid())
+  id               String                          @id @default(cuid())
   /// 对外展示和审计使用的后台账号编号。
-  accountNo     String                          @unique @map("account_no")
+  accountNo        String                          @unique @map("account_no")
   /// 登录用户名。
-  username      String                          @unique
+  username         String                          @unique
   /// 展示名称。
-  displayName   String                          @map("display_name")
+  displayName      String                          @map("display_name")
   /// 密码哈希值。
-  passwordHash  String                          @map("password_hash")
+  passwordHash     String                          @map("password_hash")
   /// 用户状态。
-  status        AdminUserStatus                 @default(ACTIVE)
+  status           AdminUserStatus                 @default(ACTIVE)
   /// 最近一次登录时间。
-  lastLoginAt   DateTime?                       @map("last_login_at")
+  lastLoginAt      DateTime?                       @map("last_login_at")
   /// 创建时间。
-  createdAt     DateTime                        @default(now()) @map("created_at")
+  createdAt        DateTime                        @default(now()) @map("created_at")
   /// 更新时间。
-  updatedAt     DateTime                        @updatedAt @map("updated_at")
+  updatedAt        DateTime                        @updatedAt @map("updated_at")
   /// 后台用户拥有的角色关系。
-  roles         AdminUserRole[]
+  roles            AdminUserRole[]
   /// 该管理员审核过的内容记录。
-  reviewedItems CollectionContentReviewRecord[]
+  reviewedItems    CollectionContentReviewRecord[]
+  /// 该管理员审核过的评论记录。
+  reviewedComments CollectionCommentReviewRecord[]
 
   @@map("admin_users")
 }
@@ -291,6 +319,8 @@ model Member {
   usedActivationCodes   ActivationCode[]           @relation("ActivationCodeUsedByMember")
   /// 由该会员创建的内容版本。
   createdContentVersion CollectionContentVersion[]
+  /// 由该会员发布的评论。
+  comments              CollectionComment[]
 
   /// 支撑按手机号检索会员的后台查询场景。
   @@index([mobile])
@@ -432,6 +462,8 @@ model Collection {
   contentVersions      CollectionContentVersion[]
   /// 藏品下的审核记录列表。
   reviewRecords        CollectionContentReviewRecord[]
+  /// 藏品下的公开评论。
+  comments             CollectionComment[]
 
   /// 支撑按所属系列聚合或筛选藏品。
   @@index([seriesId])
@@ -527,6 +559,8 @@ model CollectionContentVersion {
   createdByMember   Member?                         @relation(fields: [createdByMemberId], references: [id])
   /// 该版本关联的审核记录。
   reviewRecords     CollectionContentReviewRecord[]
+  /// 该版本关联的评论快照。
+  comments          CollectionComment[]
 
   /// 保证同一藏品下的版本号唯一且单调递增。
   @@unique([collectionId, versionNo])
@@ -578,4 +612,92 @@ model CollectionContentReviewRecord {
   /// 支撑区分机审与人工审核阶段的处理队列。
   @@index([reviewStage])
   @@map("collection_content_review_records")
+}
+
+/// 公开评论实体。
+/// 一期支持一级评论和二级回复，评论绑定到公开内容版本快照。
+model CollectionComment {
+  /// 评论主键。
+  id               String                          @id @default(cuid())
+  /// 所属藏品外键。
+  collectionId     String                          @map("collection_id")
+  /// 关联的内容版本外键。
+  contentVersionId String                          @map("content_version_id")
+  /// 评论会员外键。
+  memberId         String                          @map("member_id")
+  /// 父评论外键；一级评论为空。
+  parentCommentId  String?                         @map("parent_comment_id")
+  /// 根评论外键；一级评论为空。
+  rootCommentId    String?                         @map("root_comment_id")
+  /// 评论正文。
+  content          String
+  /// 当前评论审核/展示状态。
+  status           CollectionCommentStatus         @map("status")
+  /// 实际公开发布时间。
+  publishedAt      DateTime?                       @map("published_at")
+  /// 创建时间。
+  createdAt        DateTime                        @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt        DateTime                        @updatedAt @map("updated_at")
+  /// 所属藏品实体。
+  collection       Collection                      @relation(fields: [collectionId], references: [id])
+  /// 对应内容版本实体。
+  contentVersion   CollectionContentVersion        @relation(fields: [contentVersionId], references: [id])
+  /// 发布该评论的会员实体。
+  member           Member                          @relation(fields: [memberId], references: [id])
+  /// 父评论实体。
+  parentComment    CollectionComment?              @relation("CollectionCommentReplies", fields: [parentCommentId], references: [id])
+  /// 当前评论的回复列表。
+  replies          CollectionComment[]             @relation("CollectionCommentReplies")
+  /// 根评论实体。
+  rootComment      CollectionComment?              @relation("CollectionCommentRoot", fields: [rootCommentId], references: [id])
+  /// 作为根评论时的全部后代回复。
+  threadedReplies  CollectionComment[]             @relation("CollectionCommentRoot")
+  /// 该评论关联的审核记录。
+  reviewRecords    CollectionCommentReviewRecord[]
+
+  /// 支撑按藏品查询评论列表。
+  @@index([collectionId])
+  /// 支撑按内容版本查询评论快照。
+  @@index([contentVersionId])
+  /// 支撑按会员查询评论行为。
+  @@index([memberId])
+  /// 支撑公开列表按状态筛选。
+  @@index([status])
+  /// 支撑回复树读取。
+  @@index([parentCommentId])
+  /// 支撑根评论聚合读取。
+  @@index([rootCommentId])
+  @@map("collection_comments")
+}
+
+/// 评论审核记录。
+/// 记录评论从机审到人工审核的过程，供后台治理与会员反馈使用。
+model CollectionCommentReviewRecord {
+  /// 审核记录主键。
+  id                    String                        @id @default(cuid())
+  /// 对应评论外键。
+  commentId             String                        @map("comment_id")
+  /// 审核结果状态。
+  reviewStatus          CollectionCommentStatus       @map("review_status")
+  /// 审核来源。
+  reviewSource          CollectionCommentReviewSource @map("review_source")
+  /// 审核原因或备注。
+  reviewReason          String?                       @map("review_reason")
+  /// 执行人工审核的后台用户外键。
+  reviewedByAdminUserId String?                       @map("reviewed_by_admin_user_id")
+  /// 审核完成时间。
+  reviewedAt            DateTime?                     @map("reviewed_at")
+  /// 审核记录创建时间。
+  createdAt             DateTime                      @default(now()) @map("created_at")
+  /// 对应评论实体。
+  comment               CollectionComment             @relation(fields: [commentId], references: [id])
+  /// 执行人工审核的后台用户实体。
+  reviewedByAdminUser   AdminUser?                    @relation(fields: [reviewedByAdminUserId], references: [id])
+
+  /// 支撑按评论追溯审核轨迹。
+  @@index([commentId])
+  /// 支撑按审核状态筛选队列。
+  @@index([reviewStatus])
+  @@map("collection_comment_review_records")
 }

@@ -18,6 +18,12 @@ export type ActivationCodeListItem = {
   collectionNo: string
   /** 激活码状态。 */
   status: string
+  /** 发放渠道；无则为 `null`。 */
+  issuedChannel: string | null
+  /** 使用会员编号；未使用时为 `null`。 */
+  usedByMemberNo: string | null
+  /** 使用时间（毫秒时间戳）；未使用时为 `null`。 */
+  usedAt: number | null
   /** 失效时间戳，单位毫秒；未设置失效时间时为 null。 */
   expiredAt: number | null
 }

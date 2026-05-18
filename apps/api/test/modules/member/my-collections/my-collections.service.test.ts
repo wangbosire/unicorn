@@ -50,6 +50,17 @@ function createMyCollectionsPrismaMock() {
     claimedAt: new Date('2026-05-14T01:00:00.000Z'),
     createdAt: new Date('2026-05-14T00:00:00.000Z'),
     updatedAt: new Date('2026-05-14T01:00:00.000Z'),
+    series: {
+      id: 'ser_1',
+      seriesNo: 'SER-001',
+      name: '星辉远征',
+      description: '星际探索主题系列',
+      status: 'ENABLED',
+      createdBy: null,
+      updatedBy: null,
+      createdAt: new Date('2026-05-14T00:00:00.000Z'),
+      updatedAt: new Date('2026-05-14T00:00:00.000Z'),
+    },
   };
 
   const currentVersion: {
@@ -256,6 +267,59 @@ function createMyCollectionsPrismaMock() {
         where.id === member.id ? member : null,
     },
     collection: {
+      findMany: async ({
+        where,
+        skip,
+        take,
+      }: {
+        where: {
+          currentOwnerMemberId: string;
+          status?: CollectionStatus;
+        };
+        skip: number;
+        take: number;
+      }) => {
+        const items =
+          where.currentOwnerMemberId === collection.currentOwnerMemberId &&
+          (!where.status || where.status === collection.status)
+            ? [
+                {
+                  ...collection,
+                  contentVersions: versions
+                    .slice()
+                    .sort((left, right) => right.versionNo - left.versionNo)
+                    .slice(0, 1)
+                    .map((item) => {
+                      const related = reviewRecords
+                        .filter((record) => record.contentVersionId === item.id)
+                        .sort(
+                          (left, right) =>
+                            right.createdAt.getTime() - left.createdAt.getTime(),
+                        )
+                        .slice(0, 1);
+                      return {
+                        ...item,
+                        reviewRecords: related.map((record) => ({ ...record })),
+                      };
+                    }),
+                },
+              ]
+            : [];
+
+        return items.slice(skip, skip + take);
+      },
+      count: async ({
+        where,
+      }: {
+        where: {
+          currentOwnerMemberId: string;
+          status?: CollectionStatus;
+        };
+      }) =>
+        where.currentOwnerMemberId === collection.currentOwnerMemberId &&
+        (!where.status || where.status === collection.status)
+          ? 1
+          : 0,
       findUnique: async ({ where }: { where: { id: string } }) =>
         where.id === collection.id
           ? {
@@ -294,7 +358,7 @@ function createMyCollectionsPrismaMock() {
         });
       }
 
-      return operationsOrCallback;
+      return Promise.all(operationsOrCallback as Promise<unknown>[]);
     },
   };
 
@@ -326,6 +390,41 @@ test('MyCollectionsService.getCollectionContent returns current editable version
   assert.deepEqual(result.currentVersion.contentPayload, { blocks: [] });
   assert.equal(result.currentVersion.editStatus, CollectionContentEditStatus.DRAFT);
   assert.equal(result.currentVersion.contentReviewStatus, null);
+  assert.equal(result.currentVersion.contentReviewReason, null);
+  assert.equal(result.currentVersion.submittedAt, null);
+  assert.equal(result.currentVersion.publishedAt, null);
+  assert.equal(result.currentVersion.updatedAt, currentVersion.updatedAt.getTime());
+});
+
+test('MyCollectionsService.getMyCollectionById returns collection detail for current member', async () => {
+  const { prisma, collection, currentVersion } = createMyCollectionsPrismaMock();
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
+
+  const result = await service.getMyCollectionById(
+    {
+      memberId: 'mem_1',
+    },
+    {
+      collectionId: 'col_1',
+    },
+  );
+
+  assert.equal(result.id, collection.id);
+  assert.equal(result.collectionNo, 'COL-001');
+  assert.equal(result.series.seriesNo, 'SER-001');
+  assert.equal(result.currentVersion?.id, currentVersion.id);
+  assert.equal(result.currentVersion?.title, '我的第一件藏品');
+  assert.equal(result.currentVersion?.contentReviewStatus, null);
+  assert.equal(result.currentVersion?.contentReviewReason, null);
+  assert.equal(result.currentVersion?.submittedAt, null);
+  assert.equal(result.currentVersion?.publishedAt, null);
+  assert.equal(result.currentVersion?.updatedAt, currentVersion.updatedAt.getTime());
+  assert.equal(result.claimedAt, collection.claimedAt.getTime());
 });
 
 test('MyCollectionsService.getCollectionContent returns latest contentReviewStatus for current version', async () => {
@@ -359,6 +458,42 @@ test('MyCollectionsService.getCollectionContent returns latest contentReviewStat
   );
 
   assert.equal(result.currentVersion.contentReviewStatus, 'PENDING_MANUAL');
+  assert.equal(result.currentVersion.contentReviewReason, null);
+});
+
+test('MyCollectionsService.listMyCollections returns enriched card fields for current member', async () => {
+  const { prisma, currentVersion, collection } = createMyCollectionsPrismaMock();
+  const memberContextService = new MemberContextService(prisma as never);
+  const service = new MyCollectionsService(
+    prisma as never,
+    memberContextService,
+    createConfigServiceMock(),
+  );
+
+  const result = await service.listMyCollections(
+    {
+      memberId: 'mem_1',
+    },
+    {
+      page: '1',
+      pageSize: '20',
+    },
+  );
+
+  assert.equal(result.total, 1);
+  assert.equal(result.items[0]?.id, collection.id);
+  assert.equal(result.items[0]?.seriesNo, 'SER-001');
+  assert.equal(result.items[0]?.currentVersionId, currentVersion.id);
+  assert.equal(result.items[0]?.currentVersionNo, 1);
+  assert.equal(result.items[0]?.currentVersionTitle, '我的第一件藏品');
+  assert.equal(result.items[0]?.contentEditStatus, CollectionContentEditStatus.DRAFT);
+  assert.equal(
+    result.items[0]?.contentPublishStatus,
+    CollectionContentPublishStatus.UNPUBLISHED,
+  );
+  assert.equal(result.items[0]?.contentReviewStatus, null);
+  assert.equal(result.items[0]?.contentSubmittedAt, null);
+  assert.equal(result.items[0]?.contentPublishedAt, null);
 });
 
 test('MyCollectionsService.getCollectionContent rejects when collection belongs to another member', async () => {

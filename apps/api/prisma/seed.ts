@@ -1,5 +1,7 @@
 import {
   AdminUserStatus,
+  CollectionCommentReviewSource,
+  CollectionCommentStatus,
   CollectionContentEditStatus,
   CollectionContentPublishStatus,
   CollectionContentReviewSource,
@@ -60,9 +62,21 @@ async function seedPermissions() {
       type: PermissionType.PAGE,
     },
     {
+      id: 'perm_collections_manage',
+      key: 'collections.manage',
+      name: '藏品管理',
+      type: PermissionType.PAGE,
+    },
+    {
       id: 'perm_collection_reviews_manage',
       key: 'collection_reviews.manage',
       name: '藏品内容复核',
+      type: PermissionType.PAGE,
+    },
+    {
+      id: 'perm_collection_comments_manage',
+      key: 'collection_comments.manage',
+      name: '评论治理',
       type: PermissionType.PAGE,
     },
     {
@@ -131,7 +145,9 @@ async function seedRoles() {
     'perm_issuance_series',
     'perm_issuance_batches',
     'perm_issuance_activation_codes',
+    'perm_collections_manage',
     'perm_collection_reviews_manage',
+    'perm_collection_comments_manage',
     'perm_members_read',
     'perm_members_manage',
     'perm_nav_m2_placeholder',
@@ -170,6 +186,17 @@ const PENDING_MANUAL_DEMO = {
   collectionId: 'seed_col_pending_manual',
   contentVersionId: 'seed_ccv_pending_manual',
   reviewRecordId: 'seed_crr_pending_manual',
+} as const;
+
+/** 固定主键：便于 `prisma db seed` 幂等写入一条「评论待人工审核」演示数据。 */
+const COMMENT_PENDING_MANUAL_DEMO = {
+  memberId: 'seed_mem_comment_pending_manual',
+  seriesId: 'seed_ser_comment_pending_manual',
+  batchId: 'seed_bat_comment_pending_manual',
+  collectionId: 'seed_col_comment_pending_manual',
+  contentVersionId: 'seed_ccv_comment_pending_manual',
+  commentId: 'seed_comment_pending_manual',
+  reviewRecordId: 'seed_ccrr_pending_manual',
 } as const;
 
 /**
@@ -294,6 +321,147 @@ async function seedPendingManualReviewDemo() {
   });
 }
 
+/**
+ * 写入一条评论人工审核演示数据，
+ * 便于本地打开后台「评论审核队列」默认筛即可看到待处理评论。
+ */
+async function seedPendingManualCommentReviewDemo() {
+  const at = new Date('2026-05-16T12:00:00.000Z');
+  const publishedAt = new Date('2026-05-16T12:10:00.000Z');
+  const commentCreatedAt = new Date('2026-05-16T12:20:00.000Z');
+
+  await prisma.member.upsert({
+    where: { id: COMMENT_PENDING_MANUAL_DEMO.memberId },
+    create: {
+      id: COMMENT_PENDING_MANUAL_DEMO.memberId,
+      memberNo: 'MEM-SEED-COMMENT-PENDING-MANUAL',
+      nickname: 'Seed 评论待复核会员',
+      avatarUrl: null,
+      mobile: null,
+      status: MemberStatus.ACTIVE,
+      registeredAt: at,
+    },
+    update: {
+      nickname: 'Seed 评论待复核会员',
+      status: MemberStatus.ACTIVE,
+    },
+  });
+
+  await prisma.series.upsert({
+    where: { id: COMMENT_PENDING_MANUAL_DEMO.seriesId },
+    create: {
+      id: COMMENT_PENDING_MANUAL_DEMO.seriesId,
+      seriesNo: 'SER-SEED-COMMENT-PENDING-MANUAL',
+      name: 'Seed 评论审核演示系列',
+      description: 'prisma seed 写入，用于后台评论审核队列演示。',
+      status: SeriesStatus.ENABLED,
+    },
+    update: {
+      name: 'Seed 评论审核演示系列',
+      status: SeriesStatus.ENABLED,
+    },
+  });
+
+  await prisma.issuanceBatch.upsert({
+    where: { id: COMMENT_PENDING_MANUAL_DEMO.batchId },
+    create: {
+      id: COMMENT_PENDING_MANUAL_DEMO.batchId,
+      batchNo: 'BAT-SEED-COMMENT-PENDING-MANUAL',
+      seriesId: COMMENT_PENDING_MANUAL_DEMO.seriesId,
+      name: 'Seed 评论审核演示批次',
+      quantity: 1000,
+      activateValidFrom: at,
+      activateValidTo: new Date('2028-12-31T23:59:59.000Z'),
+      status: IssuanceBatchStatus.ENABLED,
+    },
+    update: {
+      status: IssuanceBatchStatus.ENABLED,
+    },
+  });
+
+  await prisma.collection.upsert({
+    where: { id: COMMENT_PENDING_MANUAL_DEMO.collectionId },
+    create: {
+      id: COMMENT_PENDING_MANUAL_DEMO.collectionId,
+      collectionNo: 'COL-SEED-COMMENT-PENDING-MANUAL',
+      seriesId: COMMENT_PENDING_MANUAL_DEMO.seriesId,
+      batchId: COMMENT_PENDING_MANUAL_DEMO.batchId,
+      status: CollectionStatus.OWNED,
+      currentOwnerMemberId: COMMENT_PENDING_MANUAL_DEMO.memberId,
+      claimedAt: at,
+    },
+    update: {
+      status: CollectionStatus.OWNED,
+      currentOwnerMemberId: COMMENT_PENDING_MANUAL_DEMO.memberId,
+      claimedAt: at,
+    },
+  });
+
+  await prisma.collectionContentVersion.upsert({
+    where: { id: COMMENT_PENDING_MANUAL_DEMO.contentVersionId },
+    create: {
+      id: COMMENT_PENDING_MANUAL_DEMO.contentVersionId,
+      collectionId: COMMENT_PENDING_MANUAL_DEMO.collectionId,
+      versionNo: 1,
+      title: 'Seed 评论审核标题',
+      summary: '用于后台评论审核队列联调的已公开内容版本。',
+      coverImageUrl: null,
+      contentPayload: { blocks: [] },
+      editStatus: CollectionContentEditStatus.APPROVED,
+      publishStatus: CollectionContentPublishStatus.PUBLISHED,
+      submittedAt: at,
+      publishedAt,
+      createdByMemberId: COMMENT_PENDING_MANUAL_DEMO.memberId,
+    },
+    update: {
+      title: 'Seed 评论审核标题',
+      summary: '用于后台评论审核队列联调的已公开内容版本。',
+      editStatus: CollectionContentEditStatus.APPROVED,
+      publishStatus: CollectionContentPublishStatus.PUBLISHED,
+      submittedAt: at,
+      publishedAt,
+    },
+  });
+
+  await prisma.collectionComment.upsert({
+    where: { id: COMMENT_PENDING_MANUAL_DEMO.commentId },
+    create: {
+      id: COMMENT_PENDING_MANUAL_DEMO.commentId,
+      collectionId: COMMENT_PENDING_MANUAL_DEMO.collectionId,
+      contentVersionId: COMMENT_PENDING_MANUAL_DEMO.contentVersionId,
+      memberId: COMMENT_PENDING_MANUAL_DEMO.memberId,
+      content: '这是一条用于后台评论审核队列演示的待人工复核评论。',
+      status: CollectionCommentStatus.PENDING_MANUAL,
+      publishedAt: null,
+      createdAt: commentCreatedAt,
+    },
+    update: {
+      content: '这是一条用于后台评论审核队列演示的待人工复核评论。',
+      status: CollectionCommentStatus.PENDING_MANUAL,
+      publishedAt: null,
+    },
+  });
+
+  await prisma.collectionCommentReviewRecord.upsert({
+    where: { id: COMMENT_PENDING_MANUAL_DEMO.reviewRecordId },
+    create: {
+      id: COMMENT_PENDING_MANUAL_DEMO.reviewRecordId,
+      commentId: COMMENT_PENDING_MANUAL_DEMO.commentId,
+      reviewStatus: CollectionCommentStatus.PENDING_MANUAL,
+      reviewSource: CollectionCommentReviewSource.SYSTEM,
+      reviewReason: 'machine review escalated to manual review',
+      reviewedAt: null,
+      createdAt: commentCreatedAt,
+    },
+    update: {
+      reviewStatus: CollectionCommentStatus.PENDING_MANUAL,
+      reviewSource: CollectionCommentReviewSource.SYSTEM,
+      reviewReason: 'machine review escalated to manual review',
+      reviewedAt: null,
+    },
+  });
+}
+
 async function seedAdminUsers() {
   await prisma.adminUser.upsert({
     where: { username: 'admin' },
@@ -348,6 +516,7 @@ async function main() {
   await seedRoles();
   await seedAdminUsers();
   await seedPendingManualReviewDemo();
+  await seedPendingManualCommentReviewDemo();
 }
 
 main()
@@ -355,7 +524,7 @@ main()
     // eslint-disable-next-line no-console
     // eslint-disable-next-line no-console
     console.log(
-      '[prisma seed] admin: admin / Admin123! , viewer / Viewer123! | demo queue: COL-SEED-PENDING-MANUAL (review seed_crr_pending_manual)',
+      '[prisma seed] admin: admin / Admin123! , viewer / Viewer123! | content review demo: COL-SEED-PENDING-MANUAL (review seed_crr_pending_manual) | comment review demo: COL-SEED-COMMENT-PENDING-MANUAL (comment seed_comment_pending_manual)',
     );
     await prisma.$disconnect();
   })

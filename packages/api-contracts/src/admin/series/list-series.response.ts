@@ -14,6 +14,12 @@ export type SeriesListItem = {
   description: string
   /** 系列状态。 */
   status: string
+  /** 该系列下的发行批次数量。 */
+  batchCount: number
+  /** 该系列下仍处于启用状态的发行批次数量。 */
+  enabledBatchCount: number
+  /** 该系列下已生成的藏品数量。 */
+  collectionCount: number
   /** 创建时间戳，单位毫秒。 */
   createdAt: number
 }

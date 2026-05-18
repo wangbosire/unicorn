@@ -1,0 +1,5 @@
+export * from './create-collection-comment.request'
+export * from './create-collection-comment.response'
+export * from './reply-collection-comment.params'
+export * from './reply-collection-comment.request'
+export * from './reply-collection-comment.response'
