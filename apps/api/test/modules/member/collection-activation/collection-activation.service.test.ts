@@ -11,6 +11,11 @@ import {
 import { MemberContextService } from '../../../../src/modules/member/auth/member-context.service';
 import { CollectionActivationService } from '../../../../src/modules/member/collection-activation/collection-activation.service';
 import { BizError } from '../../../../src/common/http/biz-error';
+import type { NotificationDispatcherService } from '../../../../src/modules/notifications/notification-dispatcher.service';
+
+function createNoopNotificationDispatcher(): NotificationDispatcherService {
+  return { dispatch: async () => undefined as never } as unknown as NotificationDispatcherService;
+}
 
 function createMemberAuthContext(memberId = 'mem_1') {
   return {
@@ -213,6 +218,7 @@ test('CollectionActivationService.activateCollection claims collection and initi
   const service = new CollectionActivationService(
     prisma as never,
     memberContextService,
+    createNoopNotificationDispatcher(),
   );
 
   const result = await service.activateCollection(
@@ -245,6 +251,7 @@ test('CollectionActivationService.activateCollection rejects already used activa
   const service = new CollectionActivationService(
     prisma as never,
     memberContextService,
+    createNoopNotificationDispatcher(),
   );
 
   await assert.rejects(
@@ -266,6 +273,7 @@ test('CollectionActivationService.activateCollection rejects invalid activation 
   const service = new CollectionActivationService(
     prisma as never,
     memberContextService,
+    createNoopNotificationDispatcher(),
   );
 
   await assert.rejects(
@@ -288,6 +296,7 @@ test('CollectionActivationService.activateCollection rejects expired activation 
   const service = new CollectionActivationService(
     prisma as never,
     memberContextService,
+    createNoopNotificationDispatcher(),
   );
 
   await assert.rejects(
@@ -310,6 +319,7 @@ test('CollectionActivationService.activateCollection rejects voided activation c
   const service = new CollectionActivationService(
     prisma as never,
     memberContextService,
+    createNoopNotificationDispatcher(),
   );
 
   await assert.rejects(
@@ -331,6 +341,7 @@ test('CollectionActivationService.activateCollection rejects empty activation co
   const service = new CollectionActivationService(
     prisma as never,
     memberContextService,
+    createNoopNotificationDispatcher(),
   );
 
   await assert.rejects(
@@ -354,6 +365,7 @@ test('CollectionActivationService.activateCollection rejects activation code wit
   const service = new CollectionActivationService(
     prisma as never,
     memberContextService,
+    createNoopNotificationDispatcher(),
   );
 
   await assert.rejects(
@@ -389,6 +401,7 @@ test('CollectionActivationService.activateCollection rejects when member account
   const service = new CollectionActivationService(
     prisma as never,
     memberContextService,
+    createNoopNotificationDispatcher(),
   );
 
   await assert.rejects(
@@ -410,6 +423,7 @@ test('CollectionActivationService.activateCollection rejects when member does no
   const service = new CollectionActivationService(
     prisma as never,
     memberContextService,
+    createNoopNotificationDispatcher(),
   );
 
   await assert.rejects(

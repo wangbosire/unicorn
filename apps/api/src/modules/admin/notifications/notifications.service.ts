@@ -20,6 +20,8 @@ const MESSAGE_TYPE_LABELS: Record<NotificationMessageType, string> = {
   COMMENT_REVIEW_RESULT: '评论审核结果',
   TRANSFER_PENDING_ACCEPT: '转让待接收',
   TRANSFER_COMPLETED: '转让完成',
+  TRANSFER_CANCELLED: '转让已撤销',
+  TRANSFER_EXPIRED: '转让已过期',
 };
 
 /**

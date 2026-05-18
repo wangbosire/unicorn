@@ -5,6 +5,7 @@ import {
   CollectionContentReviewSource,
   CollectionContentReviewStage,
   CollectionContentReviewStatus,
+  NotificationMessageType,
   Prisma,
 } from '@prisma/client';
 import { BizError } from '../../../common/http/biz-error';
@@ -17,6 +18,7 @@ import {
   toTimestamp,
 } from '../../../common/serializers/timestamp';
 import { parseOptionalEnumValue } from '../../../common/validation/enum';
+import { NotificationDispatcherService } from '../../notifications/notification-dispatcher.service';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import type {
   ApproveCollectionReviewRequest,
@@ -43,7 +45,10 @@ export class CollectionReviewsService {
   /** 单藏品审核轨迹单次返回上限，防止一次性拉取过多行。 */
   private static readonly REVIEW_HISTORY_MAX = 200;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationDispatcher: NotificationDispatcherService,
+  ) {}
 
   /**
    * 查询单条审核记录详情，供后台查看具体版本内容与状态快照。
@@ -291,6 +296,7 @@ export class CollectionReviewsService {
       where: { id: normalizedReviewId },
       include: {
         contentVersion: true,
+        collection: { select: { collectionNo: true } },
       },
     });
 
@@ -336,6 +342,14 @@ export class CollectionReviewsService {
       return updatedReviewRecord;
     });
 
+    if (reviewRecord.contentVersion.createdByMemberId) {
+      await this.notificationDispatcher.dispatch({
+        memberId: reviewRecord.contentVersion.createdByMemberId,
+        messageType: NotificationMessageType.CONTENT_APPROVED,
+        payload: { collectionName: reviewRecord.collection.collectionNo },
+      });
+    }
+
     return {
       reviewId: approvedReviewRecord.id,
       reviewStatus: approvedReviewRecord.reviewStatus,
@@ -373,6 +387,7 @@ export class CollectionReviewsService {
       where: { id: normalizedReviewId },
       include: {
         contentVersion: true,
+        collection: { select: { collectionNo: true } },
       },
     });
 
@@ -418,6 +433,17 @@ export class CollectionReviewsService {
       return updatedReviewRecord;
     });
 
+    if (reviewRecord.contentVersion.createdByMemberId) {
+      await this.notificationDispatcher.dispatch({
+        memberId: reviewRecord.contentVersion.createdByMemberId,
+        messageType: NotificationMessageType.CONTENT_REJECTED,
+        payload: {
+          collectionName: reviewRecord.collection.collectionNo,
+          reason,
+        },
+      });
+    }
+
     return {
       reviewId: rejectedReviewRecord.id,
       reviewStatus: rejectedReviewRecord.reviewStatus,
@@ -446,7 +472,7 @@ export class CollectionReviewsService {
     const version = await this.prisma.collectionContentVersion.findUnique({
       where: { id },
       include: {
-        collection: { select: { collectionNo: true } },
+        collection: { select: { collectionNo: true, currentOwnerMemberId: true } },
       },
     });
 
@@ -489,6 +515,17 @@ export class CollectionReviewsService {
         publishStatus: CollectionContentPublishStatus.TAKEDOWN,
       },
     });
+
+    if (version.collection.currentOwnerMemberId) {
+      await this.notificationDispatcher.dispatch({
+        memberId: version.collection.currentOwnerMemberId,
+        messageType: NotificationMessageType.CONTENT_TAKEDOWN,
+        payload: {
+          collectionName: version.collection.collectionNo,
+          reason: _payload.reason?.trim() ?? '',
+        },
+      });
+    }
 
     return {
       contentVersionId: id,

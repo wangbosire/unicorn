@@ -4,10 +4,12 @@ import {
   CollectionContentEditStatus,
   CollectionContentPublishStatus,
   CollectionStatus,
+  NotificationMessageType,
 } from '@prisma/client';
 import { BizError } from '../../../common/http/biz-error';
 import { toTimestamp } from '../../../common/serializers/timestamp';
 import { MemberContextService } from '../auth/member-context.service';
+import { NotificationDispatcherService } from '../../notifications/notification-dispatcher.service';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import type {
   ActivateCollectionRequest,
@@ -23,6 +25,7 @@ export class CollectionActivationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly memberContextService: MemberContextService,
+    private readonly notificationDispatcher: NotificationDispatcherService,
   ) {}
 
   /**
@@ -46,7 +49,7 @@ export class CollectionActivationService {
       });
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const activationCode = await tx.activationCode.findUnique({
         where: { code: activationCodeValue },
         include: {
@@ -113,6 +116,14 @@ export class CollectionActivationService {
         },
       };
     });
+
+    await this.notificationDispatcher.dispatch({
+      memberId: member.id,
+      messageType: NotificationMessageType.ACTIVATE_SUCCESS,
+      payload: { collectionName: result.collection.collectionNo },
+    });
+
+    return result;
   }
 
   /**

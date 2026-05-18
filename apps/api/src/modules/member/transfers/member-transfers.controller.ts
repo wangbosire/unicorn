@@ -2,6 +2,7 @@ import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/comm
 import type {
   AcceptMemberTransferParams,
   AcceptMemberTransferCodeRequest,
+  CancelMemberTransferParams,
   CreateMemberTransferRequest,
   ListMemberTransfersQuery,
 } from '@contracts/member/transfers';
@@ -62,6 +63,23 @@ export class MemberTransfersController {
     @Param() params: AcceptMemberTransferParams,
   ) {
     return this.memberTransfersService.acceptMemberTransfer(
+      {
+        authorization,
+      },
+      params,
+    );
+  }
+
+  /**
+   * 发起方撤销一条待接收转让。
+   * 当前要求携带 Bearer access token；仅 fromMember 在 PENDING_ACCEPT 状态可调用。
+   */
+  @Post('transfers/:transferId/cancel')
+  async cancelMemberTransfer(
+    @Headers('authorization') authorization: string | undefined,
+    @Param() params: CancelMemberTransferParams,
+  ) {
+    return this.memberTransfersService.cancelMemberTransfer(
       {
         authorization,
       },

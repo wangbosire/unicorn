@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Edit",
+      "WebFetch"
+    ]
+  },
+  "defaultMode": "bypassPermissions"
+}

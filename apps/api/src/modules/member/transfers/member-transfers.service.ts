@@ -5,12 +5,15 @@ import {
   CollectionTransferStatus,
   CollectionStatus,
   MemberStatus,
+  NotificationMessageType,
   Prisma,
 } from '@prisma/client';
 import type {
   AcceptMemberTransferParams,
   AcceptMemberTransferCodeRequest,
   AcceptMemberTransferResponseData,
+  CancelMemberTransferParams,
+  CancelMemberTransferResponseData,
   CreateMemberTransferRequest,
   CreateMemberTransferResponseData,
   ListMemberTransfersQuery,
@@ -25,6 +28,7 @@ import { toNullableTimestamp, toTimestamp } from '../../../common/serializers/ti
 import { parseOptionalEnumValue } from '../../../common/validation/enum';
 import { optionalTextField, requiredIdField } from '../../../common/validation/fields';
 import { parseWithSchema } from '../../../common/validation/schema';
+import { NotificationDispatcherService } from '../../notifications/notification-dispatcher.service';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { MemberContextService } from '../auth/member-context.service';
 
@@ -44,6 +48,10 @@ const acceptMemberTransferParamsSchema = z.object({
   transferId: requiredIdField('transfer'),
 });
 
+const cancelMemberTransferParamsSchema = z.object({
+  transferId: requiredIdField('transfer'),
+});
+
 const acceptMemberTransferCodeRequestSchema = z.object({
   transferCode: z.string().trim().min(1, 'transferCode is required'),
 });
@@ -59,6 +67,7 @@ export class MemberTransfersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly memberContextService: MemberContextService,
+    private readonly notificationDispatcher: NotificationDispatcherService,
   ) {}
 
   /**
@@ -254,6 +263,11 @@ export class MemberTransfersService {
       createdAt.getTime() + DEFAULT_TRANSFER_EXPIRE_DAYS * 24 * 60 * 60 * 1000,
     );
 
+    const fromMemberInfo = await this.prisma.member.findUnique({
+      where: { id: member.id },
+      select: { memberNo: true },
+    });
+
     const created = await this.prisma.collectionTransferOrder.create({
       data: {
         transferNo: await this.generateTransferNo(),
@@ -284,6 +298,17 @@ export class MemberTransfersService {
         },
       },
     });
+
+    if (targetMember) {
+      await this.notificationDispatcher.dispatch({
+        memberId: targetMember.id,
+        messageType: NotificationMessageType.TRANSFER_PENDING_ACCEPT,
+        payload: {
+          collectionName: created.collection.collectionNo,
+          fromMemberNo: fromMemberInfo?.memberNo ?? '',
+        },
+      });
+    }
 
     return {
       transferId: created.id,
@@ -325,6 +350,74 @@ export class MemberTransfersService {
         },
       }),
     );
+  }
+
+  /**
+   * 发起方撤销一条待接收转让。
+   * 仅允许 fromMember 在 PENDING_ACCEPT 状态下撤销；其他状态拒绝。
+   */
+  async cancelMemberTransfer(
+    authContext: {
+      memberId?: string;
+      authorization?: string;
+    },
+    params: CancelMemberTransferParams,
+  ): Promise<CancelMemberTransferResponseData> {
+    const member = await this.memberContextService.getCurrentActiveMember(authContext);
+    const parsedParams = parseWithSchema(cancelMemberTransferParamsSchema, params);
+
+    const transfer = await this.prisma.collectionTransferOrder.findUnique({
+      where: { id: parsedParams.transferId },
+      include: {
+        collection: { select: { id: true, collectionNo: true } },
+      },
+    });
+
+    if (!transfer) {
+      throw new BizError({
+        code: 'TRANSFER_NOT_FOUND',
+        message: 'transfer not found',
+        status: 404,
+      });
+    }
+
+    if (transfer.fromMemberId !== member.id) {
+      throw new BizError({
+        code: 'TRANSFER_CANCEL_FORBIDDEN',
+        message: 'only initiator can cancel this transfer',
+        status: 403,
+      });
+    }
+
+    if (transfer.status !== CollectionTransferStatus.PENDING_ACCEPT) {
+      throw new BizError({
+        code: 'TRANSFER_STATUS_INVALID',
+        message: 'only pending transfers can be cancelled',
+      });
+    }
+
+    const cancelledAt = new Date();
+    const cancelled = await this.prisma.collectionTransferOrder.update({
+      where: { id: transfer.id },
+      data: { status: CollectionTransferStatus.CANCELLED },
+    });
+
+    if (transfer.toMemberId) {
+      await this.notificationDispatcher.dispatch({
+        memberId: transfer.toMemberId,
+        messageType: NotificationMessageType.TRANSFER_CANCELLED,
+        payload: { collectionName: transfer.collection.collectionNo },
+      });
+    }
+
+    return {
+      transferId: cancelled.id,
+      transferNo: cancelled.transferNo,
+      collectionId: transfer.collection.id,
+      collectionNo: transfer.collection.collectionNo,
+      status: cancelled.status,
+      cancelledAt: toTimestamp(cancelledAt),
+    };
   }
 
   /**
@@ -479,9 +572,15 @@ export class MemberTransfersService {
     }
 
     if (transfer.expiredAt && transfer.expiredAt.getTime() <= Date.now()) {
-      await this.prisma.collectionTransferOrder.update({
+      const expiredOrder = await this.prisma.collectionTransferOrder.update({
         where: { id: transfer.id },
         data: { status: CollectionTransferStatus.EXPIRED },
+        select: { fromMemberId: true },
+      });
+      await this.notificationDispatcher.dispatch({
+        memberId: expiredOrder.fromMemberId,
+        messageType: NotificationMessageType.TRANSFER_EXPIRED,
+        payload: { collectionName: transfer.collection.collectionNo },
       });
       throw new BizError({
         code: 'TRANSFER_EXPIRED',
@@ -539,6 +638,12 @@ export class MemberTransfersService {
         transfer: updatedTransfer,
         member: hydratedMember,
       };
+    });
+
+    await this.notificationDispatcher.dispatch({
+      memberId: result.transfer.fromMemberId,
+      messageType: NotificationMessageType.TRANSFER_COMPLETED,
+      payload: { collectionName: transfer.collection.collectionNo },
     });
 
     return {

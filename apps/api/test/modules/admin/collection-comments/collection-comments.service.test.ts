@@ -3,6 +3,11 @@ import { CollectionCommentStatus, CollectionCommentReviewSource } from '@prisma/
 import { test } from 'vitest';
 import { BizError } from '../../../../src/common/http/biz-error';
 import { CollectionCommentsService } from '../../../../src/modules/admin/collection-comments/collection-comments.service';
+import type { NotificationDispatcherService } from '../../../../src/modules/notifications/notification-dispatcher.service';
+
+function createNoopNotificationDispatcher(): NotificationDispatcherService {
+  return { dispatch: async () => undefined as never } as unknown as NotificationDispatcherService;
+}
 
 function createAdminCollectionCommentsPrismaMock() {
   const comments: Array<{
@@ -174,7 +179,7 @@ function createAdminCollectionCommentsPrismaMock() {
 
 test('CollectionCommentsService.listCollectionComments returns paginated list', async () => {
   const { prisma } = createAdminCollectionCommentsPrismaMock();
-  const service = new CollectionCommentsService(prisma as never);
+  const service = new CollectionCommentsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.listCollectionComments({
     page: '1',
@@ -194,7 +199,7 @@ test('CollectionCommentsService.listCollectionComments returns paginated list', 
 
 test('CollectionCommentsService.listCollectionCommentReviews filters by review status', async () => {
   const { prisma } = createAdminCollectionCommentsPrismaMock();
-  const service = new CollectionCommentsService(prisma as never);
+  const service = new CollectionCommentsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.listCollectionCommentReviews({
     page: '1',
@@ -212,7 +217,7 @@ test('CollectionCommentsService.listCollectionCommentReviews filters by review s
 test('CollectionCommentsService.approveCollectionComment updates comment and creates review record', async () => {
   const { prisma, comments, createdReviewRecords } =
     createAdminCollectionCommentsPrismaMock();
-  const service = new CollectionCommentsService(prisma as never);
+  const service = new CollectionCommentsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.approveCollectionComment('cmt_1', {
     comment: '人工通过',
@@ -226,7 +231,7 @@ test('CollectionCommentsService.approveCollectionComment updates comment and cre
 test('CollectionCommentsService.rejectCollectionComment updates comment and creates review record', async () => {
   const { prisma, comments, createdReviewRecords } =
     createAdminCollectionCommentsPrismaMock();
-  const service = new CollectionCommentsService(prisma as never);
+  const service = new CollectionCommentsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.rejectCollectionComment('cmt_1', {
     reason: '违规',
@@ -240,7 +245,7 @@ test('CollectionCommentsService.rejectCollectionComment updates comment and crea
 test('CollectionCommentsService.blockCollectionComment blocks approved comment and creates review record', async () => {
   const { prisma, comments, createdReviewRecords } =
     createAdminCollectionCommentsPrismaMock();
-  const service = new CollectionCommentsService(prisma as never);
+  const service = new CollectionCommentsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.blockCollectionComment('cmt_2', {
     reason: '运营屏蔽',
@@ -254,7 +259,7 @@ test('CollectionCommentsService.blockCollectionComment blocks approved comment a
 
 test('CollectionCommentsService.approveCollectionComment rejects invalid status', async () => {
   const { prisma } = createAdminCollectionCommentsPrismaMock();
-  const service = new CollectionCommentsService(prisma as never);
+  const service = new CollectionCommentsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.approveCollectionComment('cmt_2', {}),
@@ -265,7 +270,7 @@ test('CollectionCommentsService.approveCollectionComment rejects invalid status'
 
 test('CollectionCommentsService.blockCollectionComment rejects invalid status', async () => {
   const { prisma } = createAdminCollectionCommentsPrismaMock();
-  const service = new CollectionCommentsService(prisma as never);
+  const service = new CollectionCommentsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.blockCollectionComment('cmt_1', {}),

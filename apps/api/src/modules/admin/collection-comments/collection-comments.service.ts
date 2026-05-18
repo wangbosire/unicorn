@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   CollectionCommentStatus,
   CollectionCommentReviewSource,
+  NotificationMessageType,
   Prisma,
 } from '@prisma/client';
 import type {
@@ -28,7 +29,18 @@ import {
   toTimestamp,
 } from '../../../common/serializers/timestamp';
 import { parseOptionalEnumValue } from '../../../common/validation/enum';
+import { NotificationDispatcherService } from '../../notifications/notification-dispatcher.service';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
+
+/// 评论摘录字数上限，用于通知文案显示。
+const COMMENT_EXCERPT_MAX = 30;
+
+function makeCommentExcerpt(content: string): string {
+  const trimmed = content.replace(/\s+/g, ' ').trim();
+  return trimmed.length > COMMENT_EXCERPT_MAX
+    ? `${trimmed.slice(0, COMMENT_EXCERPT_MAX)}…`
+    : trimmed;
+}
 
 /**
  * 后台评论治理服务。
@@ -36,7 +48,10 @@ import { PrismaService } from '../../../platform/prisma/prisma.service';
  */
 @Injectable()
 export class CollectionCommentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationDispatcher: NotificationDispatcherService,
+  ) {}
 
   /**
    * 查询后台评论列表。
@@ -225,6 +240,15 @@ export class CollectionCommentsService {
       });
     });
 
+    await this.notificationDispatcher.dispatch({
+      memberId: comment.memberId,
+      messageType: NotificationMessageType.COMMENT_REVIEW_RESULT,
+      payload: {
+        excerpt: makeCommentExcerpt(comment.content),
+        result: '通过',
+      },
+    });
+
     return {
       commentId: id,
       status: CollectionCommentStatus.MANUAL_APPROVED,
@@ -294,6 +318,15 @@ export class CollectionCommentsService {
           reviewedAt,
         },
       });
+    });
+
+    await this.notificationDispatcher.dispatch({
+      memberId: comment.memberId,
+      messageType: NotificationMessageType.COMMENT_REVIEW_RESULT,
+      payload: {
+        excerpt: makeCommentExcerpt(comment.content),
+        result: `驳回（${reason}）`,
+      },
     });
 
     return {
@@ -371,6 +404,15 @@ export class CollectionCommentsService {
           reviewedAt,
         },
       });
+    });
+
+    await this.notificationDispatcher.dispatch({
+      memberId: comment.memberId,
+      messageType: NotificationMessageType.COMMENT_REVIEW_RESULT,
+      payload: {
+        excerpt: makeCommentExcerpt(comment.content),
+        result: reason ? `屏蔽（${reason}）` : '屏蔽',
+      },
     });
 
     return {

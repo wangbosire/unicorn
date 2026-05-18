@@ -183,6 +183,10 @@ enum NotificationMessageType {
   TRANSFER_PENDING_ACCEPT
   /// 转让完成通知。
   TRANSFER_COMPLETED
+  /// 转让被发起方撤销通知。
+  TRANSFER_CANCELLED
+  /// 转让超时未确认而过期通知。
+  TRANSFER_EXPIRED
 }
 
 /// 通知触达渠道。

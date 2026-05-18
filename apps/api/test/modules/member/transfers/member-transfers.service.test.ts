@@ -6,9 +6,35 @@ import {
   CollectionTransferMode,
   CollectionTransferStatus,
   MemberStatus,
+  NotificationMessageType,
 } from '@prisma/client';
 import { test } from 'vitest';
+import { BizError } from '../../../../src/common/http/biz-error';
 import { MemberTransfersService } from '../../../../src/modules/member/transfers/member-transfers.service';
+import type { NotificationDispatcherService } from '../../../../src/modules/notifications/notification-dispatcher.service';
+
+function createNoopNotificationDispatcher(): NotificationDispatcherService {
+  return { dispatch: async () => undefined as never } as unknown as NotificationDispatcherService;
+}
+
+interface RecordedDispatch {
+  memberId: string;
+  messageType: NotificationMessageType;
+}
+
+function createRecordingNotificationDispatcher(): {
+  dispatcher: NotificationDispatcherService;
+  calls: RecordedDispatch[];
+} {
+  const calls: RecordedDispatch[] = [];
+  const dispatcher = {
+    dispatch: async (input: RecordedDispatch) => {
+      calls.push({ memberId: input.memberId, messageType: input.messageType });
+      return undefined as never;
+    },
+  } as unknown as NotificationDispatcherService;
+  return { dispatcher, calls };
+}
 
 function createMemberContextServiceMock(memberId = 'mem_1') {
   return {
@@ -60,6 +86,7 @@ test('MemberTransfersService.listMemberTransfers returns paginated items', async
   const service = new MemberTransfersService(
     prisma as never,
     createMemberContextServiceMock() as never,
+    createNoopNotificationDispatcher(),
   );
   const result = await service.listMemberTransfers(
     { authorization: 'Bearer member.jwt.token' },
@@ -147,6 +174,7 @@ test('MemberTransfersService.createMemberTransfer creates direct transfer', asyn
   const service = new MemberTransfersService(
     prisma as never,
     createMemberContextServiceMock() as never,
+    createNoopNotificationDispatcher(),
   );
   const result = await service.createMemberTransfer(
     { authorization: 'Bearer member.jwt.token' },
@@ -225,6 +253,7 @@ test('MemberTransfersService.acceptMemberTransferByCode completes transfer and u
   const service = new MemberTransfersService(
     prisma as never,
     createMemberContextServiceMock('mem_3') as never,
+    createNoopNotificationDispatcher(),
   );
   const result = await service.acceptMemberTransferByCode(
     { authorization: 'Bearer member.jwt.token' },
@@ -234,4 +263,142 @@ test('MemberTransfersService.acceptMemberTransferByCode completes transfer and u
   assert.equal(result.transferId, 'transfer_1');
   assert.equal(result.currentOwnerMemberNo, 'MEM-0003');
   assert.equal(result.status, 'COMPLETED');
+});
+
+function createCancelPrismaMock(overrides: {
+  fromMemberId?: string;
+  status?: CollectionTransferStatus;
+  toMemberId?: string | null;
+} = {}) {
+  const transfer = {
+    id: 'transfer_cancel_1',
+    transferNo: 'TR-000099',
+    collectionId: 'col_99',
+    fromMemberId: overrides.fromMemberId ?? 'mem_1',
+    toMemberId: overrides.toMemberId === undefined ? 'mem_2' : overrides.toMemberId,
+    transferMode: CollectionTransferMode.DIRECT_MEMBER,
+    transferCode: null,
+    status: overrides.status ?? CollectionTransferStatus.PENDING_ACCEPT,
+    expiredAt: new Date('2026-05-30T00:00:00.000Z'),
+    completedAt: null,
+    createdAt: new Date('2026-05-18T10:00:00.000Z'),
+    updatedAt: new Date('2026-05-18T10:00:00.000Z'),
+    collection: {
+      id: 'col_99',
+      collectionNo: 'COL-0099',
+    },
+  };
+  return {
+    transfer,
+    prisma: {
+      collectionTransferOrder: {
+        findUnique: async () => transfer,
+        update: async () => ({
+          ...transfer,
+          status: CollectionTransferStatus.CANCELLED,
+        }),
+      },
+    },
+  };
+}
+
+test('MemberTransfersService.cancelMemberTransfer cancels pending transfer and notifies counterpart', async () => {
+  const { prisma } = createCancelPrismaMock();
+  const { dispatcher, calls } = createRecordingNotificationDispatcher();
+  const service = new MemberTransfersService(
+    prisma as never,
+    createMemberContextServiceMock('mem_1') as never,
+    dispatcher,
+  );
+
+  const result = await service.cancelMemberTransfer(
+    { authorization: 'Bearer member.jwt.token' },
+    { transferId: 'transfer_cancel_1' },
+  );
+
+  assert.equal(result.transferId, 'transfer_cancel_1');
+  assert.equal(result.status, CollectionTransferStatus.CANCELLED);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.memberId, 'mem_2');
+  assert.equal(calls[0]?.messageType, NotificationMessageType.TRANSFER_CANCELLED);
+});
+
+test('MemberTransfersService.cancelMemberTransfer skips notification when no counterpart', async () => {
+  const { prisma } = createCancelPrismaMock({ toMemberId: null });
+  const { dispatcher, calls } = createRecordingNotificationDispatcher();
+  const service = new MemberTransfersService(
+    prisma as never,
+    createMemberContextServiceMock('mem_1') as never,
+    dispatcher,
+  );
+
+  await service.cancelMemberTransfer(
+    { authorization: 'Bearer member.jwt.token' },
+    { transferId: 'transfer_cancel_1' },
+  );
+
+  assert.equal(calls.length, 0);
+});
+
+test('MemberTransfersService.cancelMemberTransfer rejects when not initiator', async () => {
+  const { prisma } = createCancelPrismaMock();
+  const service = new MemberTransfersService(
+    prisma as never,
+    createMemberContextServiceMock('mem_other') as never,
+    createNoopNotificationDispatcher(),
+  );
+
+  await assert.rejects(
+    () =>
+      service.cancelMemberTransfer(
+        { authorization: 'Bearer member.jwt.token' },
+        { transferId: 'transfer_cancel_1' },
+      ),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'TRANSFER_CANCEL_FORBIDDEN',
+  );
+});
+
+test('MemberTransfersService.cancelMemberTransfer rejects non-pending status', async () => {
+  const { prisma } = createCancelPrismaMock({
+    status: CollectionTransferStatus.COMPLETED,
+  });
+  const service = new MemberTransfersService(
+    prisma as never,
+    createMemberContextServiceMock('mem_1') as never,
+    createNoopNotificationDispatcher(),
+  );
+
+  await assert.rejects(
+    () =>
+      service.cancelMemberTransfer(
+        { authorization: 'Bearer member.jwt.token' },
+        { transferId: 'transfer_cancel_1' },
+      ),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'TRANSFER_STATUS_INVALID',
+  );
+});
+
+test('MemberTransfersService.cancelMemberTransfer rejects when transfer not found', async () => {
+  const prisma = {
+    collectionTransferOrder: {
+      findUnique: async () => null,
+    },
+  };
+  const service = new MemberTransfersService(
+    prisma as never,
+    createMemberContextServiceMock('mem_1') as never,
+    createNoopNotificationDispatcher(),
+  );
+
+  await assert.rejects(
+    () =>
+      service.cancelMemberTransfer(
+        { authorization: 'Bearer member.jwt.token' },
+        { transferId: 'missing_transfer' },
+      ),
+    (error: unknown) =>
+      error instanceof BizError && error.code === 'TRANSFER_NOT_FOUND',
+  );
 });

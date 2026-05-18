@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button, Input, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useLoad, usePullDownRefresh } from '@tarojs/taro'
 import type {
+  CancelMemberTransferResponseData,
   CreateMemberTransferRequest,
   CreateMemberTransferResponseData,
   ListMemberTransfersQuery,
@@ -33,6 +34,7 @@ export default function TransfersPage() {
   const [isCreatingTransfer, setIsCreatingTransfer] = useState(false)
   const [transferCode, setTransferCode] = useState('')
   const [isAcceptingByCode, setIsAcceptingByCode] = useState(false)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
 
   async function loadTransfers() {
     setIsLoading(true)
@@ -119,6 +121,26 @@ export default function TransfersPage() {
       Taro.showToast({ title: message, icon: 'none' })
     } finally {
       setIsAcceptingByCode(false)
+    }
+  }
+
+  async function handleCancelTransfer(transferId: string, collectionNoLabel: string) {
+    setCancellingId(transferId)
+    try {
+      await requestMemberApi<CancelMemberTransferResponseData, undefined>({
+        path: `/member-api/my/transfers/${encodeURIComponent(transferId)}/cancel`,
+        method: 'POST',
+      })
+      Taro.showToast({ title: `已撤销 ${collectionNoLabel}`, icon: 'success' })
+      await loadTransfers()
+    } catch (error) {
+      const message =
+        error instanceof MemberApiError
+          ? formatMemberApiErrorMessage(error)
+          : '撤销转让失败，请稍后重试'
+      Taro.showToast({ title: message, icon: 'none' })
+    } finally {
+      setCancellingId(null)
     }
   }
 
@@ -402,6 +424,29 @@ export default function TransfersPage() {
               <Text style={{ display: 'block', color: '#64748b' }}>
                 完成时间：{formatMemberTransferTimestamp(item.completedAt)}
               </Text>
+              {item.direction === 'outgoing' && item.status === 'PENDING_ACCEPT' ? (
+                <Button
+                  type='default'
+                  loading={cancellingId === item.transferId}
+                  disabled={cancellingId !== null}
+                  onClick={() =>
+                    void handleCancelTransfer(item.transferId, item.collectionNo)
+                  }
+                  style={{
+                    marginTop: '16rpx',
+                    height: '64rpx',
+                    lineHeight: '64rpx',
+                    borderRadius: '999rpx',
+                    border: '2rpx solid #f87171',
+                    background: '#fef2f2',
+                    color: '#b91c1c',
+                    fontSize: '24rpx',
+                    fontWeight: '600',
+                  }}
+                >
+                  {cancellingId === item.transferId ? '撤销中...' : '撤销转让'}
+                </Button>
+              ) : null}
             </View>
           ))}
         </View>

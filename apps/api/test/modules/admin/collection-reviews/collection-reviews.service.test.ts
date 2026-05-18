@@ -9,6 +9,11 @@ import {
 } from '@prisma/client';
 import { BizError } from '../../../../src/common/http/biz-error';
 import { CollectionReviewsService } from '../../../../src/modules/admin/collection-reviews/collection-reviews.service';
+import type { NotificationDispatcherService } from '../../../../src/modules/notifications/notification-dispatcher.service';
+
+function createNoopNotificationDispatcher(): NotificationDispatcherService {
+  return { dispatch: async () => undefined as never } as unknown as NotificationDispatcherService;
+}
 
 function createCollectionReviewsPrismaMock() {
   const reviewRecords: Array<{
@@ -464,7 +469,7 @@ function createCollectionReviewsPrismaMock() {
 
 test('CollectionReviewsService.listCollectionReviews returns paginated review queue', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.listCollectionReviews({
     page: '1',
@@ -489,7 +494,7 @@ test('CollectionReviewsService.listCollectionReviews returns paginated review qu
 
 test('CollectionReviewsService.getCollectionReviewById returns enriched review detail', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.getCollectionReviewById('crr_1');
 
@@ -510,7 +515,7 @@ test('CollectionReviewsService.getCollectionReviewById returns enriched review d
 
 test('CollectionReviewsService.listCollectionReviews supports filtering by collectionNo', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.listCollectionReviews({
     collectionNo: 'COL-002',
@@ -523,7 +528,7 @@ test('CollectionReviewsService.listCollectionReviews supports filtering by colle
 
 test('CollectionReviewsService.listCollectionReviews merges seriesId and batchId on collection filter', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.listCollectionReviews({
     seriesId: 'ser_1',
@@ -538,7 +543,7 @@ test('CollectionReviewsService.listCollectionReviews merges seriesId and batchId
 
 test('CollectionReviewsService.listCollectionReviews supports filtering by review status and series', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.listCollectionReviews({
     reviewStatus: CollectionContentReviewStatus.PENDING_MANUAL,
@@ -553,7 +558,7 @@ test('CollectionReviewsService.listCollectionReviews supports filtering by revie
 
 test('CollectionReviewsService.listCollectionReviews rejects invalid review status', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () =>
@@ -568,7 +573,7 @@ test('CollectionReviewsService.listCollectionReviews rejects invalid review stat
 
 test('CollectionReviewsService.approveCollectionReview marks review approved and publishes content', async () => {
   const { prisma, reviewRecords, contentVersions } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.approveCollectionReview('crr_1', {
     comment: '人工审核通过',
@@ -597,7 +602,7 @@ test('CollectionReviewsService.approveCollectionReview marks review approved and
 
 test('CollectionReviewsService.approveCollectionReview rejects missing review record', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.approveCollectionReview('missing_review', {}),
@@ -610,7 +615,7 @@ test('CollectionReviewsService.approveCollectionReview rejects missing review re
 
 test('CollectionReviewsService.approveCollectionReview rejects empty review id', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.approveCollectionReview('   ', {}),
@@ -626,7 +631,7 @@ test('CollectionReviewsService.approveCollectionReview rejects invalid review st
   const pendingManual = reviewRecords.find((row) => row.id === 'crr_1');
   assert.ok(pendingManual);
   pendingManual.reviewStatus = CollectionContentReviewStatus.MANUAL_APPROVED;
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.approveCollectionReview('crr_1', {}),
@@ -637,7 +642,7 @@ test('CollectionReviewsService.approveCollectionReview rejects invalid review st
 
 test('CollectionReviewsService.rejectCollectionReview marks review rejected and unpublishes content', async () => {
   const { prisma, reviewRecords, contentVersions } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.rejectCollectionReview('crr_1', {
     reason: '不符合公开展示规范',
@@ -663,7 +668,7 @@ test('CollectionReviewsService.rejectCollectionReview marks review rejected and 
 
 test('CollectionReviewsService.rejectCollectionReview rejects empty reason', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.rejectCollectionReview('crr_1', { reason: '   ' }),
@@ -676,7 +681,7 @@ test('CollectionReviewsService.rejectCollectionReview rejects empty reason', asy
 
 test('CollectionReviewsService.rejectCollectionReview rejects missing review record', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () =>
@@ -695,7 +700,7 @@ test('CollectionReviewsService.rejectCollectionReview rejects invalid review sta
   const pendingManual = reviewRecords.find((row) => row.id === 'crr_1');
   assert.ok(pendingManual);
   pendingManual.reviewStatus = CollectionContentReviewStatus.MANUAL_APPROVED;
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () =>
@@ -709,7 +714,7 @@ test('CollectionReviewsService.rejectCollectionReview rejects invalid review sta
 
 test('CollectionReviewsService.listCollectionReviewHistory rejects missing collectionNo', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.listCollectionReviewHistory({}),
@@ -722,7 +727,7 @@ test('CollectionReviewsService.listCollectionReviewHistory rejects missing colle
 
 test('CollectionReviewsService.listCollectionReviewHistory returns 404 when collection not found', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.listCollectionReviewHistory({ collectionNo: 'COL-404' }),
@@ -735,7 +740,7 @@ test('CollectionReviewsService.listCollectionReviewHistory returns 404 when coll
 
 test('CollectionReviewsService.listCollectionReviewHistory returns ascending records for a collection', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.listCollectionReviewHistory({
     collectionNo: 'COL-001',
@@ -750,7 +755,7 @@ test('CollectionReviewsService.listCollectionReviewHistory returns ascending rec
 
 test('CollectionReviewsService.listCollectionReviewHistory supports filtering by content version', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.listCollectionReviewHistory({
     collectionNo: 'COL-001',
@@ -789,7 +794,7 @@ test('CollectionReviewsService.listCollectionReviewHistory rejects when result e
       },
     });
   }
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.listCollectionReviewHistory({ collectionNo: 'COL-001' }),
@@ -802,7 +807,7 @@ test('CollectionReviewsService.listCollectionReviewHistory rejects when result e
 
 test('CollectionReviewsService.listCollectionReviewHistory rejects version not belonging to collection', async () => {
   const { prisma } = createCollectionReviewsPrismaMock();
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () =>
@@ -861,7 +866,7 @@ test('CollectionReviewsService.takedownPublishedContentVersion sets TAKEDOWN on 
   const { prisma, getPublishStatus } = createTakedownPrismaMock({
     initialPublishStatus: CollectionContentPublishStatus.PUBLISHED,
   });
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   const result = await service.takedownPublishedContentVersion('ccv_td', {});
 
@@ -876,7 +881,7 @@ test('CollectionReviewsService.takedownPublishedContentVersion rejects missing v
     id: 'ccv_td',
     initialPublishStatus: CollectionContentPublishStatus.PUBLISHED,
   });
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.takedownPublishedContentVersion('other', {}),
@@ -891,7 +896,7 @@ test('CollectionReviewsService.takedownPublishedContentVersion rejects when alre
   const { prisma } = createTakedownPrismaMock({
     initialPublishStatus: CollectionContentPublishStatus.TAKEDOWN,
   });
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.takedownPublishedContentVersion('ccv_td', {}),
@@ -906,7 +911,7 @@ test('CollectionReviewsService.takedownPublishedContentVersion rejects when not 
   const { prisma } = createTakedownPrismaMock({
     initialPublishStatus: CollectionContentPublishStatus.UNPUBLISHED,
   });
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.takedownPublishedContentVersion('ccv_td', {}),
@@ -922,7 +927,7 @@ test('CollectionReviewsService.takedownPublishedContentVersion rejects when not 
     initialPublishStatus: CollectionContentPublishStatus.PUBLISHED,
     editStatus: CollectionContentEditStatus.DRAFT,
   });
-  const service = new CollectionReviewsService(prisma as never);
+  const service = new CollectionReviewsService(prisma as never, createNoopNotificationDispatcher());
 
   await assert.rejects(
     () => service.takedownPublishedContentVersion('ccv_td', {}),
