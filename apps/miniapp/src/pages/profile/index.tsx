@@ -99,6 +99,24 @@ export default function ProfilePage() {
       >
         前往我的藏品
       </Button>
+      <Button
+        onClick={() => {
+          void Taro.navigateTo({ url: '/pages/transfers/index' })
+        }}
+        style={{
+          marginBottom: '24rpx',
+          height: '84rpx',
+          lineHeight: '84rpx',
+          borderRadius: '999rpx',
+          border: '2rpx solid #86efac',
+          background: 'rgba(255, 255, 255, 0.65)',
+          color: '#166534',
+          fontSize: '28rpx',
+          fontWeight: '600',
+        }}
+      >
+        查看我的转让
+      </Button>
 
       {isLoading ? (
         <StatusCard

@@ -4,7 +4,7 @@ import { MemberAuthController } from '../../../../src/modules/member/auth/member
 
 test('MemberAuthController.loginWithWechatMiniapp forwards body to service', async () => {
   const expectedResult = {
-    accessToken: 'mock-member-token:mem_1',
+    accessToken: 'member.jwt.token',
     member: {
       id: 'mem_1',
       memberNo: 'MEM-0001',
@@ -41,7 +41,7 @@ test('MemberAuthController.loginWithWechatMiniapp forwards body to service', asy
 
 test('MemberAuthController.loginWithWechatMp forwards body to service', async () => {
   const expectedResult = {
-    accessToken: 'mock-member-token:mem_2',
+    accessToken: 'member.jwt.token',
     member: {
       id: 'mem_2',
       memberNo: 'MEM-0002',
@@ -93,15 +93,11 @@ test('MemberAuthController.getCurrentMember builds auth context from headers', a
     getCurrentMember,
   } as never);
 
-  const result = await controller.getCurrentMember(
-    'mem_1',
-    'Bearer mock-member-token:mem_1',
-  );
+  const result = await controller.getCurrentMember('Bearer member.jwt.token');
 
   assert.deepEqual(result, expectedResult);
   assert.equal(receivedAuthContexts.length, 1);
   assert.deepEqual(receivedAuthContexts[0], {
-    memberId: 'mem_1',
-    authorization: 'Bearer mock-member-token:mem_1',
+    authorization: 'Bearer member.jwt.token',
   });
 });

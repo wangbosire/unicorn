@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import * as jwt from 'jsonwebtoken';
 import { test } from 'vitest';
 import type { ConfigService } from '@nestjs/config';
 import {
@@ -25,6 +26,19 @@ function createConfigServiceMock(
       return undefined;
     },
   } as ConfigService;
+}
+
+function createMemberAuthContext(memberId = 'mem_1') {
+  return {
+    authorization: `Bearer ${jwt.sign(
+      {
+        sub: memberId,
+        typ: 'member',
+      },
+      'dev-member-jwt-secret-change-me',
+      { algorithm: 'HS256', expiresIn: '30d' },
+    )}`,
+  };
 }
 
 function createMyCollectionsPrismaMock() {
@@ -375,9 +389,7 @@ test('MyCollectionsService.getCollectionContent returns current editable version
   );
 
   const result = await service.getCollectionContent(
-    {
-      memberId: 'mem_1',
-    },
+    createMemberAuthContext(),
     {
       collectionId: 'col_1',
     },
@@ -406,9 +418,7 @@ test('MyCollectionsService.getMyCollectionById returns collection detail for cur
   );
 
   const result = await service.getMyCollectionById(
-    {
-      memberId: 'mem_1',
-    },
+    createMemberAuthContext(),
     {
       collectionId: 'col_1',
     },
@@ -449,9 +459,7 @@ test('MyCollectionsService.getCollectionContent returns latest contentReviewStat
   );
 
   const result = await service.getCollectionContent(
-    {
-      memberId: 'mem_1',
-    },
+    createMemberAuthContext(),
     {
       collectionId: 'col_1',
     },
@@ -471,9 +479,7 @@ test('MyCollectionsService.listMyCollections returns enriched card fields for cu
   );
 
   const result = await service.listMyCollections(
-    {
-      memberId: 'mem_1',
-    },
+    createMemberAuthContext(),
     {
       page: '1',
       pageSize: '20',
@@ -528,9 +534,7 @@ test('MyCollectionsService.getCollectionContent rejects when collection belongs 
   await assert.rejects(
     () =>
       service.getCollectionContent(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           collectionId: 'col_1',
         },
@@ -552,9 +556,7 @@ test('MyCollectionsService.saveCollectionDraft updates current draft version in 
   );
 
   const result = await service.saveCollectionDraft(
-    {
-      memberId: 'mem_1',
-    },
+    createMemberAuthContext(),
     {
       collectionId: 'col_1',
     },
@@ -589,9 +591,7 @@ test('MyCollectionsService.saveCollectionDraft creates new draft version after a
   );
 
   const result = await service.saveCollectionDraft(
-    {
-      memberId: 'mem_1',
-    },
+    createMemberAuthContext(),
     {
       collectionId: 'col_1',
     },
@@ -628,9 +628,7 @@ test('MyCollectionsService.saveCollectionDraft rejects when current version is u
   await assert.rejects(
     () =>
       service.saveCollectionDraft(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           collectionId: 'col_1',
         },
@@ -658,9 +656,7 @@ test('MyCollectionsService.submitCollectionContent updates version status and cr
   );
 
   const result = await service.submitCollectionContent(
-    {
-      memberId: 'mem_1',
-    },
+    createMemberAuthContext(),
     {
       collectionId: 'col_1',
     },
@@ -695,9 +691,7 @@ test('MyCollectionsService.submitCollectionContent enters manual queue when manu
   );
 
   const result = await service.submitCollectionContent(
-    {
-      memberId: 'mem_1',
-    },
+    createMemberAuthContext(),
     {
       collectionId: 'col_1',
     },
@@ -730,9 +724,7 @@ test('MyCollectionsService.submitCollectionContent machine-rejects when title co
   );
 
   const result = await service.submitCollectionContent(
-    {
-      memberId: 'mem_1',
-    },
+    createMemberAuthContext(),
     {
       collectionId: 'col_1',
     },
@@ -760,9 +752,7 @@ test('MyCollectionsService.submitCollectionContent rejects already submitted ver
   await assert.rejects(
     () =>
       service.submitCollectionContent(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           collectionId: 'col_1',
         },
@@ -794,9 +784,7 @@ test('MyCollectionsService.submitCollectionContent rejects when version does not
   await assert.rejects(
     () =>
       service.submitCollectionContent(
-        {
-          memberId: 'mem_1',
-        },
+        createMemberAuthContext(),
         {
           collectionId: 'col_1',
         },

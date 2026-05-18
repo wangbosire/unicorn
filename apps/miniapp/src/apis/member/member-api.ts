@@ -4,13 +4,10 @@ import type {
   WechatMiniappLoginResponseData,
 } from '@contracts/member/auth'
 import { resolveMemberApiBaseUrl } from '../../config/runtime'
-import { DEFAULT_DEV_MEMBER_ID } from '../../lib/default-dev-member'
 import {
   MOCK_MEMBER_TOKEN_PREFIX,
   parseMemberIdFromMockAccessToken,
 } from '../../lib/member-mock-token'
-
-export { DEFAULT_DEV_MEMBER_ID }
 
 type ApiSuccessResponse<T> = {
   code: 'OK'
@@ -29,26 +26,25 @@ type MemberApiRequestOptions<TData> = {
   data?: TData
 }
 
-/** 可在开发者工具中写入，覆盖默认联调会员主键（与 authorization 需一致）。 */
-export const MEMBER_ID_STORAGE_KEY = 'unicorn_member_id'
+const MEMBER_ID_STORAGE_KEY = 'unicorn_member_id'
 
 /**
- * 登录成功后写入的访问令牌（与后端 `MemberAuthService.buildMockAccessToken` 一致，形如 `mock-member-token:<memberId>`）。
- * 存在时优先于仅写 `unicorn_member_id` 的联调方式。
+ * 登录成功后写入的会员访问令牌。
+ * 当前优先走正式 JWT；历史 mock token 仍可被兼容读取，便于平滑迁移本地联调环境。
  */
 export const MEMBER_ACCESS_TOKEN_STORAGE_KEY = 'unicorn_member_access_token'
 
 type StoredMemberSession = {
-  memberId: string
-  authorization: string
+  memberId: string | null
+  authorization: string | null
   /** 与请求头注入逻辑一致，用于首页联调展示。 */
-  source: 'default' | 'token' | 'id_only'
+  source: 'anonymous' | 'token'
 }
 
 function readStoredMemberSession(): StoredMemberSession {
-  let memberId = DEFAULT_DEV_MEMBER_ID
-  let authorization = `Bearer ${MOCK_MEMBER_TOKEN_PREFIX}${DEFAULT_DEV_MEMBER_ID}`
-  let source: StoredMemberSession['source'] = 'default'
+  let memberId: string | null = null
+  let authorization: string | null = null
+  let source: StoredMemberSession['source'] = 'anonymous'
 
   try {
     const storedToken = Taro.getStorageSync(MEMBER_ACCESS_TOKEN_STORAGE_KEY)
@@ -64,13 +60,9 @@ function readStoredMemberSession(): StoredMemberSession {
         memberId = storedId.trim()
       }
       source = 'token'
-    } else if (typeof storedId === 'string' && storedId.trim()) {
-      memberId = storedId.trim()
-      authorization = `Bearer ${MOCK_MEMBER_TOKEN_PREFIX}${memberId}`
-      source = 'id_only'
     }
   } catch {
-    // 存储不可用时保持默认联调身份。
+    // 存储不可用时保持未登录状态。
   }
 
   return { memberId, authorization, source }
@@ -80,7 +72,7 @@ function readStoredMemberSession(): StoredMemberSession {
  * 读取当前将与 `requestMemberApi` 一并发送的会员上下文摘要（联调页展示用，不含令牌明文）。
  */
 export function getMemberSessionSummary(): {
-  memberId: string
+  memberId: string | null
   sessionSource: StoredMemberSession['source']
   memberApiBaseUrl: string
 } {
@@ -93,15 +85,19 @@ export function getMemberSessionSummary(): {
 }
 
 /**
- * 解析会员请求头：优先使用登录态写入的 accessToken；否则回落到 `DEFAULT_DEV_MEMBER_ID`。
+ * 解析会员请求头：仅在存在登录态 accessToken 时注入认证头。
  */
 function resolveMemberAuthHeaders(): Record<string, string> {
   const s = readStoredMemberSession()
-  return {
+  const headers: Record<string, string> = {
     'content-type': 'application/json',
-    'x-member-id': s.memberId,
-    authorization: s.authorization,
   }
+
+  if (s.authorization) {
+    headers.authorization = s.authorization
+  }
+
+  return headers
 }
 
 function throwIfMemberApiFailed<T>(
@@ -147,7 +143,7 @@ async function requestMemberApiPublic<TResponse, TData = unknown>(
 }
 
 /**
- * 微信小程序 `code` 换会员会话（后端当前为联调映射方案，返回 mock access token）。
+ * 微信小程序 `code` 换会员会话（后端当前返回正式 member access token）。
  */
 export async function loginWechatMiniapp(
   code: string
@@ -173,7 +169,7 @@ export function persistMemberSession(accessToken: string, memberId: string): voi
 }
 
 /**
- * 清除登录态，恢复默认联调种子会员（`DEFAULT_DEV_MEMBER_ID`）。
+ * 清除登录态，并移除本地缓存的会员主键摘要。
  */
 export function clearMemberSession(): void {
   try {
@@ -186,11 +182,16 @@ export function clearMemberSession(): void {
 
 /**
  * 会员接口请求封装。
- * 默认注入联调阶段会员上下文；支持登录态与本地存储覆盖。
+ * 默认注入会员上下文；优先使用登录态 access token，必要时兼容本地开发兜底字段。
  */
 export async function requestMemberApi<TResponse, TData = unknown>(
   options: MemberApiRequestOptions<TData>
 ): Promise<TResponse> {
+  const session = readStoredMemberSession()
+  if (!session.authorization) {
+    throw new MemberApiError('UNAUTHORIZED', 'member login required')
+  }
+
   const baseUrl = resolveMemberApiBaseUrl()
   const response = await Taro.request<ApiSuccessResponse<TResponse> | ApiErrorResponse>({
     url: `${baseUrl}${options.path}`,

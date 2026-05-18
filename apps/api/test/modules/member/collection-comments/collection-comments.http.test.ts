@@ -37,7 +37,7 @@ test('POST /member-api/collection-comments returns wrapped payload', async () =>
   try {
     const response = await request(app.getHttpServer())
       .post('/member-api/collection-comments')
-      .set('x-member-id', 'mem_1')
+      .set('authorization', 'Bearer member.jwt.token')
       .send({ collectionNo: 'COL-001', content: '评论内容' })
       .expect(201);
 
@@ -81,7 +81,7 @@ test('POST /member-api/collection-comments/:commentId/replies returns wrapped pa
   try {
     const response = await request(app.getHttpServer())
       .post('/member-api/collection-comments/cmt_1/replies')
-      .set('x-member-id', 'mem_1')
+      .set('authorization', 'Bearer member.jwt.token')
       .send({ content: '回复内容' })
       .expect(201);
 

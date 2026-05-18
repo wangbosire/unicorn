@@ -42,8 +42,7 @@ test('GET /member-api/auth/me forwards headers and returns wrapped success respo
   try {
     const response = await request(app.getHttpServer())
       .get('/member-api/auth/me')
-      .set('x-member-id', 'mem_1')
-      .set('authorization', 'Bearer mock-member-token:mem_1')
+      .set('authorization', 'Bearer member.jwt.token')
       .expect(200);
 
     assert.deepEqual(response.body, {
@@ -75,7 +74,7 @@ test('POST /member-api/auth/wechat-mp returns wrapped login response', async () 
         provide: MemberAuthService,
         useValue: {
           loginWithWechatMp: async () => ({
-            accessToken: 'mock-member-token:mem_2',
+            accessToken: 'member.jwt.token',
             member: {
               id: 'mem_2',
               memberNo: 'MEM-0002',
@@ -146,6 +145,45 @@ test('GET /member-api/auth/me returns wrapped auth error response', async () => 
     assert.deepEqual(response.body, {
       code: 'UNAUTHORIZED',
       message: 'member auth required',
+    });
+  } finally {
+    await closeApp(app);
+  }
+});
+
+test('GET /member-api/auth/me returns frozen-member error response', async () => {
+  const moduleRef = await Test.createTestingModule({
+    controllers: [MemberAuthController],
+    providers: [
+      {
+        provide: MemberAuthService,
+        useValue: {
+          getCurrentMember: async () => {
+            throw new BizError({
+              code: 'MEMBER_ACCOUNT_FROZEN',
+              message: 'member account frozen',
+            });
+          },
+        },
+      },
+    ],
+  }).compile();
+
+  const app = moduleRef.createNestApplication();
+  app.useGlobalInterceptors(new ApiResponseInterceptor());
+  app.useGlobalFilters(new ApiExceptionFilter());
+
+  await app.init();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .get('/member-api/auth/me')
+      .set('authorization', 'Bearer member.jwt.token')
+      .expect(400);
+
+    assert.deepEqual(response.body, {
+      code: 'MEMBER_ACCOUNT_FROZEN',
+      message: 'member account frozen',
     });
   } finally {
     await closeApp(app);

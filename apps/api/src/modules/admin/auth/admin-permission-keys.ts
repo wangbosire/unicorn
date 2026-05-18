@@ -19,6 +19,12 @@ export const ADMIN_PERMISSION_COLLECTION_REVIEWS_MANAGE =
 export const ADMIN_PERMISSION_COLLECTION_COMMENTS_MANAGE =
   'collection_comments.manage';
 
+/** 通知中心访问与查询。 */
+export const ADMIN_PERMISSION_NOTIFICATIONS_MANAGE = 'notifications.manage';
+
+/** 转让记录访问与查询。 */
+export const ADMIN_PERMISSION_TRANSFERS_MANAGE = 'transfers.manage';
+
 /** 会员列表只读（M3 会员管理入口）。 */
 export const ADMIN_PERMISSION_MEMBERS_READ = 'members.read';
 

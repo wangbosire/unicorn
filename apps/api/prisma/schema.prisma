@@ -167,6 +167,64 @@ enum CollectionCommentReviewSource {
   ADMIN
 }
 
+/// 通知消息类型。
+enum NotificationMessageType {
+  /// 激活成功通知。
+  ACTIVATE_SUCCESS
+  /// 内容审核通过通知。
+  CONTENT_APPROVED
+  /// 内容审核驳回通知。
+  CONTENT_REJECTED
+  /// 内容被人工下架通知。
+  CONTENT_TAKEDOWN
+  /// 评论审核结果通知。
+  COMMENT_REVIEW_RESULT
+  /// 转让待接收通知。
+  TRANSFER_PENDING_ACCEPT
+  /// 转让完成通知。
+  TRANSFER_COMPLETED
+}
+
+/// 通知触达渠道。
+enum NotificationChannel {
+  /// 站内信。
+  IN_APP
+  /// 小程序订阅消息。
+  MINIAPP_SUBSCRIPTION
+  /// 公众号通知。
+  WECHAT_MP
+}
+
+/// 通知发送状态。
+enum NotificationDispatchStatus {
+  /// 待发送。
+  PENDING
+  /// 已发送成功。
+  SENT
+  /// 发送失败。
+  FAILED
+}
+
+/// 转让方式。
+enum CollectionTransferMode {
+  /// 指定会员转让。
+  DIRECT_MEMBER
+  /// 转让码转让。
+  TRANSFER_CODE
+}
+
+/// 转让单状态。
+enum CollectionTransferStatus {
+  /// 已创建，等待目标会员接收。
+  PENDING_ACCEPT
+  /// 转让已完成。
+  COMPLETED
+  /// 转让已取消。
+  CANCELLED
+  /// 转让已过期。
+  EXPIRED
+}
+
 /// 健康检查种子表。
 model HealthcheckSeed {
   /// 自增主键。
@@ -321,6 +379,12 @@ model Member {
   createdContentVersion CollectionContentVersion[]
   /// 由该会员发布的评论。
   comments              CollectionComment[]
+  /// 面向该会员的通知消息。
+  notifications         NotificationMessage[]
+  /// 该会员发起的转让单。
+  outgoingTransfers     CollectionTransferOrder[]    @relation("CollectionTransferFromMember")
+  /// 该会员接收的转让单。
+  incomingTransfers     CollectionTransferOrder[]    @relation("CollectionTransferToMember")
 
   /// 支撑按手机号检索会员的后台查询场景。
   @@index([mobile])
@@ -464,6 +528,8 @@ model Collection {
   reviewRecords        CollectionContentReviewRecord[]
   /// 藏品下的公开评论。
   comments             CollectionComment[]
+  /// 藏品关联的转让单列表。
+  transferOrders       CollectionTransferOrder[]
 
   /// 支撑按所属系列聚合或筛选藏品。
   @@index([seriesId])
@@ -700,4 +766,111 @@ model CollectionCommentReviewRecord {
   /// 支撑按审核状态筛选队列。
   @@index([reviewStatus])
   @@map("collection_comment_review_records")
+}
+
+/// 藏品转让单。
+/// 记录指定会员转让与转让码转让的发起、接收与完成状态。
+model CollectionTransferOrder {
+  /// 转让单主键。
+  id           String                   @id @default(cuid())
+  /// 对外展示的转让单号。
+  transferNo   String                   @unique @map("transfer_no")
+  /// 所属藏品外键。
+  collectionId String                   @map("collection_id")
+  /// 转出会员外键。
+  fromMemberId String                   @map("from_member_id")
+  /// 转入会员外键；转让码待接收时允许为空。
+  toMemberId   String?                  @map("to_member_id")
+  /// 转让方式。
+  transferMode CollectionTransferMode   @map("transfer_mode")
+  /// 转让码；指定会员转让时为空。
+  transferCode String?                  @map("transfer_code")
+  /// 当前转让状态。
+  status       CollectionTransferStatus @map("status")
+  /// 失效时间。
+  expiredAt    DateTime?                @map("expired_at")
+  /// 完成时间。
+  completedAt  DateTime?                @map("completed_at")
+  /// 创建时间。
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+  /// 所属藏品实体。
+  collection   Collection               @relation(fields: [collectionId], references: [id])
+  /// 转出会员实体。
+  fromMember   Member                   @relation("CollectionTransferFromMember", fields: [fromMemberId], references: [id])
+  /// 转入会员实体。
+  toMember     Member?                  @relation("CollectionTransferToMember", fields: [toMemberId], references: [id])
+
+  /// 支撑按藏品追溯流转历史。
+  @@index([collectionId])
+  /// 支撑按转出会员查询其发起记录。
+  @@index([fromMemberId])
+  /// 支撑按转入会员查询待接收/已接收记录。
+  @@index([toMemberId])
+  /// 支撑按状态筛选后台转让列表。
+  @@index([status])
+  /// 支撑按转让方式筛选后台转让列表。
+  @@index([transferMode])
+  @@map("collection_transfer_orders")
+}
+
+/// 会员通知消息。
+/// 一期默认承载站内信主记录，并挂接站外发送明细。
+model NotificationMessage {
+  /// 通知消息主键。
+  id              String                  @id @default(cuid())
+  /// 目标会员外键。
+  memberId        String                  @map("member_id")
+  /// 消息类型。
+  messageType     NotificationMessageType @map("message_type")
+  /// 消息标题。
+  title           String
+  /// 消息正文。
+  content         String
+  /// 已读时间；未读时为空。
+  readAt          DateTime?               @map("read_at")
+  /// 创建时间。
+  createdAt       DateTime                @default(now()) @map("created_at")
+  /// 目标会员实体。
+  member          Member                  @relation(fields: [memberId], references: [id])
+  /// 该消息的发送记录。
+  dispatchRecords NotificationDispatchRecord[]
+
+  /// 支撑按会员读取消息中心。
+  @@index([memberId])
+  /// 支撑按消息类型汇总后台通知中心。
+  @@index([messageType])
+  /// 支撑按未读态统计。
+  @@index([readAt])
+  @@map("notification_messages")
+}
+
+/// 通知发送记录。
+/// 记录站内外各渠道的派发结果与失败原因。
+model NotificationDispatchRecord {
+  /// 发送记录主键。
+  id               String                   @id @default(cuid())
+  /// 对应消息外键。
+  messageId        String                   @map("message_id")
+  /// 发送渠道。
+  channel          NotificationChannel
+  /// 发送状态。
+  status           NotificationDispatchStatus
+  /// 渠道侧返回或失败原因。
+  providerResponse String?                  @map("provider_response")
+  /// 实际发送时间；未发送成功时可为空。
+  sentAt           DateTime?                @map("sent_at")
+  /// 创建时间。
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  /// 对应通知消息实体。
+  message          NotificationMessage      @relation(fields: [messageId], references: [id])
+
+  /// 支撑按消息追溯全部派发记录。
+  @@index([messageId])
+  /// 支撑按渠道汇总发送情况。
+  @@index([channel])
+  /// 支撑按发送状态筛选失败/待发送。
+  @@index([status])
+  @@map("notification_dispatch_records")
 }

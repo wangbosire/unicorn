@@ -1,4 +1,6 @@
 export * as memberAuthContracts from './auth'
 export * as memberCollectionActivationContracts from './collection-activation'
 export * as memberCollectionCommentContracts from './collection-comments'
+export * as memberMessageContracts from './messages'
 export * as memberMyCollectionContracts from './my-collections'
+export * as memberTransferContracts from './transfers'

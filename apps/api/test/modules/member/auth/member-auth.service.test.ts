@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import * as jwt from 'jsonwebtoken';
 import { test } from 'vitest';
 import { MemberStatus, WechatChannelType } from '@prisma/client';
 import { MemberContextService } from '../../../../src/modules/member/auth/member-context.service';
@@ -179,10 +180,15 @@ test('MemberAuthService.loginWithWechatMiniapp creates member and binding for fi
   const result = await service.loginWithWechatMiniapp({
     code: 'wx-code-001',
   });
+  const payload = jwt.verify(
+    result.accessToken,
+    'dev-member-jwt-secret-change-me',
+  ) as { sub: string; typ: string };
 
   assert.equal(members.length, 1);
   assert.equal(bindings.length, 1);
-  assert.equal(result.accessToken, `mock-member-token:${members[0]?.id}`);
+  assert.equal(payload.sub, members[0]?.id);
+  assert.equal(payload.typ, 'member');
   assert.equal(result.member.id, members[0]?.id);
   assert.equal(result.member.memberNo, 'MEM000001');
   assert.equal(result.member.status, MemberStatus.ACTIVE);
@@ -208,7 +214,7 @@ test('MemberAuthService.loginWithWechatMp creates mp binding for first login', a
   assert.equal(result.member.memberNo, 'MEM000001');
 });
 
-test('MemberAuthService.getCurrentMember supports bearer mock token', async () => {
+test('MemberAuthService.getCurrentMember supports bearer jwt token', async () => {
   const { prisma, members } = createMemberAuthPrismaMock();
   const memberContextService = new MemberContextService(prisma as never);
   const service = new MemberAuthService(prisma as never, memberContextService);
@@ -241,7 +247,7 @@ test('MemberAuthService.getCurrentMember rejects when auth context is missing', 
   );
 });
 
-test('MemberContextService resolves current member from x-member-id first', async () => {
+test('MemberContextService rejects x-member-id-only auth context', async () => {
   const { prisma, members } = createMemberAuthPrismaMock();
   const memberContextService = new MemberContextService(prisma as never);
   const memberAuthService = new MemberAuthService(prisma as never, memberContextService);
@@ -250,10 +256,41 @@ test('MemberContextService resolves current member from x-member-id first', asyn
     code: 'wx-code-003',
   });
 
-  const currentMember = await memberContextService.getCurrentActiveMember({
-    memberId: members[0]?.id,
+  await assert.rejects(
+    () =>
+      memberContextService.getCurrentActiveMember({
+        memberId: members[0]?.id,
+      }),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'UNAUTHORIZED' &&
+      error.status === 401,
+  );
+});
+
+test('MemberContextService rejects frozen member context', async () => {
+  const { prisma, members } = createMemberAuthPrismaMock();
+  const memberContextService = new MemberContextService(prisma as never);
+  const memberAuthService = new MemberAuthService(prisma as never, memberContextService);
+
+  const loginResult = await memberAuthService.loginWithWechatMiniapp({
+    code: 'wx-code-frozen',
   });
 
-  assert.equal(currentMember.id, members[0]?.id);
-  assert.equal(currentMember.memberNo, 'MEM000001');
+  if (!members[0]) {
+    throw new Error('expected seeded member');
+  }
+
+  members[0].status = MemberStatus.FROZEN;
+
+  await assert.rejects(
+    () =>
+      memberContextService.getCurrentActiveMember({
+        authorization: `Bearer ${loginResult.accessToken}`,
+      }),
+    (error: unknown) =>
+      error instanceof BizError &&
+      error.code === 'MEMBER_ACCOUNT_FROZEN' &&
+      error.message === 'member account frozen',
+  );
 });

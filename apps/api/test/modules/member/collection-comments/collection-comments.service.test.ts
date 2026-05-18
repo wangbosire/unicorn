@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import * as jwt from 'jsonwebtoken';
 import { test } from 'vitest';
 import {
   CollectionCommentStatus,
@@ -9,6 +10,19 @@ import {
 import { BizError } from '../../../../src/common/http/biz-error';
 import { MemberContextService } from '../../../../src/modules/member/auth/member-context.service';
 import { CollectionCommentsService } from '../../../../src/modules/member/collection-comments/collection-comments.service';
+
+function createMemberAuthContext(memberId = 'mem_1') {
+  return {
+    authorization: `Bearer ${jwt.sign(
+      {
+        sub: memberId,
+        typ: 'member',
+      },
+      'dev-member-jwt-secret-change-me',
+      { algorithm: 'HS256', expiresIn: '30d' },
+    )}`,
+  };
+}
 
 function createCollectionCommentsPrismaMock() {
   const member = {
@@ -130,7 +144,7 @@ test('CollectionCommentsService.createCollectionComment creates published commen
   );
 
   const result = await service.createCollectionComment(
-    { memberId: 'mem_1' },
+    createMemberAuthContext(),
     {
       collectionNo: 'COL-001',
       content: '新的评论',
@@ -155,7 +169,7 @@ test('CollectionCommentsService.replyCollectionComment creates second-level repl
   );
 
   const result = await service.replyCollectionComment(
-    { memberId: 'mem_1' },
+    createMemberAuthContext(),
     { commentId: 'cmt_root_1' },
     { content: '回复内容' },
   );
@@ -180,7 +194,7 @@ test('CollectionCommentsService.createCollectionComment enters pending manual wh
   );
 
   const result = await service.createCollectionComment(
-    { memberId: 'mem_1' },
+    createMemberAuthContext(),
     {
       collectionNo: 'COL-001',
       content: '需要人工复核 __MANUAL_REVIEW__',
@@ -204,7 +218,7 @@ test('CollectionCommentsService.createCollectionComment rejects by machine senti
   );
 
   const result = await service.createCollectionComment(
-    { memberId: 'mem_1' },
+    createMemberAuthContext(),
     {
       collectionNo: 'COL-001',
       content: '机审驳回 __MACHINE_REJECT__',
@@ -227,7 +241,7 @@ test('CollectionCommentsService.replyCollectionComment rejects missing parent co
   await assert.rejects(
     () =>
       service.replyCollectionComment(
-        { memberId: 'mem_1' },
+        createMemberAuthContext(),
         { commentId: 'missing' },
         { content: '回复内容' },
       ),

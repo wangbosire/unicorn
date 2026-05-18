@@ -23,17 +23,12 @@ test('MyCollectionsController.listMyCollections forwards auth context and query'
     pageSize: '20',
     status: 'OWNED',
   };
-  const result = await controller.listMyCollections(
-    'mem_1',
-    'Bearer mock-member-token:mem_1',
-    query,
-  );
+  const result = await controller.listMyCollections('Bearer member.jwt.token', query);
 
   assert.deepEqual(result, expectedResult);
   assert.equal(receivedListCalls.length, 1);
   assert.deepEqual(receivedListCalls[0]?.authContext, {
-    memberId: 'mem_1',
-    authorization: 'Bearer mock-member-token:mem_1',
+    authorization: 'Bearer member.jwt.token',
   });
   assert.deepEqual(receivedListCalls[0]?.query, query);
 });
@@ -72,8 +67,7 @@ test('MyCollectionsController.saveCollectionDraft forwards auth context, params 
     },
   };
   const result = await controller.saveCollectionDraft(
-    'mem_1',
-    'Bearer mock-member-token:mem_1',
+    'Bearer member.jwt.token',
     params,
     body,
   );
@@ -81,8 +75,7 @@ test('MyCollectionsController.saveCollectionDraft forwards auth context, params 
   assert.deepEqual(result, expectedResult);
   assert.equal(receivedSaveCalls.length, 1);
   assert.deepEqual(receivedSaveCalls[0]?.authContext, {
-    memberId: 'mem_1',
-    authorization: 'Bearer mock-member-token:mem_1',
+    authorization: 'Bearer member.jwt.token',
   });
   assert.deepEqual(receivedSaveCalls[0]?.params, params);
   assert.deepEqual(receivedSaveCalls[0]?.body, body);
@@ -103,17 +96,12 @@ test('MyCollectionsController.getMyCollectionById forwards auth context and para
   } as never);
 
   const params = { collectionId: 'col_1' };
-  const result = await controller.getMyCollectionById(
-    'mem_1',
-    'Bearer mock-member-token:mem_1',
-    params,
-  );
+  const result = await controller.getMyCollectionById('Bearer member.jwt.token', params);
 
   assert.deepEqual(result, expectedResult);
   assert.equal(receivedDetailCalls.length, 1);
   assert.deepEqual(receivedDetailCalls[0]?.authContext, {
-    memberId: 'mem_1',
-    authorization: 'Bearer mock-member-token:mem_1',
+    authorization: 'Bearer member.jwt.token',
   });
   assert.deepEqual(receivedDetailCalls[0]?.params, params);
 });

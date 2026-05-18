@@ -8,7 +8,7 @@
 
 - 状态：`active`
 - 阶段定位：一期业务主链路准备落地阶段的总执行计划
-- 最近关注点：M1、M2 已完成归档（见 [M1 验收清单](../completed/m1-acceptance-checklist.md)、[M2 验收清单](../completed/m2-acceptance-checklist.md)）；当前优先转向 **M3 审核治理闭环** 的实现与验收口径
+- 最近关注点：M1、M2 已完成归档（见 [M1 验收清单](../completed/m1-acceptance-checklist.md)、[M2 验收清单](../completed/m2-acceptance-checklist.md)）；M3 收口、评论治理专项、M4 仪表盘/通知/转让与会员正式鉴权切换已完成，并已补齐 [M4 验收清单](./m4-acceptance-checklist.md) 与统一回归命令 `pnpm test:m4`，后续进入补强与联调优化阶段
 
 ## 目标结果
 
@@ -238,6 +238,8 @@
 - [一期里程碑总览](./milestones-overview.md)
 - [M1 验收清单](../completed/m1-acceptance-checklist.md)
 - [M2 验收清单](../completed/m2-acceptance-checklist.md)
+- [M3 验收清单](./m3-acceptance-checklist.md)
+- [M4 验收清单](./m4-acceptance-checklist.md)
 
 摘要：
 
@@ -252,6 +254,8 @@
 - 2026-05-14：将一期范围按 `P0 / P1 / P2` 与 `M1 / M2 / M3 / M4` 双视角组织，原因是前者适合表达优先级，后者适合表达阶段性交付与验收
 - 2026-05-14：新增 [M2 验收清单](../completed/m2-acceptance-checklist.md) 作为内容展示阶段验收基线，与 M1 归档衔接
 - 2026-05-15：M2 验收清单完成归档，阶段关注点由 M2 收口切换为 M3 审核治理闭环
+- 2026-05-18：已完成会员登录与鉴权从 mock 联调态切换到正式 Bearer access token 方案；历史 mock token 仅保留本地会话兼容解析，不再作为默认联调入口
+- 2026-05-18：补充 [M4 验收清单](./m4-acceptance-checklist.md) 与仓库根命令 `pnpm test:m4`，统一仪表盘 / 通知 / 转让及正式会员鉴权的自动化与演示口径
 
 ## 模块拆分建议
 
@@ -263,4 +267,4 @@
 
 - 后端优先围绕会员、RBAC、发行、藏品、审核、评论、转让、通知等核心域拆分
 - 前端优先围绕后台登录与基础页面、小程序登录、激活、我的藏品、内容编辑、公开展示页推进
-- 当前建议：M1 已通过验收，以 **M2** 为第一阶段后续主目标，打通内容编辑、机审与公开展示。
+- 当前建议：M1、M2 已归档完成；当前重点转为评论治理、会员侧消息/转让联调，以及 M3/M4 的统一验收与归档收口。

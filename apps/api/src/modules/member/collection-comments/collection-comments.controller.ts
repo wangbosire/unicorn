@@ -18,17 +18,15 @@ export class CollectionCommentsController {
 
   /**
    * 发表评论。
-   * 当前兼容 x-member-id 和 mock bearer token，方便前后端并行联调。
+   * 当前要求携带 Bearer access token。
    */
   @Post()
   async createCollectionComment(
-    @Headers('x-member-id') memberId: string | undefined,
     @Headers('authorization') authorization: string | undefined,
     @Body() body: CreateCollectionCommentRequest,
   ) {
     return this.collectionCommentsService.createCollectionComment(
       {
-        memberId,
         authorization,
       },
       body,
@@ -37,18 +35,16 @@ export class CollectionCommentsController {
 
   /**
    * 发表二级回复。
-   * 当前兼容 x-member-id 和 mock bearer token，方便前后端并行联调。
+   * 当前要求携带 Bearer access token。
    */
   @Post(':commentId/replies')
   async replyCollectionComment(
-    @Headers('x-member-id') memberId: string | undefined,
     @Headers('authorization') authorization: string | undefined,
     @Param() params: ReplyCollectionCommentParams,
     @Body() body: ReplyCollectionCommentRequest,
   ) {
     return this.collectionCommentsService.replyCollectionComment(
       {
-        memberId,
         authorization,
       },
       params,

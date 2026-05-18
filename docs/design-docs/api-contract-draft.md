@@ -393,8 +393,8 @@
 ## `POST /member-api/auth/wechat-miniapp`
 
 联调说明：
-当前初始化阶段返回 `mock-member-token:<memberId>` 形式的临时令牌。
-会员侧接口支持通过 `Authorization: Bearer mock-member-token:<memberId>` 或 `x-member-id` 传递会员上下文，后续会统一切换为正式登录态方案。
+当前返回正式 member access token（JWT）。
+会员侧接口统一通过 `Authorization: Bearer <memberAccessToken>` 传递会员上下文；历史 mock token 仅用于兼容本地旧会话。
 
 ### 请求 DTO
 
@@ -432,7 +432,7 @@
 ## `GET /member-api/auth/me`
 
 联调说明：
-请求头支持 `Authorization: Bearer mock-member-token:<memberId>`，也兼容 `x-member-id` 直传会员主键。
+请求头要求携带 `Authorization: Bearer <memberAccessToken>`。
 
 ### 响应 DTO
 
@@ -457,7 +457,7 @@
 ## `POST /member-api/collection-activation`
 
 联调说明：
-请求头支持 `Authorization: Bearer mock-member-token:<memberId>`，也兼容 `x-member-id` 直传会员主键。
+请求头要求携带 `Authorization: Bearer <memberAccessToken>`。
 
 ### 请求 DTO
 
@@ -497,7 +497,7 @@
 ## `GET /member-api/my/collections`
 
 联调说明：
-请求头支持 `Authorization: Bearer mock-member-token:<memberId>`，也兼容 `x-member-id` 直传会员主键。
+请求头要求携带 `Authorization: Bearer <memberAccessToken>`。
 
 ### Query DTO
 

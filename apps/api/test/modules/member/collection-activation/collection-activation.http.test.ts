@@ -36,8 +36,7 @@ test('POST /member-api/collection-activation returns wrapped activation result',
   try {
     const response = await request(app.getHttpServer())
       .post('/member-api/collection-activation')
-      .set('x-member-id', 'mem_1')
-      .set('authorization', 'Bearer mock-member-token:mem_1')
+      .set('authorization', 'Bearer member.jwt.token')
       .send({
         activationCode: 'ABCD-EFGH-IJKL',
       })

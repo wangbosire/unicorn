@@ -53,8 +53,7 @@ test('GET /member-api/my/collections returns wrapped member collection list', as
   try {
     const response = await request(app.getHttpServer())
       .get('/member-api/my/collections')
-      .set('x-member-id', 'mem_1')
-      .set('authorization', 'Bearer mock-member-token:mem_1')
+      .set('authorization', 'Bearer member.jwt.token')
       .query({ page: '1', pageSize: '20', status: 'OWNED' })
       .expect(200);
 

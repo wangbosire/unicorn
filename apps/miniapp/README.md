@@ -38,9 +38,9 @@ TaroJS 小程序应用骨架目录。
 ## 当前状态
 
 - 已完成小程序应用基础目录与主要任务流页面骨架
-- 已接入 M1：激活、我的藏品列表、当前会员信息、微信登录换 mock token（联调）
+- 已接入 M1：激活、我的藏品列表、当前会员信息、微信登录换正式 access token
 - 已接入 M2：`pages/collection-edit`（草稿 / 提交审核）、`pages/collection-public`（匿名公开展示）、列表内已公开快捷入口；个人中心提供「前往我的藏品」；首页「会员身份」卡片展示 **当前请求上下文**（与 `requestMemberApi` 注入逻辑一致，不含 token 明文），并支持下拉刷新
 - **底部 tabBar**：首页 / 藏品 / 我的；图标位于 `src/assets/tab/`（构建时拷贝到 `dist/assets/tab/`），可按设计稿替换
 - 当前默认通过 `src/config/runtime.ts` 指向本地 `member-api`（与 `public-api` 同基址前缀）
 - **测试**：在本包执行 `pnpm test` 运行 Vitest（`test/lib`：`member-mock-token`、`member-api-errors`、`public-api-errors`、`public-collection-content` 含正文去重、`collection-content-draft`、`member-session-display`）；`pnpm run build` / `pnpm run build:h5` 做编译校验。若在**仓库根目录**执行 `pnpm test`，当前默认只跑 API + 小程序单测，不要求 Admin Playwright / 浏览器 UI 自动化测试；详见根目录 [README.md](../../README.md)「测试（Monorepo）」
-- 消息通知仍为占位说明页；生产环境微信登录与正式鉴权待后续里程碑替换 mock
+- 已接入消息中心真实列表与会员转让记录页；会员请求已切换为正式 access token 鉴权，历史 mock token 仅保留本地兼容解析

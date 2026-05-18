@@ -5,7 +5,6 @@ import type {
   ActivateCollectionRequest,
   ActivateCollectionResponseData,
 } from '@contracts/member/collection-activation'
-import { DEFAULT_DEV_MEMBER_ID } from '../../lib/default-dev-member'
 import { MemberApiError, requestMemberApi } from '../../apis/member/member-api'
 import { formatMemberApiErrorMessage } from '../../lib/member-api-errors'
 import { PageShell } from '../../components/page-shell'
@@ -130,7 +129,7 @@ export default function ActivatePage() {
             lineHeight: '1.7',
           }}
         >
-          {`默认联调会员 ${DEFAULT_DEV_MEMBER_ID}；可在本地存储写入 unicorn_member_id 覆盖。接入微信登录后将自动使用登录态。`}
+          请先在首页完成微信登录；登录成功后激活请求会自动携带正式 access token。
         </Text>
 
         <Button

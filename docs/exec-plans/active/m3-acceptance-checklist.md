@@ -77,9 +77,29 @@
 - 优先补齐与 M3 主链路直接相关的 API / Admin 测试，不扩散到评论治理。
 - 验收结果：`PENDING_MANUAL`、`TAKEDOWN`、`MEMBER_ACCOUNT_FROZEN` 三条关键路径具备稳定自动化覆盖。
 
+## 自动化回归口径
+
+- 统一回归命令：仓库根目录执行 `pnpm test:m3`
+- `apps/api`：覆盖内容复核列表 / 历史 / 人工通过 / 驳回 / 下架公开、会员冻结状态校验、公开展示 `410 PUBLIC_COLLECTION_TAKEDOWN`
+- `apps/admin`：覆盖审核状态展示、下架可操作性判断、CSV 导出字段
+- `apps/miniapp`：覆盖公开展示下架错误文案映射，保证 C 端提示与接口业务码一致
+
+通过标准：
+
+- `pnpm test:m3` 全量通过
+- 若新增 M3 相关逻辑，须优先扩展该命令覆盖范围，而不是仅补充手工说明
+
 ## 演示脚本（本地可照做）
 
 **前置**：数据库可用（见根目录 `docker-compose.yml` 与 `apps/api/.env.example`）；`pnpm install` 后已生成 Prisma Client（`apps/api` 的 `postinstall`）；`pnpm --filter @unicorn/api exec prisma migrate deploy`（或团队约定的建库方式）+ **`pnpm --filter @unicorn/api exec prisma db seed`**；启动 `apps/api` 与 `apps/admin`；使用具备 **`collection_reviews.manage`**、**`members.read`** / **`members.manage`** 的后台账号（种子超级管理员默认具备）。
+
+推荐先执行：
+
+```bash
+pnpm test:m3
+```
+
+预期：API / Admin / Miniapp 的 M3 关键回归全部通过，再进入手工演示。
 
 1. **待人工队列**：浏览器打开后台 **内容复核**（`/collections/reviews`），默认筛为「待人工复核」；确认存在种子 **`COL-SEED-PENDING-MANUAL`** 对应行（若无则检查 seed 是否成功执行）。
 2. **人工通过**：对该行执行 **通过**（可选备注），刷新列表后该行不再处于待人工；在 **审核历史** 弹窗中可见时间线新增记录。
@@ -87,6 +107,27 @@
 4. **下架公开**：对 **机审或人工已通过且版本已公开** 的行使用 **下架公开**，确认理由可选；随后用 **`GET /public-api/collections/:slug`**（slug 取该藏品公开展示 slug）应返回 **410**，业务码 **`PUBLIC_COLLECTION_TAKEDOWN`**（与从未公开的 404 区分）；若在小程序侧验证，应出现下架相关中文提示。
 5. **会员进人工开关**（可选）：将 API 环境变量 **`CONTENT_MANUAL_GATE_AFTER_MACHINE=1`** 后重启，会员提交内容在机审占位通过后进入 **`PENDING_MANUAL`** 且不公开；后台队列可见；验收后恢复为 `0` 以免干扰默认演示口径。
 6. **会员管理**：打开 **会员管理**（`/members`），确认列表、搜索（防抖）、状态筛选、分页与 **列设置** 可用；对测试会员执行 **冻结**，使用该会员令牌调用 **`member-api`** 应返回 **`MEMBER_ACCOUNT_FROZEN`**（登录/鉴权路径已拦截非 `ACTIVE`）；再 **解冻** 恢复可操作。
+
+建议在步骤 4 和步骤 6 补一轮接口级核验：
+
+```bash
+curl -i http://localhost:3000/public-api/collections/<slug>
+```
+
+预期：
+
+- HTTP 状态码：`410`
+- 返回业务码：`PUBLIC_COLLECTION_TAKEDOWN`
+
+```bash
+curl -i http://localhost:3000/member-api/auth/me \
+  -H 'Authorization: Bearer <memberAccessToken>'
+```
+
+预期：
+
+- 冻结后：返回业务码 `MEMBER_ACCOUNT_FROZEN`
+- 解冻后：恢复 `200 OK`
 
 **评论审核**：本轮冻结口径已划出 M3，不在本脚本展开；若后续恢复到一期范围，应新增专项执行计划与独立验收步骤。
 
@@ -127,3 +168,4 @@
 - 2026-05-15：本清单 **「演示脚本」** 由占位改为可执行步骤（内容复核 / 历史 / 下架与公开 410 / 可选机审后进人工 / 会员列表与冻结拦截）；评论审核是否纳入本脚本见段末说明。
 - 2026-05-15：后台「评论列表」「评论审核」仍为 **占位 mock**，尚无对应 **`admin-api` 评论治理接口**；与总览 M3「评论审核」尚未落地；**下一步需产品裁定**纳入本期实现或划入 M4，并在本清单「范围内事项」与演示脚本中同步收口表述。
 - 2026-05-15：冻结当前 M3 执行口径：默认保持「机审通过即可公开」，`CONTENT_MANUAL_GATE_AFTER_MACHINE` 作为可切换策略保留；评论审核因实现仍为 mock，暂不纳入本轮 M3，延后至 M4 或后续专项计划。
+- 2026-05-18：新增仓库根命令 `pnpm test:m3` 作为 M3 自动化回归口径；演示脚本补充接口级核验步骤，要求 `PUBLIC_COLLECTION_TAKEDOWN` 与 `MEMBER_ACCOUNT_FROZEN` 在手工演示前先完成自动化通过。

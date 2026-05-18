@@ -9,6 +9,7 @@
 - [M1 验收清单（已归档）](./exec-plans/completed/m1-acceptance-checklist.md)
 - [M2 验收清单（已归档）](./exec-plans/completed/m2-acceptance-checklist.md)
 - [M3 验收清单（进行中）](./exec-plans/active/m3-acceptance-checklist.md)
+- [M4 验收清单（进行中）](./exec-plans/active/m4-acceptance-checklist.md)
 - [评论治理后端落地计划](./exec-plans/active/comment-governance-plan.md)
 - [里程碑总览](./exec-plans/active/milestones-overview.md)
 - [模块拆分建议](./exec-plans/active/module-splitting-plan.md)

@@ -12,7 +12,7 @@ export class MemberAuthController {
 
   /**
    * 微信小程序登录。
-   * 当前返回 mock token，用于初始化阶段的前后端联调。
+   * 当前返回正式 member access token。
    */
   @Post('wechat-miniapp')
   async loginWithWechatMiniapp(@Body() body: WechatMiniappLoginRequest) {
@@ -21,7 +21,7 @@ export class MemberAuthController {
 
   /**
    * 微信公众号登录。
-   * 当前与小程序登录共享账号归并和 mock token 逻辑，仅区分渠道绑定类型。
+   * 当前与小程序登录共享账号归并和 JWT 签发逻辑，仅区分渠道绑定类型。
    */
   @Post('wechat-mp')
   async loginWithWechatMp(@Body() body: WechatMpLoginRequest) {
@@ -30,15 +30,11 @@ export class MemberAuthController {
 
   /**
    * 获取当前会员信息。
-   * 当前优先读取 x-member-id，也支持读取登录接口返回的 mock bearer token。
+   * 当前要求携带登录接口返回的 Bearer access token。
    */
   @Get('me')
-  async getCurrentMember(
-    @Headers('x-member-id') memberId: string | undefined,
-    @Headers('authorization') authorization: string | undefined,
-  ) {
+  async getCurrentMember(@Headers('authorization') authorization: string | undefined) {
     return this.memberAuthService.getCurrentMember({
-      memberId,
       authorization,
     });
   }

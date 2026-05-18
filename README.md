@@ -46,7 +46,11 @@
 - 小程序 H5：`http://localhost:8080/h5/`
 - API：同源路径前缀 **`/api/`**（由 Nginx 反代到 API 容器），或直连 **`http://localhost:3000/api/`**。
 
+M4 收口验收可直接执行 `pnpm verify:m4`；若只想在手工演示前做接口级预检，可执行 `pnpm smoke:m4`。
+
 排障：执行 **`docker logs -f unicorn-api`** 查看带栈日志；若需在 **HTTP 响应**里附带 `debug.stack`（仅 5xx），在 compose 或根目录 `.env` 中设置 **`API_DEBUG_ERRORS=1`**（默认在 `docker-compose.yml` 已为本地打开；勿用于生产）。
+
+若修改了 `apps/api/prisma/schema.prisma`、`apps/api/package.json`、根 `pnpm-lock.yaml`，或 `docker/Dockerfile.api` / `docker/api-entrypoint.sh`，请显式执行 `docker compose up -d --build api`，避免继续运行旧的 API 镜像与 Prisma Client。
 
 可选：在仓库根目录 `.env` 或 shell 中设置 `ADMIN_JWT_SECRET`（至少 16 字符），否则使用 compose 内默认值。
 

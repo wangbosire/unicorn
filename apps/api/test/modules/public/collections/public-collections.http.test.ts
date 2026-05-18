@@ -4,6 +4,7 @@ import request from 'supertest';
 import { test } from 'vitest';
 import { ApiExceptionFilter } from '../../../../src/common/http/api-exception.filter';
 import { ApiResponseInterceptor } from '../../../../src/common/http/api-response.interceptor';
+import { BizError } from '../../../../src/common/http/biz-error';
 import { PublicCollectionsController } from '../../../../src/modules/public/collections/public-collections.controller';
 import { PublicCollectionsService } from '../../../../src/modules/public/collections/public-collections.service';
 
@@ -55,6 +56,45 @@ test('GET /public-api/collections/:slug returns wrapped public snapshot', async 
     assert.equal(response.body.data.owner.nickname, '会员甲');
     assert.equal(response.body.data.seriesNo, 'SER-001');
     assert.equal(response.body.data.totalCommentCount, 5);
+  } finally {
+    await app.close();
+  }
+});
+
+test('GET /public-api/collections/:slug returns 410 when public snapshot is takedown', async () => {
+  const moduleRef = await Test.createTestingModule({
+    controllers: [PublicCollectionsController],
+    providers: [
+      {
+        provide: PublicCollectionsService,
+        useValue: {
+          getPublicCollectionBySlug: async () => {
+            throw new BizError({
+              code: 'PUBLIC_COLLECTION_TAKEDOWN',
+              message: 'public collection takedown',
+              status: 410,
+            });
+          },
+        },
+      },
+    ],
+  }).compile();
+
+  const app = moduleRef.createNestApplication();
+  app.useGlobalInterceptors(new ApiResponseInterceptor());
+  app.useGlobalFilters(new ApiExceptionFilter());
+
+  await app.init();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .get('/public-api/collections/COL-TAKEDOWN')
+      .expect(410);
+
+    assert.deepEqual(response.body, {
+      code: 'PUBLIC_COLLECTION_TAKEDOWN',
+      message: 'public collection takedown',
+    });
   } finally {
     await app.close();
   }

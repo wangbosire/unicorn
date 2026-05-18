@@ -77,7 +77,7 @@
 | `POST` | `.../member-api/my/collections/:collectionId/content/drafts` | 保存草稿（`UNDER_REVIEW` 时拒绝） |
 | `POST` | `.../member-api/my/collections/:collectionId/content/submissions` | 提交审核（body 含 `versionId`） |
 
-会员上下文与 M1 一致：支持 `x-member-id` 与 `Bearer mock-member-token:<id>`（见 M1 清单联调前提）。
+会员上下文与 M1 一致：需先通过登录接口获取 `Bearer <memberAccessToken>`（见 M1 清单联调前提）。
 
 ## 公开展示（目标与现状）
 

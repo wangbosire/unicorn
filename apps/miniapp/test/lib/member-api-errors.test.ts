@@ -16,4 +16,36 @@ describe('formatMemberApiErrorMessage', () => {
       formatMemberApiErrorMessage({ code: 'CUSTOM', message: 'hello' })
     ).toBe('hello')
   })
+
+  it('maps comment-related business errors', () => {
+    expect(
+      formatMemberApiErrorMessage({
+        code: 'COMMENT_NOT_REPLYABLE',
+        message: 'comment is not replyable',
+      })
+    ).toContain('回复')
+
+    expect(
+      formatMemberApiErrorMessage({
+        code: 'MEMBER_ACCOUNT_FROZEN',
+        message: 'member account frozen',
+      })
+    ).toContain('冻结')
+  })
+
+  it('maps message and transfer business errors', () => {
+    expect(
+      formatMemberApiErrorMessage({
+        code: 'MESSAGE_NOT_FOUND',
+        message: 'message not found',
+      })
+    ).toContain('消息')
+
+    expect(
+      formatMemberApiErrorMessage({
+        code: 'TRANSFER_EXPIRED',
+        message: 'transfer expired',
+      })
+    ).toContain('过期')
+  })
 })

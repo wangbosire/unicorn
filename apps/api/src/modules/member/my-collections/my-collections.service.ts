@@ -84,7 +84,7 @@ export class MyCollectionsService {
 
   /**
    * 查询当前会员名下藏品列表。
-   * 当前支持 x-member-id 或 mock bearer token 两种会员上下文来源。
+   * 当前通过 Bearer access token 解析会员身份；历史 mock token 仅保留兼容校验。
    */
   async listMyCollections(
     authContext: {

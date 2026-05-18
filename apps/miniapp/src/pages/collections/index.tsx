@@ -219,6 +219,26 @@ export default function CollectionsPage() {
                   查看公开展示
                 </Button>
               ) : null}
+              <Button
+                onClick={() =>
+                  Taro.navigateTo({
+                    url: `/pages/transfers/index?collectionId=${encodeURIComponent(item.id)}&collectionNo=${encodeURIComponent(item.collectionNo)}`,
+                  })
+                }
+                style={{
+                  marginTop: '16rpx',
+                  height: '72rpx',
+                  lineHeight: '72rpx',
+                  borderRadius: '999rpx',
+                  border: '2rpx solid #86efac',
+                  background: '#f0fdf4',
+                  color: '#166534',
+                  fontSize: '26rpx',
+                  fontWeight: '600',
+                }}
+              >
+                查看转让记录
+              </Button>
             </View>
           ))}
         </View>

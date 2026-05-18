@@ -251,7 +251,7 @@ M1 聚焦以下闭环：
 
 当前实现仍保留以下联调前提，验收时需要知悉：
 
-- 小程序默认以种子会员 `mem_1` 与 `Bearer mock-member-token:mem_1` 请求 `member-api`；可在开发者工具写入本地存储 `unicorn_member_id` 覆盖会员主键，写入 `unicorn_member_api_base_url` 覆盖接口基地址（仍非正式微信登录态，仅便于联调）
+- 小程序需先通过微信登录获取正式 `member access token` 后再请求 `member-api`；本地仍可写入 `unicorn_member_api_base_url` 覆盖接口基地址
 - 默认基地址为 `http://127.0.0.1:3000`，由 `apps/miniapp/src/config/runtime.ts` 与 `member-api` 请求层解析
 - 消息通知、转让、内容编辑等非 M1 能力尚未纳入本轮小程序验收范围
 

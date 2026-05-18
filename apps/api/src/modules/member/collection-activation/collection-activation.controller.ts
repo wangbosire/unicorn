@@ -14,17 +14,15 @@ export class CollectionActivationController {
 
   /**
    * 输入激活码并领取藏品。
-   * 当前兼容 x-member-id 和 mock bearer token，方便前后端并行联调。
+   * 当前要求携带首页登录后拿到的 Bearer access token。
    */
   @Post()
   async activateCollection(
-    @Headers('x-member-id') memberId: string | undefined,
     @Headers('authorization') authorization: string | undefined,
     @Body() body: ActivateCollectionRequest,
   ) {
     return this.collectionActivationService.activateCollection(
       {
-        memberId,
         authorization,
       },
       body,
