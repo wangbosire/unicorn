@@ -30,6 +30,9 @@ const SERIES_OPTIONS: SeriesListItem[] = [
     name: '星辉远征',
     description: '首发系列',
     status: 'ENABLED',
+    batchCount: 1,
+    enabledBatchCount: 1,
+    collectionCount: 100,
     createdAt: Date.now(),
   },
 ]
