@@ -64,11 +64,9 @@
 
 补充文档：
 
-- [M3 验收清单](./m3-acceptance-checklist.md)
+- [M3 验收清单](../completed/m3-acceptance-checklist.md)
 
-当前执行口径：**评论审核暂不纳入本轮 M3**，待评论治理接口进入可实施状态后，再决定并入 M4 或单列专项计划。
-
-当前阶段结果：**M3 自动化与验收收口、评论治理专项、M4 的通知 / 转让 / 仪表盘，以及会员正式登录鉴权切换均已完成。**
+里程碑状态：**已于 2026-05-18 完成归档**（详见清单内「当前状态」与决策日志）。
 
 ## M4：流转与通知闭环
 
@@ -85,16 +83,14 @@
 
 补充文档：
 
-- [M4 验收清单](./m4-acceptance-checklist.md)
+- [M4 验收清单](../completed/m4-acceptance-checklist.md)
 
-当前执行口径：**本轮先收口后台运营闭环**，包括真实仪表盘统计、通知消息与派发记录总览、后台转让记录治理，以及与其联动的会员正式 Bearer 鉴权；会员侧完整转让发起 / 接收闭环与异步通知发送 worker 仍保留在后续扩展范围内。
-
-当前阶段结果：**M4 的后台仪表盘 / 通知中心 / 转让记录与会员正式登录鉴权已完成，并补齐统一自动化入口 `pnpm test:m4` 与验收演示清单。**
+里程碑状态：**已于 2026-05-18 完成归档**（详见清单内「当前状态」与决策日志）。
 
 ## 关联文档
 
 - [V1 执行计划](./v1-exec-plan.md)
 - [M1 验收清单](../completed/m1-acceptance-checklist.md)
 - [M2 验收清单](../completed/m2-acceptance-checklist.md)
-- [M3 验收清单](./m3-acceptance-checklist.md)
-- [M4 验收清单](./m4-acceptance-checklist.md)
+- [M3 验收清单](../completed/m3-acceptance-checklist.md)
+- [M4 验收清单](../completed/m4-acceptance-checklist.md)
