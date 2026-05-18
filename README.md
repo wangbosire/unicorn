@@ -13,16 +13,30 @@
 ## 文档入口
 
 - [AGENTS.md](./AGENTS.md) 仓库导航与阅读入口。
-- [ARCHITECTURE.md](./ARCHITECTURE.md) 顶层架构说明。
-- [docs/PRODUCT_SENSE.md](./docs/PRODUCT_SENSE.md) 产品理解入口。
-- [docs/DESIGN.md](./docs/DESIGN.md) 设计文档入口。
-- [docs/FRONTEND.md](./docs/FRONTEND.md) 前端研发入口。
-- [docs/PLANS.md](./docs/PLANS.md) 执行计划入口。
-- [docs/QUALITY_SCORE.md](./docs/QUALITY_SCORE.md) 质量治理入口。
-- [docs/RELIABILITY.md](./docs/RELIABILITY.md) 可靠性入口。
-- [docs/SECURITY.md](./docs/SECURITY.md) 安全入口。
-- [docs/generated/index.md](./docs/generated/index.md) 生成文档入口。
-- [docs/references/index.md](./docs/references/index.md) 参考资料入口。
+- [docs/索引.md](./docs/索引.md) `docs/` 总索引。
+- [架构总览.md](./架构总览.md) 顶层架构说明。
+- [docs/产品理解.md](./docs/产品理解.md) 产品理解入口。
+- [docs/设计.md](./docs/设计.md) 设计文档入口。
+- [docs/前端研发.md](./docs/前端研发.md) 前端研发入口。
+- [docs/执行计划.md](./docs/执行计划.md) 执行计划入口。
+- [docs/exec-plans/active/二期准备与文档收口计划.md](./docs/exec-plans/active/二期准备与文档收口计划.md) 当前进行中计划。
+- [docs/exec-plans/completed/一期V1归档总览.md](./docs/exec-plans/completed/一期V1归档总览.md) 已归档一期总览。
+- [docs/质量评分.md](./docs/质量评分.md) 质量治理入口。
+- [docs/可靠性.md](./docs/可靠性.md) 可靠性入口。
+- [docs/安全.md](./docs/安全.md) 安全入口。
+- [docs/generated/索引.md](./docs/generated/索引.md) 生成文档入口。
+- [docs/references/索引.md](./docs/references/索引.md) 参考资料入口。
+
+## 当前阶段
+
+一期主链路与运营治理相关任务已经完成收口，仓库当前处于“文档归档整理、技术债治理与后续阶段规划”阶段：
+
+- `apps/admin`：已形成后台运营主链路页面基线，覆盖审核治理、通知、转让、会员治理与仪表盘等能力。
+- `apps/miniapp`：已形成会员登录、激活、我的藏品、内容编辑、公开展示、消息与基础转让链路。
+- `apps/api`：已具备支撑 `admin-api`、`member-api`、`public-api` 的一期核心业务闭环。
+- `docs/`：已沉淀一期 PRD、设计、执行计划、里程碑验收与专项归档资料。
+
+如需判断“现在该看哪份计划”，优先从 [docs/执行计划.md](./docs/执行计划.md) 进入，再根据需要跳转到进行中或已归档索引。
 
 ## 工程约定
 
