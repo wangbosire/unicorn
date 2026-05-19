@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   CollectionContentReviewSource,
@@ -76,6 +76,8 @@ const submitCollectionContentSchema = z.object({
  */
 @Injectable()
 export class MyCollectionsService {
+  private readonly logger = new Logger(MyCollectionsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly memberContextService: MemberContextService,
@@ -225,6 +227,13 @@ export class MyCollectionsService {
     const draftPayload = this.normalizeDraftPayload(payload);
 
     if (currentVersion.editStatus === CollectionContentEditStatus.UNDER_REVIEW) {
+      this.logger.warn('save draft rejected: under review', {
+        event: 'collection.content.save.rejected',
+        code: 'COLLECTION_NOT_EDITABLE',
+        collectionId: collection.id,
+        contentVersionId: currentVersion.id,
+        editStatus: currentVersion.editStatus,
+      });
       throw new BizError({
         code: 'COLLECTION_NOT_EDITABLE',
         message: 'collection content is under review',
@@ -249,6 +258,15 @@ export class MyCollectionsService {
         },
       });
 
+      this.logger.log('content draft saved (in-place)', {
+        event: 'collection.content.draft.saved',
+        actor: member.id,
+        collectionId: collection.id,
+        contentVersionId: updatedVersion.id,
+        versionNo: updatedVersion.versionNo,
+        derived: false,
+      });
+
       return this.toSaveCollectionDraftResponse(updatedVersion);
     }
 
@@ -264,6 +282,15 @@ export class MyCollectionsService {
         publishStatus: CollectionContentPublishStatus.UNPUBLISHED,
         createdByMemberId: member.id,
       },
+    });
+
+    this.logger.log('content draft saved (derived new version)', {
+      event: 'collection.content.draft.saved',
+      actor: member.id,
+      collectionId: collection.id,
+      contentVersionId: createdVersion.id,
+      versionNo: createdVersion.versionNo,
+      derived: true,
     });
 
     return this.toSaveCollectionDraftResponse(createdVersion);
@@ -290,6 +317,13 @@ export class MyCollectionsService {
     });
 
     if (!targetVersion || targetVersion.collectionId !== collection.id) {
+      this.logger.warn('submit rejected: content version not found', {
+        event: 'collection.content.submit.rejected',
+        code: 'CONTENT_VERSION_NOT_FOUND',
+        actor: member.id,
+        collectionId: collection.id,
+        contentVersionId: versionId,
+      });
       throw new BizError({
         code: 'CONTENT_VERSION_NOT_FOUND',
         message: 'content version not found',
@@ -298,6 +332,12 @@ export class MyCollectionsService {
     }
 
     if (targetVersion.editStatus === CollectionContentEditStatus.UNDER_REVIEW) {
+      this.logger.warn('submit rejected: already submitted', {
+        event: 'collection.content.submit.rejected',
+        code: 'CONTENT_VERSION_ALREADY_SUBMITTED',
+        contentVersionId: targetVersion.id,
+        editStatus: targetVersion.editStatus,
+      });
       throw new BizError({
         code: 'CONTENT_VERSION_ALREADY_SUBMITTED',
         message: 'content version already submitted',
@@ -308,6 +348,12 @@ export class MyCollectionsService {
       targetVersion.editStatus !== CollectionContentEditStatus.DRAFT &&
       targetVersion.editStatus !== CollectionContentEditStatus.REJECTED
     ) {
+      this.logger.warn('submit rejected: status not submittable', {
+        event: 'collection.content.submit.rejected',
+        code: 'CONTENT_VERSION_ALREADY_SUBMITTED',
+        contentVersionId: targetVersion.id,
+        editStatus: targetVersion.editStatus,
+      });
       throw new BizError({
         code: 'CONTENT_VERSION_ALREADY_SUBMITTED',
         message: 'content version already submitted',
@@ -344,6 +390,15 @@ export class MyCollectionsService {
         finalVersion: machineOutcome.version,
         reviewStatus: machineOutcome.reviewStatus,
       };
+    });
+
+    this.logger.log('content submitted for review', {
+      event: 'collection.content.submitted',
+      actor: member.id,
+      collectionId: collection.id,
+      contentVersionId: targetVersion.id,
+      versionNo: targetVersion.versionNo,
+      machineOutcome: reviewStatus,
     });
 
     return this.toSubmitCollectionContentResponse(

@@ -4,7 +4,7 @@ import { BadRequestException } from '@nestjs/common';
 import { ApiExceptionFilter } from '../../../src/common/http/api-exception.filter';
 import { BizError } from '../../../src/common/http/biz-error';
 
-function createHttpHostMock() {
+function createHttpHostMock(reqMeta: { method?: string; url?: string } = {}) {
   const calls: Array<{ status: number; body: Record<string, unknown> }> = [];
 
   const response = {
@@ -17,9 +17,16 @@ function createHttpHostMock() {
     },
   };
 
+  const request = {
+    method: reqMeta.method ?? 'GET',
+    url: reqMeta.url ?? '/api/test',
+    originalUrl: reqMeta.url ?? '/api/test',
+  };
+
   const host = {
     switchToHttp: () => ({
       getResponse: () => response,
+      getRequest: () => request,
     }),
   };
 

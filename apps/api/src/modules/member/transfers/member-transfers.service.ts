@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionContentEditStatus,
   CollectionTransferMode,
@@ -64,6 +64,8 @@ const DEFAULT_TRANSFER_EXPIRE_DAYS = 7;
  */
 @Injectable()
 export class MemberTransfersService {
+  private readonly logger = new Logger(MemberTransfersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly memberContextService: MemberContextService,
@@ -299,6 +301,17 @@ export class MemberTransfersService {
       },
     });
 
+    this.logger.log('transfer created', {
+      event: 'transfer.created',
+      transferId: created.id,
+      transferNo: created.transferNo,
+      collectionId: created.collection.id,
+      collectionNo: created.collection.collectionNo,
+      fromMemberId: member.id,
+      toMemberId: targetMember?.id ?? null,
+      transferMode: created.transferMode,
+    });
+
     if (targetMember) {
       await this.notificationDispatcher.dispatch({
         memberId: targetMember.id,
@@ -374,6 +387,12 @@ export class MemberTransfersService {
     });
 
     if (!transfer) {
+      this.logger.warn('cancel rejected: transfer not found', {
+        event: 'transfer.cancel.rejected',
+        code: 'TRANSFER_NOT_FOUND',
+        transferId: parsedParams.transferId,
+        actor: member.id,
+      });
       throw new BizError({
         code: 'TRANSFER_NOT_FOUND',
         message: 'transfer not found',
@@ -382,6 +401,13 @@ export class MemberTransfersService {
     }
 
     if (transfer.fromMemberId !== member.id) {
+      this.logger.warn('cancel rejected: not initiator', {
+        event: 'transfer.cancel.rejected',
+        code: 'TRANSFER_CANCEL_FORBIDDEN',
+        transferId: transfer.id,
+        actor: member.id,
+        fromMemberId: transfer.fromMemberId,
+      });
       throw new BizError({
         code: 'TRANSFER_CANCEL_FORBIDDEN',
         message: 'only initiator can cancel this transfer',
@@ -390,6 +416,12 @@ export class MemberTransfersService {
     }
 
     if (transfer.status !== CollectionTransferStatus.PENDING_ACCEPT) {
+      this.logger.warn('cancel rejected: status invalid', {
+        event: 'transfer.cancel.rejected',
+        code: 'TRANSFER_STATUS_INVALID',
+        transferId: transfer.id,
+        transferStatus: transfer.status,
+      });
       throw new BizError({
         code: 'TRANSFER_STATUS_INVALID',
         message: 'only pending transfers can be cancelled',
@@ -400,6 +432,16 @@ export class MemberTransfersService {
     const cancelled = await this.prisma.collectionTransferOrder.update({
       where: { id: transfer.id },
       data: { status: CollectionTransferStatus.CANCELLED },
+    });
+
+    this.logger.log('transfer cancelled', {
+      event: 'transfer.cancelled',
+      transferId: transfer.id,
+      transferNo: cancelled.transferNo,
+      collectionNo: transfer.collection.collectionNo,
+      actor: member.id,
+      fromStatus: CollectionTransferStatus.PENDING_ACCEPT,
+      toStatus: CollectionTransferStatus.CANCELLED,
     });
 
     if (transfer.toMemberId) {
@@ -540,23 +582,43 @@ export class MemberTransfersService {
 
   private async acceptTransferByResolver(
     memberId: string,
-    resolver: () => Promise<
-      | Prisma.CollectionTransferOrderGetPayload<{
-          include: {
-            collection: {
-              select: {
-                id: true;
-                collectionNo: true;
-              };
-            };
-          };
-        }>
-      | null
-    >,
+    resolver: () => Promise<TransferAcceptCandidate | null>,
   ): Promise<AcceptMemberTransferResponseData> {
-    const transfer = await resolver();
+    const candidate = await resolver();
+    const transfer = await this.ensureTransferAcceptable(candidate, memberId);
 
+    const completedAt = new Date();
+    const result = await this.applyTransferAcceptance(transfer, memberId, completedAt);
+    await this.notifyOnTransferAcceptance(result.transfer, transfer.collection.collectionNo, memberId);
+
+    return {
+      transferId: result.transfer.id,
+      transferNo: result.transfer.transferNo,
+      collectionId: transfer.collection.id,
+      collectionNo: transfer.collection.collectionNo,
+      status: result.transfer.status,
+      currentOwnerMemberId: result.member.id,
+      currentOwnerMemberNo: result.member.memberNo,
+      currentOwnerNickname: result.member.nickname,
+      completedAt: toTimestamp(completedAt),
+    };
+  }
+
+  /**
+   * 校验候选转让是否对当前会员可接收：缺失、状态、过期、不属于自己。
+   * 过期分支会落库并触发通知，并以 `TRANSFER_EXPIRED` 拒绝当次接收。
+   * 校验通过返回非空转让，便于调用方继续使用。
+   */
+  private async ensureTransferAcceptable(
+    transfer: TransferAcceptCandidate | null,
+    memberId: string,
+  ): Promise<TransferAcceptCandidate> {
     if (!transfer) {
+      this.logger.warn('accept rejected: transfer not found', {
+        event: 'transfer.accept.rejected',
+        code: 'TRANSFER_NOT_FOUND',
+        actor: memberId,
+      });
       throw new BizError({
         code: 'TRANSFER_NOT_FOUND',
         message: 'transfer not found',
@@ -565,6 +627,12 @@ export class MemberTransfersService {
     }
 
     if (transfer.status !== CollectionTransferStatus.PENDING_ACCEPT) {
+      this.logger.warn('accept rejected: status invalid', {
+        event: 'transfer.accept.rejected',
+        code: 'TRANSFER_STATUS_INVALID',
+        transferId: transfer.id,
+        transferStatus: transfer.status,
+      });
       throw new BizError({
         code: 'TRANSFER_STATUS_INVALID',
         message: 'transfer is not pending accept',
@@ -572,16 +640,7 @@ export class MemberTransfersService {
     }
 
     if (transfer.expiredAt && transfer.expiredAt.getTime() <= Date.now()) {
-      const expiredOrder = await this.prisma.collectionTransferOrder.update({
-        where: { id: transfer.id },
-        data: { status: CollectionTransferStatus.EXPIRED },
-        select: { fromMemberId: true },
-      });
-      await this.notificationDispatcher.dispatch({
-        memberId: expiredOrder.fromMemberId,
-        messageType: NotificationMessageType.TRANSFER_EXPIRED,
-        payload: { collectionName: transfer.collection.collectionNo },
-      });
+      await this.expireTransferAndNotify(transfer);
       throw new BizError({
         code: 'TRANSFER_EXPIRED',
         message: 'transfer expired',
@@ -592,6 +651,13 @@ export class MemberTransfersService {
       transfer.transferMode === CollectionTransferMode.DIRECT_MEMBER &&
       transfer.toMemberId !== memberId
     ) {
+      this.logger.warn('accept rejected: not assignee', {
+        event: 'transfer.accept.rejected',
+        code: 'TRANSFER_ACCEPT_FORBIDDEN',
+        transferId: transfer.id,
+        actor: memberId,
+        toMemberId: transfer.toMemberId,
+      });
       throw new BizError({
         code: 'TRANSFER_ACCEPT_FORBIDDEN',
         message: 'transfer is not assigned to current member',
@@ -599,8 +665,43 @@ export class MemberTransfersService {
       });
     }
 
-    const completedAt = new Date();
-    const result = await this.prisma.$transaction(async (tx) => {
+    return transfer;
+  }
+
+  /** 标记转让为 `EXPIRED` 并通知发起方，仅在接收时触发。 */
+  private async expireTransferAndNotify(
+    transfer: TransferAcceptCandidate,
+  ): Promise<void> {
+    const expiredOrder = await this.prisma.collectionTransferOrder.update({
+      where: { id: transfer.id },
+      data: { status: CollectionTransferStatus.EXPIRED },
+      select: { fromMemberId: true },
+    });
+    this.logger.log('transfer expired on accept', {
+      event: 'transfer.expired',
+      transferId: transfer.id,
+      collectionNo: transfer.collection.collectionNo,
+      fromMemberId: expiredOrder.fromMemberId,
+      fromStatus: CollectionTransferStatus.PENDING_ACCEPT,
+      toStatus: CollectionTransferStatus.EXPIRED,
+    });
+    await this.notificationDispatcher.dispatch({
+      memberId: expiredOrder.fromMemberId,
+      messageType: NotificationMessageType.TRANSFER_EXPIRED,
+      payload: { collectionName: transfer.collection.collectionNo },
+    });
+  }
+
+  /** 事务内完成接收：更新转让单、转移持有人、回填新持有人视图。 */
+  private async applyTransferAcceptance(
+    transfer: TransferAcceptCandidate,
+    memberId: string,
+    completedAt: Date,
+  ): Promise<{
+    transfer: Prisma.CollectionTransferOrderGetPayload<Record<string, never>>;
+    member: { id: string; memberNo: string; nickname: string };
+  }> {
+    return this.prisma.$transaction(async (tx) => {
       const updatedTransfer = await tx.collectionTransferOrder.update({
         where: { id: transfer.id },
         data: {
@@ -639,23 +740,40 @@ export class MemberTransfersService {
         member: hydratedMember,
       };
     });
+  }
 
-    await this.notificationDispatcher.dispatch({
-      memberId: result.transfer.fromMemberId,
-      messageType: NotificationMessageType.TRANSFER_COMPLETED,
-      payload: { collectionName: transfer.collection.collectionNo },
+  /** 接收完成后记日志并通知发起方。 */
+  private async notifyOnTransferAcceptance(
+    updatedTransfer: Prisma.CollectionTransferOrderGetPayload<Record<string, never>>,
+    collectionNo: string,
+    memberId: string,
+  ): Promise<void> {
+    this.logger.log('transfer completed', {
+      event: 'transfer.completed',
+      transferId: updatedTransfer.id,
+      transferNo: updatedTransfer.transferNo,
+      collectionNo,
+      fromMemberId: updatedTransfer.fromMemberId,
+      toMemberId: memberId,
+      fromStatus: CollectionTransferStatus.PENDING_ACCEPT,
+      toStatus: CollectionTransferStatus.COMPLETED,
     });
 
-    return {
-      transferId: result.transfer.id,
-      transferNo: result.transfer.transferNo,
-      collectionId: transfer.collection.id,
-      collectionNo: transfer.collection.collectionNo,
-      status: result.transfer.status,
-      currentOwnerMemberId: result.member.id,
-      currentOwnerMemberNo: result.member.memberNo,
-      currentOwnerNickname: result.member.nickname,
-      completedAt: toTimestamp(completedAt),
-    };
+    await this.notificationDispatcher.dispatch({
+      memberId: updatedTransfer.fromMemberId,
+      messageType: NotificationMessageType.TRANSFER_COMPLETED,
+      payload: { collectionName: collectionNo },
+    });
   }
 }
+
+type TransferAcceptCandidate = Prisma.CollectionTransferOrderGetPayload<{
+  include: {
+    collection: {
+      select: {
+        id: true;
+        collectionNo: true;
+      };
+    };
+  };
+}>;

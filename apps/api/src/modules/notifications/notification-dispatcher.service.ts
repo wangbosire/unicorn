@@ -49,9 +49,13 @@ export class NotificationDispatcherService {
       ),
     );
 
-    this.logger.debug(
-      `dispatched message ${message.id} (type=${messageType}, channels=${channels.join(',')})`,
-    );
+    this.logger.log('notification dispatched', {
+      event: 'notification.dispatched',
+      messageId: message.id,
+      messageType,
+      memberId,
+      channels,
+    });
     return message;
   }
 }

@@ -33,13 +33,20 @@ export class NotificationProcessor extends WorkerHost {
 
   async process(job: Job<NotificationDispatchJob>): Promise<void> {
     const { messageId, channel } = job.data;
+    const jobId = job.id ?? null;
     const message = await this.prisma.notificationMessage.findUnique({ where: { id: messageId } });
     if (!message) {
-      this.logger.warn(`message ${messageId} not found, skipping channel=${channel}`);
+      this.logger.warn('notification dispatch skipped: message missing', {
+        event: 'notification.dispatch.skipped',
+        jobId,
+        messageId,
+        channel,
+      });
       return;
     }
 
     const adapter = this.adapters[channel];
+    const startedAt = Date.now();
     try {
       const result = await adapter.send(message);
       await this.prisma.notificationDispatchRecord.create({
@@ -51,6 +58,13 @@ export class NotificationProcessor extends WorkerHost {
           providerResponse: result.providerResponse,
         },
       });
+      this.logger.log('notification dispatch sent', {
+        event: 'notification.dispatch.sent',
+        jobId,
+        messageId,
+        channel,
+        durationMs: Date.now() - startedAt,
+      });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       await this.prisma.notificationDispatchRecord.create({
@@ -60,6 +74,15 @@ export class NotificationProcessor extends WorkerHost {
           status: NotificationDispatchStatus.FAILED,
           providerResponse: reason,
         },
+      });
+      this.logger.error('notification dispatch failed', err instanceof Error ? err.stack : undefined, {
+        event: 'notification.dispatch.failed',
+        jobId,
+        messageId,
+        channel,
+        attempt: job.attemptsMade,
+        reason,
+        durationMs: Date.now() - startedAt,
       });
       throw err;
     }

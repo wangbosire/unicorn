@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionTransferMode,
   CollectionTransferStatus,
@@ -26,6 +26,9 @@ import { PrismaService } from '../../../platform/prisma/prisma.service';
  */
 @Injectable()
 export class TransfersService {
+  // 只读服务：4xx/异常由 ApiExceptionFilter 统一记日志。
+  private readonly logger = new Logger(TransfersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**

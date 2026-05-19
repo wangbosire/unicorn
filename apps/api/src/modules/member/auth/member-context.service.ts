@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Member, MemberStatus } from '@prisma/client';
 import * as jwt from 'jsonwebtoken';
@@ -11,6 +11,8 @@ import { PrismaService } from '../../../platform/prisma/prisma.service';
  */
 @Injectable()
 export class MemberContextService {
+  private readonly logger = new Logger(MemberContextService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService?: ConfigService,
@@ -30,6 +32,11 @@ export class MemberContextService {
     });
 
     if (!member) {
+      this.logger.warn('member context resolve failed: member missing', {
+        event: 'member.context.unauthorized',
+        code: 'UNAUTHORIZED',
+        memberId,
+      });
       throw new BizError({
         code: 'UNAUTHORIZED',
         message: 'member context missing',
@@ -136,6 +143,12 @@ export class MemberContextService {
    */
   private ensureMemberActive(member: Member) {
     if (member.status !== MemberStatus.ACTIVE) {
+      this.logger.warn('member context blocked: account frozen', {
+        event: 'member.context.frozen',
+        code: 'MEMBER_ACCOUNT_FROZEN',
+        memberId: member.id,
+        accountStatus: member.status,
+      });
       throw new BizError({
         code: 'MEMBER_ACCOUNT_FROZEN',
         message: 'member account frozen',

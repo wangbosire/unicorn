@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   ActivationCodeStatus,
   CollectionContentEditStatus,
@@ -22,6 +22,8 @@ import type {
  */
 @Injectable()
 export class CollectionActivationService {
+  private readonly logger = new Logger(CollectionActivationService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly memberContextService: MemberContextService,
@@ -43,6 +45,11 @@ export class CollectionActivationService {
     const activationCodeValue = payload.activationCode?.trim();
 
     if (!activationCodeValue) {
+      this.logger.warn('activation rejected: missing code', {
+        event: 'collection.activate.rejected',
+        code: 'ACTIVATION_CODE_REQUIRED',
+        actor: member.id,
+      });
       throw new BizError({
         code: 'ACTIVATION_CODE_REQUIRED',
         message: 'activation code is required',
@@ -117,6 +124,15 @@ export class CollectionActivationService {
       };
     });
 
+    this.logger.log('collection activated', {
+      event: 'collection.activated',
+      actor: member.id,
+      collectionId: result.collection.id,
+      collectionNo: result.collection.collectionNo,
+      fromStatus: CollectionStatus.PENDING_CLAIM,
+      toStatus: CollectionStatus.OWNED,
+    });
+
     await this.notificationDispatcher.dispatch({
       memberId: member.id,
       messageType: NotificationMessageType.ACTIVATE_SUCCESS,
@@ -130,38 +146,37 @@ export class CollectionActivationService {
    * 校验激活码是否仍可使用。
    */
   private ensureActivationCodeCanBeUsed(activationCode: {
+    id: string;
     status: ActivationCodeStatus;
     expiredAt: Date | null;
   }) {
-    if (activationCode.status === ActivationCodeStatus.USED) {
-      throw new BizError({
-        code: 'ACTIVATION_CODE_USED',
-        message: 'activation code already used',
+    const reject = (code: string, message: string) => {
+      this.logger.warn(`activation rejected: ${code}`, {
+        event: 'collection.activate.rejected',
+        code,
+        activationCodeId: activationCode.id,
+        codeStatus: activationCode.status,
       });
+      throw new BizError({ code, message });
+    };
+
+    if (activationCode.status === ActivationCodeStatus.USED) {
+      reject('ACTIVATION_CODE_USED', 'activation code already used');
     }
 
     if (activationCode.status === ActivationCodeStatus.VOIDED) {
-      throw new BizError({
-        code: 'ACTIVATION_CODE_VOIDED',
-        message: 'activation code voided',
-      });
+      reject('ACTIVATION_CODE_VOIDED', 'activation code voided');
     }
 
     if (activationCode.status === ActivationCodeStatus.EXPIRED) {
-      throw new BizError({
-        code: 'ACTIVATION_CODE_EXPIRED',
-        message: 'activation code expired',
-      });
+      reject('ACTIVATION_CODE_EXPIRED', 'activation code expired');
     }
 
     if (
       activationCode.expiredAt &&
       activationCode.expiredAt.getTime() < Date.now()
     ) {
-      throw new BizError({
-        code: 'ACTIVATION_CODE_EXPIRED',
-        message: 'activation code expired',
-      });
+      reject('ACTIVATION_CODE_EXPIRED', 'activation code expired');
     }
   }
 }

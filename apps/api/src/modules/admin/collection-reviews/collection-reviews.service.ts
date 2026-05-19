@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionContentEditStatus,
   CollectionContentPublishStatus,
@@ -44,6 +44,8 @@ import type {
 export class CollectionReviewsService {
   /** 单藏品审核轨迹单次返回上限，防止一次性拉取过多行。 */
   private static readonly REVIEW_HISTORY_MAX = 200;
+
+  private readonly logger = new Logger(CollectionReviewsService.name);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -312,6 +314,13 @@ export class CollectionReviewsService {
       reviewRecord.reviewStage !== CollectionContentReviewStage.MANUAL ||
       reviewRecord.reviewStatus !== CollectionContentReviewStatus.PENDING_MANUAL
     ) {
+      this.logger.warn('approve rejected: review status invalid', {
+        event: 'collection.review.approve.rejected',
+        code: 'REVIEW_STATUS_INVALID',
+        reviewId: reviewRecord.id,
+        reviewStage: reviewRecord.reviewStage,
+        reviewStatus: reviewRecord.reviewStatus,
+      });
       throw new BizError({
         code: 'REVIEW_STATUS_INVALID',
         message: 'review status invalid',
@@ -340,6 +349,15 @@ export class CollectionReviewsService {
       });
 
       return updatedReviewRecord;
+    });
+
+    this.logger.log('content review approved', {
+      event: 'collection.review.approved',
+      reviewId: reviewRecord.id,
+      contentVersionId: reviewRecord.contentVersionId,
+      collectionNo: reviewRecord.collection.collectionNo,
+      fromStatus: CollectionContentReviewStatus.PENDING_MANUAL,
+      toStatus: CollectionContentReviewStatus.MANUAL_APPROVED,
     });
 
     if (reviewRecord.contentVersion.createdByMemberId) {
@@ -403,6 +421,13 @@ export class CollectionReviewsService {
       reviewRecord.reviewStage !== CollectionContentReviewStage.MANUAL ||
       reviewRecord.reviewStatus !== CollectionContentReviewStatus.PENDING_MANUAL
     ) {
+      this.logger.warn('reject rejected: review status invalid', {
+        event: 'collection.review.reject.rejected',
+        code: 'REVIEW_STATUS_INVALID',
+        reviewId: reviewRecord.id,
+        reviewStage: reviewRecord.reviewStage,
+        reviewStatus: reviewRecord.reviewStatus,
+      });
       throw new BizError({
         code: 'REVIEW_STATUS_INVALID',
         message: 'review status invalid',
@@ -431,6 +456,15 @@ export class CollectionReviewsService {
       });
 
       return updatedReviewRecord;
+    });
+
+    this.logger.log('content review rejected', {
+      event: 'collection.review.rejected',
+      reviewId: reviewRecord.id,
+      contentVersionId: reviewRecord.contentVersionId,
+      collectionNo: reviewRecord.collection.collectionNo,
+      fromStatus: CollectionContentReviewStatus.PENDING_MANUAL,
+      toStatus: CollectionContentReviewStatus.MANUAL_REJECTED,
     });
 
     if (reviewRecord.contentVersion.createdByMemberId) {
@@ -514,6 +548,14 @@ export class CollectionReviewsService {
       data: {
         publishStatus: CollectionContentPublishStatus.TAKEDOWN,
       },
+    });
+
+    this.logger.log('content taken down', {
+      event: 'collection.content.takendown',
+      contentVersionId: id,
+      collectionNo: version.collection.collectionNo,
+      fromStatus: CollectionContentPublishStatus.PUBLISHED,
+      toStatus: CollectionContentPublishStatus.TAKEDOWN,
     });
 
     if (version.collection.currentOwnerMemberId) {

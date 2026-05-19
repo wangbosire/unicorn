@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AdminUserStatus, Prisma, RoleStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
@@ -46,6 +46,8 @@ type AdminUserWithRoles = Prisma.AdminUserGetPayload<{
  */
 @Injectable()
 export class AdminAuthService {
+  private readonly logger = new Logger(AdminAuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
@@ -58,6 +60,10 @@ export class AdminAuthService {
     const username = payload.username?.trim();
 
     if (!username || !payload.password) {
+      this.logger.warn('admin login rejected: missing credentials', {
+        event: 'admin.auth.login.rejected',
+        code: 'VALIDATION_ERROR',
+      });
       throw new BizError({
         code: 'VALIDATION_ERROR',
         message: 'username and password are required',
@@ -71,6 +77,11 @@ export class AdminAuthService {
     });
 
     if (!user) {
+      this.logger.warn('admin login rejected: user not found', {
+        event: 'admin.auth.login.rejected',
+        code: 'ADMIN_AUTH_INVALID_CREDENTIALS',
+        username,
+      });
       throw new BizError({
         code: 'ADMIN_AUTH_INVALID_CREDENTIALS',
         message: 'invalid admin username or password',
@@ -79,6 +90,12 @@ export class AdminAuthService {
     }
 
     if (user.status !== AdminUserStatus.ACTIVE) {
+      this.logger.warn('admin login rejected: account disabled', {
+        event: 'admin.auth.login.rejected',
+        code: 'ADMIN_ACCOUNT_DISABLED',
+        adminUserId: user.id,
+        accountStatus: user.status,
+      });
       throw new BizError({
         code: 'ADMIN_ACCOUNT_DISABLED',
         message: 'admin account is disabled',
@@ -89,6 +106,11 @@ export class AdminAuthService {
     const passwordOk = await bcrypt.compare(payload.password, user.passwordHash);
 
     if (!passwordOk) {
+      this.logger.warn('admin login rejected: invalid password', {
+        event: 'admin.auth.login.rejected',
+        code: 'ADMIN_AUTH_INVALID_CREDENTIALS',
+        adminUserId: user.id,
+      });
       throw new BizError({
         code: 'ADMIN_AUTH_INVALID_CREDENTIALS',
         message: 'invalid admin username or password',
@@ -108,6 +130,13 @@ export class AdminAuthService {
     await this.prisma.adminUser.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
+    });
+
+    this.logger.log('admin login succeeded', {
+      event: 'admin.auth.login.succeeded',
+      adminUserId: user.id,
+      accountNo: user.accountNo,
+      roleCount: roles.length,
     });
 
     return {

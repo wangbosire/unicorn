@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { BizError } from './biz-error';
 import { ErrorResponse } from './http-response';
 
@@ -13,6 +14,11 @@ type HttpResponseLike = {
   status(code: number): HttpResponseLike;
   json(body: ErrorResponse): void;
 };
+
+interface RequestMeta {
+  method?: string;
+  path?: string;
+}
 
 /**
  * 全局异常过滤器。
@@ -26,9 +32,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<HttpResponseLike>();
+    const meta = this.extractRequestMeta(ctx.getRequest<Request>());
 
     if (exception instanceof BizError) {
-      this.logBizError(exception);
+      this.logBizError(exception, meta);
       response.status(exception.status).json(
         this.toErrorResponse(exception.code, exception.message, exception.details, {
           exception,
@@ -48,7 +55,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
               exceptionResponse as Record<string, unknown>,
             );
 
-      this.logHttpException(exception, status, message);
+      this.logHttpException(exception, status, message, meta);
       response.status(status).json(
         this.toErrorResponse(this.toDefaultErrorCode(status), message, undefined, {
           exception,
@@ -58,7 +65,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       return;
     }
 
-    this.logUnknownException(exception);
+    this.logUnknownException(exception, meta);
     response
       .status(HttpStatus.INTERNAL_SERVER_ERROR)
       .json(
@@ -67,6 +74,16 @@ export class ApiExceptionFilter implements ExceptionFilter {
           httpStatus: HttpStatus.INTERNAL_SERVER_ERROR,
         }),
       );
+  }
+
+  private extractRequestMeta(req: Request | undefined): RequestMeta {
+    if (!req) {
+      return {};
+    }
+    return {
+      method: req.method,
+      path: (req.originalUrl ?? req.url ?? '').split('?')[0] || undefined,
+    };
   }
 
   /** 是否向 HTTP 响应附加 `debug.stack`（仅用于本地排障）。 */
@@ -89,12 +106,18 @@ export class ApiExceptionFilter implements ExceptionFilter {
     return { name: exception.name, stack: exception.stack };
   }
 
-  private logBizError(exception: BizError): void {
+  private logBizError(exception: BizError, meta: RequestMeta): void {
     const line = `${exception.code} ${exception.status} — ${exception.message}`;
+    const fields = {
+      event: 'http.biz_error',
+      code: exception.code,
+      httpStatus: exception.status,
+      ...meta,
+    };
     if (exception.status >= 500) {
-      this.logger.error(line, exception.stack);
+      this.logger.error(line, exception.stack, ApiExceptionFilter.name, fields);
     } else {
-      this.logger.warn(line);
+      this.logger.warn(line, ApiExceptionFilter.name, fields);
     }
   }
 
@@ -102,20 +125,37 @@ export class ApiExceptionFilter implements ExceptionFilter {
     exception: HttpException,
     status: number,
     message: string,
+    meta: RequestMeta,
   ): void {
     const line = `HTTP ${status} — ${message}`;
+    const fields = {
+      event: 'http.exception',
+      httpStatus: status,
+      ...meta,
+    };
     if (status >= 500) {
-      this.logger.error(line, exception.stack);
+      this.logger.error(line, exception.stack, ApiExceptionFilter.name, fields);
     } else {
-      this.logger.warn(line);
+      this.logger.warn(line, ApiExceptionFilter.name, fields);
     }
   }
 
-  private logUnknownException(exception: unknown): void {
+  private logUnknownException(exception: unknown, meta: RequestMeta): void {
+    const fields = { event: 'http.unhandled', ...meta };
     if (exception instanceof Error) {
-      this.logger.error(`未捕获异常 — ${exception.message}`, exception.stack);
+      this.logger.error(
+        `未捕获异常 — ${exception.message}`,
+        exception.stack,
+        ApiExceptionFilter.name,
+        fields,
+      );
     } else {
-      this.logger.error('未捕获异常（非 Error）', String(exception));
+      this.logger.error(
+        '未捕获异常（非 Error）',
+        String(exception),
+        ApiExceptionFilter.name,
+        fields,
+      );
     }
   }
 

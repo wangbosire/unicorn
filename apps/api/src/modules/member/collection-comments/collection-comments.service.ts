@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionCommentStatus,
   CollectionContentEditStatus,
@@ -55,6 +55,8 @@ const COMMENT_MANUAL_REVIEW_SENTINEL = '__MANUAL_REVIEW__';
  */
 @Injectable()
 export class CollectionCommentsService {
+  private readonly logger = new Logger(CollectionCommentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly memberContextService: MemberContextService,
@@ -116,6 +118,15 @@ export class CollectionCommentsService {
       };
     });
 
+    this.logger.log('comment submitted', {
+      event: 'comment.submitted',
+      actor: member.id,
+      commentId: createdComment.comment.id,
+      collectionId: createdComment.comment.collectionId,
+      contentVersionId: createdComment.comment.contentVersionId,
+      machineOutcome: createdComment.comment.status,
+    });
+
     return {
       commentId: createdComment.comment.id,
       collectionId: createdComment.comment.collectionId,
@@ -153,6 +164,12 @@ export class CollectionCommentsService {
     });
 
     if (!parentComment) {
+      this.logger.warn('reply rejected: parent not found', {
+        event: 'comment.reply.rejected',
+        code: 'COMMENT_NOT_FOUND',
+        actor: member.id,
+        parentCommentId: parsedParams.commentId,
+      });
       throw new BizError({
         code: 'COMMENT_NOT_FOUND',
         message: 'comment not found',
@@ -161,6 +178,11 @@ export class CollectionCommentsService {
     }
 
     if (parentComment.parentCommentId) {
+      this.logger.warn('reply rejected: depth exceeded', {
+        event: 'comment.reply.rejected',
+        code: 'COMMENT_REPLY_DEPTH_EXCEEDED',
+        parentCommentId: parentComment.id,
+      });
       throw new BizError({
         code: 'COMMENT_REPLY_DEPTH_EXCEEDED',
         message: 'only root comments can be replied to',
@@ -171,6 +193,12 @@ export class CollectionCommentsService {
       parentComment.status !== CollectionCommentStatus.MANUAL_APPROVED &&
       parentComment.status !== CollectionCommentStatus.MACHINE_APPROVED
     ) {
+      this.logger.warn('reply rejected: parent not replyable', {
+        event: 'comment.reply.rejected',
+        code: 'COMMENT_NOT_REPLYABLE',
+        parentCommentId: parentComment.id,
+        parentStatus: parentComment.status,
+      });
       throw new BizError({
         code: 'COMMENT_NOT_REPLYABLE',
         message: 'comment is not replyable',
@@ -218,6 +246,14 @@ export class CollectionCommentsService {
         comment: updatedReply,
         reviewReason: machineOutcome.reviewReason,
       };
+    });
+
+    this.logger.log('comment reply submitted', {
+      event: 'comment.reply.submitted',
+      actor: member.id,
+      commentId: createdReply.comment.id,
+      parentCommentId: parentComment.id,
+      machineOutcome: createdReply.comment.status,
     });
 
     return {

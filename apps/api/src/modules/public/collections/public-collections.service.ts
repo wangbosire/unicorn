@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionCommentStatus,
   CollectionContentEditStatus,
@@ -18,6 +18,10 @@ import { PrismaService } from '../../../platform/prisma/prisma.service';
  */
 @Injectable()
 export class PublicCollectionsService {
+  // 公开读服务：4xx/410 由 ApiExceptionFilter 统一记日志，
+  // 此处仅保留 Logger 实例供未来扩展使用。
+  private readonly logger = new Logger(PublicCollectionsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   ActivationCodeStatus,
   CollectionStatus,
@@ -91,6 +91,8 @@ type CollectionStats = {
  */
 @Injectable()
 export class IssuanceBatchesService {
+  private readonly logger = new Logger(IssuanceBatchesService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -237,6 +239,14 @@ export class IssuanceBatchesService {
       },
     });
 
+    this.logger.log('issuance batch created', {
+      event: 'issuance.batch.created',
+      batchId: batch.id,
+      batchNo: batch.batchNo,
+      seriesId: series.id,
+      quantity,
+    });
+
     return this.toIssuanceBatchMutationResponse(batch);
   }
 
@@ -344,6 +354,14 @@ export class IssuanceBatchesService {
     const updatedBatch = await this.prisma.issuanceBatch.update({
       where: { id: batchId },
       data: { status },
+    });
+
+    this.logger.log('issuance batch status changed', {
+      event: 'issuance.batch.status.changed',
+      batchId: updatedBatch.id,
+      batchNo: updatedBatch.batchNo,
+      fromStatus: batch.status,
+      toStatus: updatedBatch.status,
     });
 
     return this.toIssuanceBatchMutationResponse(updatedBatch);

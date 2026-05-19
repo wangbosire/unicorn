@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { MemberStatus, WechatChannelType } from '@prisma/client';
 import { BizError } from '../../../common/http/biz-error';
 import {
@@ -25,6 +25,8 @@ import type {
  */
 @Injectable()
 export class MembersService {
+  private readonly logger = new Logger(MembersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -165,6 +167,11 @@ export class MembersService {
     });
 
     if (!existing) {
+      this.logger.warn('member status update rejected: not found', {
+        event: 'admin.member.status.rejected',
+        code: 'MEMBER_NOT_FOUND',
+        memberId: id,
+      });
       throw new BizError({
         code: 'MEMBER_NOT_FOUND',
         message: 'member not found',
@@ -172,10 +179,23 @@ export class MembersService {
       });
     }
 
+    const before = await this.prisma.member.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+
     const updated = await this.prisma.member.update({
       where: { id },
       data: { status: nextStatus },
       select: { id: true, memberNo: true, status: true, updatedAt: true },
+    });
+
+    this.logger.log('member status changed', {
+      event: 'admin.member.status.changed',
+      memberId: updated.id,
+      memberNo: updated.memberNo,
+      fromStatus: before?.status,
+      toStatus: updated.status,
     });
 
     return {

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   NotificationChannel,
   NotificationDispatchStatus,
@@ -30,6 +30,9 @@ const MESSAGE_TYPE_LABELS: Record<NotificationMessageType, string> = {
  */
 @Injectable()
 export class NotificationsService {
+  // 只读总览服务：异常由 ApiExceptionFilter 统一记日志。
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**

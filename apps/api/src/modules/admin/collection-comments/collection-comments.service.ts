@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionCommentStatus,
   CollectionCommentReviewSource,
@@ -48,6 +48,8 @@ function makeCommentExcerpt(content: string): string {
  */
 @Injectable()
 export class CollectionCommentsService {
+  private readonly logger = new Logger(CollectionCommentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationDispatcher: NotificationDispatcherService,
@@ -213,6 +215,12 @@ export class CollectionCommentsService {
     }
 
     if (comment.status !== CollectionCommentStatus.PENDING_MANUAL) {
+      this.logger.warn('approve rejected: comment status invalid', {
+        event: 'comment.review.approve.rejected',
+        code: 'COMMENT_REVIEW_STATUS_INVALID',
+        commentId: id,
+        commentStatus: comment.status,
+      });
       throw new BizError({
         code: 'COMMENT_REVIEW_STATUS_INVALID',
         message: 'comment review status invalid',
@@ -238,6 +246,13 @@ export class CollectionCommentsService {
           reviewedAt,
         },
       });
+    });
+
+    this.logger.log('comment approved', {
+      event: 'comment.approved',
+      commentId: id,
+      fromStatus: CollectionCommentStatus.PENDING_MANUAL,
+      toStatus: CollectionCommentStatus.MANUAL_APPROVED,
     });
 
     await this.notificationDispatcher.dispatch({
@@ -293,6 +308,12 @@ export class CollectionCommentsService {
     }
 
     if (comment.status !== CollectionCommentStatus.PENDING_MANUAL) {
+      this.logger.warn('reject rejected: comment status invalid', {
+        event: 'comment.review.reject.rejected',
+        code: 'COMMENT_REVIEW_STATUS_INVALID',
+        commentId: id,
+        commentStatus: comment.status,
+      });
       throw new BizError({
         code: 'COMMENT_REVIEW_STATUS_INVALID',
         message: 'comment review status invalid',
@@ -318,6 +339,13 @@ export class CollectionCommentsService {
           reviewedAt,
         },
       });
+    });
+
+    this.logger.log('comment rejected', {
+      event: 'comment.rejected',
+      commentId: id,
+      fromStatus: CollectionCommentStatus.PENDING_MANUAL,
+      toStatus: CollectionCommentStatus.MANUAL_REJECTED,
     });
 
     await this.notificationDispatcher.dispatch({
@@ -370,6 +398,12 @@ export class CollectionCommentsService {
       comment.status !== CollectionCommentStatus.MANUAL_APPROVED &&
       comment.status !== CollectionCommentStatus.BLOCKED
     ) {
+      this.logger.warn('block rejected: comment status invalid', {
+        event: 'comment.block.rejected',
+        code: 'COMMENT_BLOCK_STATUS_INVALID',
+        commentId: id,
+        commentStatus: comment.status,
+      });
       throw new BizError({
         code: 'COMMENT_BLOCK_STATUS_INVALID',
         message: 'comment block status invalid',
@@ -404,6 +438,13 @@ export class CollectionCommentsService {
           reviewedAt,
         },
       });
+    });
+
+    this.logger.log('comment blocked', {
+      event: 'comment.blocked',
+      commentId: id,
+      fromStatus: comment.status,
+      toStatus: CollectionCommentStatus.BLOCKED,
     });
 
     await this.notificationDispatcher.dispatch({

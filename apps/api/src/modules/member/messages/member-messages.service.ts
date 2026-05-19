@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type {
   ListMemberMessagesQuery,
   ListMemberMessagesResponseData,
@@ -30,6 +30,8 @@ const unreadOnlySchema = z
  */
 @Injectable()
 export class MemberMessagesService {
+  private readonly logger = new Logger(MemberMessagesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly memberContextService: MemberContextService,
@@ -93,6 +95,12 @@ export class MemberMessagesService {
     });
 
     if (!existingMessage || existingMessage.memberId !== member.id) {
+      this.logger.warn('mark read rejected: message not found', {
+        event: 'member.message.mark_read.rejected',
+        code: 'MESSAGE_NOT_FOUND',
+        actor: member.id,
+        messageId: parsedParams.messageId,
+      });
       throw new BizError({
         code: 'MESSAGE_NOT_FOUND',
         message: 'message not found',
@@ -100,6 +108,7 @@ export class MemberMessagesService {
       });
     }
 
+    const alreadyRead = existingMessage.readAt instanceof Date;
     const readAt = existingMessage.readAt ?? new Date();
     const updated = await this.prisma.notificationMessage.update({
       where: { id: existingMessage.id },
@@ -107,6 +116,14 @@ export class MemberMessagesService {
         readAt,
       },
     });
+
+    if (!alreadyRead) {
+      this.logger.log('member message marked read', {
+        event: 'member.message.marked_read',
+        actor: member.id,
+        messageId: updated.id,
+      });
+    }
 
     return {
       id: updated.id,

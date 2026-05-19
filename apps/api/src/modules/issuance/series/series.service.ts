@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { IssuanceBatchStatus, Prisma, SeriesStatus } from '@prisma/client';
 import type {
   CreateSeriesRequest,
@@ -52,6 +52,8 @@ const updateSeriesStatusSchema = z.object({
  */
 @Injectable()
 export class SeriesService {
+  private readonly logger = new Logger(SeriesService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -182,6 +184,12 @@ export class SeriesService {
       },
     });
 
+    this.logger.log('series created', {
+      event: 'issuance.series.created',
+      seriesId: series.id,
+      seriesNo: series.seriesNo,
+    });
+
     return this.toSeriesMutationResponse(series);
   }
 
@@ -260,6 +268,14 @@ export class SeriesService {
     const updatedSeries = await this.prisma.series.update({
       where: { id: seriesId },
       data: { status },
+    });
+
+    this.logger.log('series status changed', {
+      event: 'issuance.series.status.changed',
+      seriesId: updatedSeries.id,
+      seriesNo: updatedSeries.seriesNo,
+      fromStatus: series.status,
+      toStatus: updatedSeries.status,
     });
 
     return this.toSeriesMutationResponse(updatedSeries);

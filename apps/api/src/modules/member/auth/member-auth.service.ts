@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Member, MemberStatus, Prisma, WechatChannelType } from '@prisma/client';
 import * as jwt from 'jsonwebtoken';
@@ -20,6 +20,8 @@ import { toTimestamp } from '../../../common/serializers/timestamp';
  */
 @Injectable()
 export class MemberAuthService {
+  private readonly logger = new Logger(MemberAuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly memberContextService: MemberContextService,
@@ -56,6 +58,11 @@ export class MemberAuthService {
     const loginCode = rawCode?.trim();
 
     if (!loginCode) {
+      this.logger.warn('member login rejected: missing code', {
+        event: 'member.auth.login.rejected',
+        code: 'VALIDATION_ERROR',
+        channelType,
+      });
       throw new BizError({
         code: 'VALIDATION_ERROR',
         message: 'wechat login code is required',
@@ -87,6 +94,14 @@ export class MemberAuthService {
 
     if (existingBinding) {
       this.ensureMemberActive(existingBinding.member);
+
+      this.logger.log('member login succeeded (existing)', {
+        event: 'member.auth.login.succeeded',
+        memberId: existingBinding.member.id,
+        memberNo: existingBinding.member.memberNo,
+        channelType,
+        firstTime: false,
+      });
 
       return {
         accessToken: this.signAccessToken(existingBinding.member),
@@ -135,6 +150,14 @@ export class MemberAuthService {
       });
     }
 
+    this.logger.log('member login succeeded (new)', {
+      event: 'member.auth.login.succeeded',
+      memberId: member.id,
+      memberNo: member.memberNo,
+      channelType,
+      firstTime: true,
+    });
+
     return {
       accessToken: this.signAccessToken(member),
       member: this.toCurrentMember(member),
@@ -179,6 +202,12 @@ export class MemberAuthService {
    */
   private ensureMemberActive(member: Member) {
     if (member.status !== MemberStatus.ACTIVE) {
+      this.logger.warn('member login rejected: account frozen', {
+        event: 'member.auth.login.rejected',
+        code: 'MEMBER_ACCOUNT_FROZEN',
+        memberId: member.id,
+        accountStatus: member.status,
+      });
       throw new BizError({
         code: 'MEMBER_ACCOUNT_FROZEN',
         message: 'member account frozen',

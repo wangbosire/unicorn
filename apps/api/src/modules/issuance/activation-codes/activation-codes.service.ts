@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   ActivationCodeStatus,
   CollectionStatus,
@@ -48,6 +48,8 @@ const generateActivationCodesSchema = z.object({
  */
 @Injectable()
 export class ActivationCodesService {
+  private readonly logger = new Logger(ActivationCodesService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -223,6 +225,12 @@ export class ActivationCodesService {
       return items;
     });
 
+    this.logger.log('activation codes generated', {
+      event: 'issuance.activation_code.generated',
+      batchId: batch.id,
+      generatedCount: generatedItems.length,
+    });
+
     return {
       batchId: batch.id,
       generatedCount: generatedItems.length,
@@ -299,6 +307,13 @@ export class ActivationCodesService {
         status: ActivationCodeStatus.VOIDED,
         voidedAt: now,
       },
+    });
+
+    this.logger.log('activation code voided', {
+      event: 'issuance.activation_code.voided',
+      activationCodeId: updated.id,
+      fromStatus: activationCode.status,
+      toStatus: ActivationCodeStatus.VOIDED,
     });
 
     return {

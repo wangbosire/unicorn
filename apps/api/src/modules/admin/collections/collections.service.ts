@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionContentPublishStatus,
   CollectionStatus,
@@ -39,6 +39,8 @@ const updateCollectionStatusSchema = z.object({
  */
 @Injectable()
 export class CollectionsService {
+  private readonly logger = new Logger(CollectionsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -254,6 +256,14 @@ export class CollectionsService {
         status: true,
         updatedAt: true,
       },
+    });
+
+    this.logger.log('collection status changed', {
+      event: 'admin.collection.status.changed',
+      collectionId: updated.id,
+      collectionNo: updated.collectionNo,
+      fromStatus: collection.status,
+      toStatus: updated.status,
     });
 
     return {
