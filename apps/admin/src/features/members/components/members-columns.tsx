@@ -16,6 +16,7 @@ import {
 export type MembersTableActions = {
   /** 为 true 时禁用行内菜单，避免并发写冲突。 */
   actionsDisabled: boolean
+  canManageStatus: boolean
   onRequestFreeze: (row: AdminMemberListItem) => void
   onRequestUnfreeze: (row: AdminMemberListItem) => void
 }
@@ -123,6 +124,10 @@ export function createMembersColumns(
         const item = row.original
         const isActive = item.status === 'ACTIVE'
         const isFrozen = item.status === 'FROZEN'
+
+        if (!actions.canManageStatus) {
+          return null
+        }
 
         return (
           <DropdownMenu modal={false}>

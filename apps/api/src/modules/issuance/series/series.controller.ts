@@ -9,7 +9,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AdminAccessGuard } from '../../admin/auth/admin-access.guard';
-import { ADMIN_PERMISSION_ISSUANCE_SERIES } from '../../admin/auth/admin-permission-keys';
+import {
+  ADMIN_PERMISSION_ISSUANCE_SERIES,
+  ADMIN_PERMISSION_ISSUANCE_SERIES_CREATE,
+  ADMIN_PERMISSION_ISSUANCE_SERIES_TOGGLE_STATUS,
+  ADMIN_PERMISSION_ISSUANCE_SERIES_UPDATE,
+} from '../../admin/auth/admin-permission-keys';
 import { RequireAdminPermissions } from '../../admin/auth/admin-permissions.decorator';
 import type {
   CreateSeriesRequest,
@@ -25,7 +30,6 @@ import { SeriesService } from './series.service';
  */
 @Controller('admin-api/series')
 @UseGuards(AdminAccessGuard)
-@RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_SERIES)
 export class SeriesController {
   constructor(private readonly seriesService: SeriesService) {}
 
@@ -33,6 +37,7 @@ export class SeriesController {
    * 查询系列列表。
    */
   @Get()
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_SERIES)
   async listSeries(@Query() query: ListSeriesQuery) {
     return this.seriesService.listSeries(query);
   }
@@ -41,6 +46,7 @@ export class SeriesController {
    * 查询系列详情。
    */
   @Get(':seriesId')
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_SERIES)
   async getSeriesById(@Param('seriesId') seriesId: string) {
     return this.seriesService.getSeriesById(seriesId);
   }
@@ -49,6 +55,7 @@ export class SeriesController {
    * 创建系列。
    */
   @Post()
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_SERIES_CREATE)
   async createSeries(@Body() body: CreateSeriesRequest) {
     return this.seriesService.createSeries(body);
   }
@@ -57,6 +64,7 @@ export class SeriesController {
    * 编辑系列。
    */
   @Patch(':seriesId')
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_SERIES_UPDATE)
   async updateSeries(
     @Param('seriesId') seriesId: string,
     @Body() body: UpdateSeriesRequest,
@@ -68,6 +76,7 @@ export class SeriesController {
    * 更新系列状态。
    */
   @Patch(':seriesId/status')
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_SERIES_TOGGLE_STATUS)
   async updateSeriesStatus(
     @Param('seriesId') seriesId: string,
     @Body() body: UpdateSeriesStatusRequest,

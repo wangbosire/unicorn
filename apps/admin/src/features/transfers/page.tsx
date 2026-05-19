@@ -11,8 +11,10 @@ import {
   rollbackTransferOrder,
   syncTransferOrderOwner,
 } from '@/apis/transfers/transfers'
+import { AdminReadOnlyNotice } from '@/components/admin/admin-readonly-notice'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { DataListIntro } from '@/components/data-table'
+import { useAdminPermission } from '@/hooks/use-admin-permission'
 import { PageLayout } from '@/components/layout/page-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -67,6 +69,12 @@ import {
   buildTransferOperationRecordsCsv,
   downloadUtf8Csv,
 } from '@/lib/transfers-csv'
+import {
+  ADMIN_PERMISSION_TRANSFERS_COMPLETE,
+  ADMIN_PERMISSION_TRANSFERS_EXPIRE,
+  ADMIN_PERMISSION_TRANSFERS_ROLLBACK,
+  ADMIN_PERMISSION_TRANSFERS_SYNC_OWNER,
+} from '@/lib/admin-route-access'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -86,6 +94,16 @@ function formatExportFilenameDate(date: Date): string {
 
 export function TransfersPage() {
   const queryClient = useQueryClient()
+  const { hasPermission } = useAdminPermission()
+  const canCompleteTransfer = hasPermission(ADMIN_PERMISSION_TRANSFERS_COMPLETE)
+  const canRollbackTransfer = hasPermission(ADMIN_PERMISSION_TRANSFERS_ROLLBACK)
+  const canExpireTransfer = hasPermission(ADMIN_PERMISSION_TRANSFERS_EXPIRE)
+  const canSyncTransferOwner = hasPermission(ADMIN_PERMISSION_TRANSFERS_SYNC_OWNER)
+  const canManageTransfers =
+    canCompleteTransfer ||
+    canRollbackTransfer ||
+    canExpireTransfer ||
+    canSyncTransferOwner
   const transferFiltersRef = useRef<HTMLDivElement | null>(null)
   const [page, setPage] = useState(1)
   const pageSize = 20
@@ -441,6 +459,10 @@ export function TransfersPage() {
           </p>
         </div>
 
+        {!canManageTransfers ? (
+          <AdminReadOnlyNotice description='当前账号仅具备转让记录查看权限，强制完成、回滚、释放与修复归属动作已隐藏。' />
+        ) : null}
+
         {isLoading ? (
           <div className='py-8 text-center text-muted-foreground'>正在加载转让记录…</div>
         ) : isError ? (
@@ -748,67 +770,75 @@ export function TransfersPage() {
                                   >
                                     查看留痕
                                   </Button>
-                                  <Button
-                                    type='button'
-                                    variant='outline'
-                                    size='sm'
-                                    disabled={
-                                      row.status !== 'COMPLETED' ||
-                                      rollbackTransferMutation.isPending
-                                    }
-                                    onClick={() => {
-                                      setRollbackTarget(row)
-                                      setRollbackReason('')
-                                    }}
-                                  >
-                                    强制回滚
-                                  </Button>
-                                  <Button
-                                    type='button'
-                                    variant='outline'
-                                    size='sm'
-                                    disabled={
-                                      row.anomalyCode !==
-                                        'PENDING_ACCEPT_OWNER_ALREADY_TRANSFERRED' ||
-                                      completeTransferMutation.isPending
-                                    }
-                                    onClick={() => {
-                                      setCompleteTarget(row)
-                                      setCompleteReason('')
-                                    }}
-                                  >
-                                    强制完成
-                                  </Button>
-                                  <Button
-                                    type='button'
-                                    variant='outline'
-                                    size='sm'
-                                    disabled={
-                                      row.anomalyCode !== 'EXPIRED_PENDING_RELEASE' ||
-                                      expireTransferMutation.isPending
-                                    }
-                                    onClick={() => {
-                                      setExpireTarget(row)
-                                      setExpireReason('')
-                                    }}
-                                  >
-                                    释放超时单
-                                  </Button>
-                                  <Button
-                                    type='button'
-                                    variant='outline'
-                                    size='sm'
-                                    disabled={
-                                      row.anomalyCode !== 'COMPLETED_OWNER_MISMATCH' ||
-                                      syncOwnerMutation.isPending
-                                    }
-                                    onClick={() => {
-                                      setSyncOwnerTarget(row)
-                                      setSyncOwnerReason('')
-                                    }}
-                                  >
-                                    修复归属
-                                  </Button>
+                                  {canRollbackTransfer ? (
+                                    <Button
+                                      type='button'
+                                      variant='outline'
+                                      size='sm'
+                                      disabled={
+                                        row.status !== 'COMPLETED' ||
+                                        rollbackTransferMutation.isPending
+                                      }
+                                      onClick={() => {
+                                        setRollbackTarget(row)
+                                        setRollbackReason('')
+                                      }}
+                                    >
+                                      强制回滚
+                                    </Button>
+                                  ) : null}
+                                  {canCompleteTransfer ? (
+                                    <Button
+                                      type='button'
+                                      variant='outline'
+                                      size='sm'
+                                      disabled={
+                                        row.anomalyCode !==
+                                          'PENDING_ACCEPT_OWNER_ALREADY_TRANSFERRED' ||
+                                        completeTransferMutation.isPending
+                                      }
+                                      onClick={() => {
+                                        setCompleteTarget(row)
+                                        setCompleteReason('')
+                                      }}
+                                    >
+                                      强制完成
+                                    </Button>
+                                  ) : null}
+                                  {canExpireTransfer ? (
+                                    <Button
+                                      type='button'
+                                      variant='outline'
+                                      size='sm'
+                                      disabled={
+                                        row.anomalyCode !== 'EXPIRED_PENDING_RELEASE' ||
+                                        expireTransferMutation.isPending
+                                      }
+                                      onClick={() => {
+                                        setExpireTarget(row)
+                                        setExpireReason('')
+                                      }}
+                                    >
+                                      释放超时单
+                                    </Button>
+                                  ) : null}
+                                  {canSyncTransferOwner ? (
+                                    <Button
+                                      type='button'
+                                      variant='outline'
+                                      size='sm'
+                                      disabled={
+                                        row.anomalyCode !== 'COMPLETED_OWNER_MISMATCH' ||
+                                        syncOwnerMutation.isPending
+                                      }
+                                      onClick={() => {
+                                        setSyncOwnerTarget(row)
+                                        setSyncOwnerReason('')
+                                      }}
+                                    >
+                                      修复归属
+                                    </Button>
+                                  ) : null}
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -1079,7 +1109,7 @@ export function TransfersPage() {
       </PageLayout>
 
       <ConfirmDialog
-        open={expireTarget != null}
+        open={canExpireTransfer && expireTarget != null}
         onOpenChange={(open) => {
           if (!open) {
             setExpireTarget(null)
@@ -1115,7 +1145,7 @@ export function TransfersPage() {
       </ConfirmDialog>
 
       <ConfirmDialog
-        open={completeTarget != null}
+        open={canCompleteTransfer && completeTarget != null}
         onOpenChange={(open) => {
           if (!open) {
             setCompleteTarget(null)
@@ -1151,7 +1181,7 @@ export function TransfersPage() {
       </ConfirmDialog>
 
       <ConfirmDialog
-        open={rollbackTarget != null}
+        open={canRollbackTransfer && rollbackTarget != null}
         onOpenChange={(open) => {
           if (!open) {
             setRollbackTarget(null)
@@ -1187,7 +1217,7 @@ export function TransfersPage() {
       </ConfirmDialog>
 
       <ConfirmDialog
-        open={syncOwnerTarget != null}
+        open={canSyncTransferOwner && syncOwnerTarget != null}
         onOpenChange={(open) => {
           if (!open) {
             setSyncOwnerTarget(null)

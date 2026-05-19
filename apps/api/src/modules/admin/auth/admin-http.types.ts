@@ -7,6 +7,7 @@ export type AdminRequestContext = {
   id: string
   username: string
   accountNo: string
+  authzVersion: number
   permissionKeys: string[]
 }
 

@@ -22,7 +22,13 @@ import type {
   UpsertNotificationTemplateRequest,
 } from '@contracts/admin/notifications';
 import { AdminAccessGuard } from '../auth/admin-access.guard';
-import { ADMIN_PERMISSION_NOTIFICATIONS_MANAGE } from '../auth/admin-permission-keys';
+import {
+  ADMIN_PERMISSION_NOTIFICATIONS_DISPATCH_RETRY,
+  ADMIN_PERMISSION_NOTIFICATIONS_READ,
+  ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_CREATE,
+  ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_TOGGLE_STATUS,
+  ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_UPDATE,
+} from '../auth/admin-permission-keys';
 import { RequireAdminPermissions } from '../auth/admin-permissions.decorator';
 import { NotificationsService } from './notifications.service';
 
@@ -32,7 +38,6 @@ import { NotificationsService } from './notifications.service';
  */
 @Controller('admin-api/notifications')
 @UseGuards(AdminAccessGuard)
-@RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_MANAGE)
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
@@ -40,6 +45,7 @@ export class NotificationsController {
    * 读取通知中心总览。
    */
   @Get('overview')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_READ)
   async getNotificationsOverview() {
     return this.notificationsService.getNotificationsOverview();
   }
@@ -48,6 +54,7 @@ export class NotificationsController {
    * 查询通知派发记录列表。
    */
   @Get('dispatch-records')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_READ)
   async listNotificationDispatchRecords(
     @Query() query: ListNotificationDispatchRecordsQuery,
   ) {
@@ -58,6 +65,7 @@ export class NotificationsController {
    * 查询失败派发聚合视图。
    */
   @Get('failure-summary')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_READ)
   async listNotificationFailureSummary(
     @Query() query: ListNotificationFailureSummaryQuery,
   ) {
@@ -68,6 +76,7 @@ export class NotificationsController {
    * 查询单条派发记录的重试历史。
    */
   @Get('dispatch-records/:dispatchRecordId/history')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_READ)
   async getNotificationDispatchHistory(
     @Param() params: GetNotificationDispatchHistoryParams,
   ) {
@@ -80,6 +89,7 @@ export class NotificationsController {
    * 查询单条派发记录详情。
    */
   @Get('dispatch-records/:dispatchRecordId')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_READ)
   async getNotificationDispatchRecord(
     @Param() params: GetNotificationDispatchRecordParams,
   ) {
@@ -92,6 +102,7 @@ export class NotificationsController {
    * 将一条失败派发重新入队重投。
    */
   @Post('dispatch-records/:dispatchRecordId/retry')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_DISPATCH_RETRY)
   async retryNotificationDispatch(@Param() params: RetryNotificationDispatchParams) {
     return this.notificationsService.retryNotificationDispatch(params.dispatchRecordId);
   }
@@ -100,6 +111,7 @@ export class NotificationsController {
    * 查询通知模板列表。
    */
   @Get('templates')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_READ)
   async listNotificationTemplates(@Query() query: ListNotificationTemplatesQuery) {
     return this.notificationsService.listNotificationTemplates(query);
   }
@@ -108,6 +120,7 @@ export class NotificationsController {
    * 查询单个通知模板详情。
    */
   @Get('templates/:templateId')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_READ)
   async getNotificationTemplate(@Param() params: GetNotificationTemplateParams) {
     return this.notificationsService.getNotificationTemplate(params.templateId);
   }
@@ -116,6 +129,7 @@ export class NotificationsController {
    * 新建通知模板并生成首个版本。
    */
   @Post('templates')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_CREATE)
   async createNotificationTemplate(@Body() body: UpsertNotificationTemplateRequest) {
     return this.notificationsService.createNotificationTemplate(body);
   }
@@ -124,6 +138,7 @@ export class NotificationsController {
    * 更新通知模板并发布新版本。
    */
   @Patch('templates/:templateId')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_UPDATE)
   async updateNotificationTemplate(
     @Param() params: UpdateNotificationTemplateParams,
     @Body() body: UpsertNotificationTemplateRequest,
@@ -135,6 +150,7 @@ export class NotificationsController {
    * 更新通知模板启停状态。
    */
   @Patch('templates/:templateId/status')
+  @RequireAdminPermissions(ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_TOGGLE_STATUS)
   async updateNotificationTemplateStatus(
     @Param() params: UpdateNotificationTemplateStatusParams,
     @Body() body: UpdateNotificationTemplateStatusRequest,

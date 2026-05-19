@@ -7,6 +7,7 @@ import type {
 } from '@contracts/admin/issuance-batches'
 import type { SeriesListItem } from '@contracts/admin/series'
 import { toast } from 'sonner'
+import { AdminReadOnlyNotice } from '@/components/admin/admin-readonly-notice'
 import { PageLayout } from '@/components/layout/page-layout'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,11 +19,25 @@ import {
 } from '@/apis/issuance/batches'
 import { listSeries } from '@/apis/issuance/series'
 import { ApiError } from '@/lib/api-error'
+import { useAdminPermission } from '@/hooks/use-admin-permission'
+import {
+  ADMIN_PERMISSION_ISSUANCE_BATCHES_CREATE,
+  ADMIN_PERMISSION_ISSUANCE_BATCHES_TOGGLE_STATUS,
+  ADMIN_PERMISSION_ISSUANCE_BATCHES_UPDATE,
+} from '@/lib/admin-route-access'
 import { BatchesTable } from './components/batches-table'
 import { CreateBatchDialog } from './components/create-batch-dialog'
 import { EditBatchDialog } from './components/edit-batch-dialog'
 
 export function BatchesPage() {
+  const { hasPermission } = useAdminPermission()
+  const canCreateBatch = hasPermission(ADMIN_PERMISSION_ISSUANCE_BATCHES_CREATE)
+  const canEditBatch = hasPermission(ADMIN_PERMISSION_ISSUANCE_BATCHES_UPDATE)
+  const canToggleBatchStatus = hasPermission(
+    ADMIN_PERMISSION_ISSUANCE_BATCHES_TOGGLE_STATUS
+  )
+  const canManageBatches =
+    canCreateBatch || canEditBatch || canToggleBatchStatus
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingBatchRow, setEditingBatchRow] =
@@ -261,6 +276,9 @@ export function BatchesPage() {
   return (
     <>
       <PageLayout>
+        {!canManageBatches ? (
+          <AdminReadOnlyNotice description='当前账号仅具备发行批次查看权限，新增、编辑与启停动作已隐藏。' />
+        ) : null}
         {isLoading ? (
           <div className='py-8 text-center text-muted-foreground'>
             正在加载批次数据...
@@ -273,6 +291,9 @@ export function BatchesPage() {
           <BatchesTable
             data={data?.items ?? []}
             actionsDisabled={isBatchListMutating}
+            canCreateBatch={canCreateBatch}
+            canEditBatch={canEditBatch}
+            canToggleBatchStatus={canToggleBatchStatus}
             onEditBatch={handleEditBatch}
             onSetBatchStatus={handleSetBatchStatus}
             totalCount={data?.total}
@@ -285,12 +306,12 @@ export function BatchesPage() {
                 新增批次
               </Button>
             }
-            />
+          />
         )}
       </PageLayout>
 
       <CreateBatchDialog
-        open={isCreateDialogOpen}
+        open={canCreateBatch && isCreateDialogOpen}
         onOpenChange={handleOpenCreateDialog}
         seriesOptions={seriesOptions}
         seriesId={seriesId}
@@ -310,7 +331,7 @@ export function BatchesPage() {
       />
 
       <EditBatchDialog
-        open={isEditDialogOpen}
+        open={canEditBatch && isEditDialogOpen}
         onOpenChange={handleEditDialogOpenChange}
         isDetailLoading={isEditDetailLoading}
         batchNo={editingBatchRow?.batchNo ?? ''}

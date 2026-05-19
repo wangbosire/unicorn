@@ -13,12 +13,27 @@ import type {
 } from '@contracts/admin/series'
 import { toast } from 'sonner'
 import { ApiError } from '@/lib/api-error'
+import { AdminReadOnlyNotice } from '@/components/admin/admin-readonly-notice'
 import { PageLayout } from '@/components/layout/page-layout'
+import { useAdminPermission } from '@/hooks/use-admin-permission'
+import {
+  ADMIN_PERMISSION_ISSUANCE_SERIES_CREATE,
+  ADMIN_PERMISSION_ISSUANCE_SERIES_TOGGLE_STATUS,
+  ADMIN_PERMISSION_ISSUANCE_SERIES_UPDATE,
+} from '@/lib/admin-route-access'
 import { CreateSeriesDialog } from './components/create-series-dialog'
 import { EditSeriesDialog } from './components/edit-series-dialog'
 import { SeriesTable } from './components/series-table'
 
 export function SeriesPage() {
+  const { hasPermission } = useAdminPermission()
+  const canCreateSeries = hasPermission(ADMIN_PERMISSION_ISSUANCE_SERIES_CREATE)
+  const canEditSeries = hasPermission(ADMIN_PERMISSION_ISSUANCE_SERIES_UPDATE)
+  const canToggleSeriesStatus = hasPermission(
+    ADMIN_PERMISSION_ISSUANCE_SERIES_TOGGLE_STATUS
+  )
+  const canManageSeries =
+    canCreateSeries || canEditSeries || canToggleSeriesStatus
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingSeriesId, setEditingSeriesId] = useState<string | null>(null)
@@ -184,10 +199,16 @@ export function SeriesPage() {
   return (
     <>
       <PageLayout>
+        {!canManageSeries ? (
+          <AdminReadOnlyNotice description='当前账号仅具备系列查看权限，新增、编辑与启停动作已隐藏。' />
+        ) : null}
         <SeriesTable
           isLoading={isLoading}
           data={data?.items ?? []}
           actionsDisabled={isSeriesListMutating}
+          canCreateSeries={canCreateSeries}
+          canEditSeries={canEditSeries}
+          canToggleSeriesStatus={canToggleSeriesStatus}
           onEditSeries={handleEditSeries}
           onSetSeriesStatus={handleSetSeriesStatus}
           onCreateSeries={() => setIsCreateDialogOpen(true)}
@@ -195,7 +216,7 @@ export function SeriesPage() {
       </PageLayout>
 
       <CreateSeriesDialog
-        open={isCreateDialogOpen}
+        open={canCreateSeries && isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         seriesName={seriesName}
         onSeriesNameChange={setSeriesName}
@@ -206,7 +227,7 @@ export function SeriesPage() {
       />
 
       <EditSeriesDialog
-        open={isEditDialogOpen}
+        open={canEditSeries && isEditDialogOpen}
         onOpenChange={handleOpenEditDialog}
         seriesName={editSeriesName}
         onSeriesNameChange={setEditSeriesName}

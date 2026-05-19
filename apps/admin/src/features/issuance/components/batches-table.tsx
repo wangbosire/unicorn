@@ -6,6 +6,9 @@ import { createBatchesColumns } from './batches-columns'
 type BatchesTableProps = {
   data: IssuanceBatchListItem[]
   actionsDisabled: boolean
+  canCreateBatch: boolean
+  canEditBatch: boolean
+  canToggleBatchStatus: boolean
   onEditBatch: (row: IssuanceBatchListItem) => void
   onSetBatchStatus: (
     row: IssuanceBatchListItem,
@@ -18,6 +21,9 @@ type BatchesTableProps = {
 export function BatchesTable({
   data,
   actionsDisabled,
+  canCreateBatch,
+  canEditBatch,
+  canToggleBatchStatus,
   onEditBatch,
   onSetBatchStatus,
   toolbarActions,
@@ -27,10 +33,18 @@ export function BatchesTable({
     () =>
       createBatchesColumns({
         actionsDisabled,
+        canEditBatch,
+        canToggleBatchStatus,
         onEditBatch,
         onSetBatchStatus,
       }),
-    [actionsDisabled, onEditBatch, onSetBatchStatus]
+    [
+      actionsDisabled,
+      canEditBatch,
+      canToggleBatchStatus,
+      onEditBatch,
+      onSetBatchStatus,
+    ]
   )
 
   return (
@@ -65,7 +79,7 @@ export function BatchesTable({
           ],
         },
       ]}
-      actions={toolbarActions}
+      actions={canCreateBatch ? toolbarActions : undefined}
       emptyTitle='暂无批次数据'
       emptyDescription='可以尝试放宽搜索关键词或切换状态筛选后再查看。'
       pagination={{

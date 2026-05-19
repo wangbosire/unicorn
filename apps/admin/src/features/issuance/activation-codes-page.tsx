@@ -5,6 +5,7 @@ import type {
   GenerateActivationCodesRequest,
 } from '@contracts/admin/activation-codes'
 import { toast } from 'sonner'
+import { AdminReadOnlyNotice } from '@/components/admin/admin-readonly-notice'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { PageLayout } from '@/components/layout/page-layout'
 import {
@@ -15,10 +16,24 @@ import {
 import { listIssuanceBatches } from '@/apis/issuance/batches'
 import { Button } from '@/components/ui/button'
 import { ApiError } from '@/lib/api-error'
+import { useAdminPermission } from '@/hooks/use-admin-permission'
+import {
+  ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES_GENERATE,
+  ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES_VOID,
+} from '@/lib/admin-route-access'
 import { ActivationCodesTable } from './components/activation-codes-table'
 import { GenerateActivationCodesDialog } from './components/generate-activation-codes-dialog'
 
 export function ActivationCodesPage() {
+  const { hasPermission } = useAdminPermission()
+  const canGenerateActivationCodes = hasPermission(
+    ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES_GENERATE
+  )
+  const canVoidActivationCodes = hasPermission(
+    ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES_VOID
+  )
+  const canManageActivationCodes =
+    canGenerateActivationCodes || canVoidActivationCodes
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false)
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false)
   const [voidTarget, setVoidTarget] = useState<ActivationCodeListItem | null>(null)
@@ -175,6 +190,9 @@ export function ActivationCodesPage() {
   return (
     <>
       <PageLayout>
+        {!canManageActivationCodes ? (
+          <AdminReadOnlyNotice description='当前账号仅具备激活码查看权限，批量生成与作废动作已隐藏。' />
+        ) : null}
         {isLoading ? (
           <div className='py-8 text-center text-muted-foreground'>
             正在加载激活码数据...
@@ -187,6 +205,7 @@ export function ActivationCodesPage() {
           <ActivationCodesTable
             data={data?.items ?? []}
             actionsDisabled={isActivationCodesMutating}
+            canVoidActivationCode={canVoidActivationCodes}
             onVoidRequest={handleVoidRequest}
             totalCount={data?.total}
             listIntro={{
@@ -210,13 +229,15 @@ export function ActivationCodesPage() {
                 >
                   导出激活码
                 </Button>
-                <Button
-                  size='sm'
-                  onClick={() => handleOpenGenerateDialog(true)}
-                  disabled={isActivationCodesMutating}
-                >
-                  批量生成
-                </Button>
+                {canGenerateActivationCodes ? (
+                  <Button
+                    size='sm'
+                    onClick={() => handleOpenGenerateDialog(true)}
+                    disabled={isActivationCodesMutating}
+                  >
+                    批量生成
+                  </Button>
+                ) : null}
               </>
             }
           />
@@ -224,7 +245,7 @@ export function ActivationCodesPage() {
       </PageLayout>
 
       <GenerateActivationCodesDialog
-        open={isGenerateDialogOpen}
+        open={canGenerateActivationCodes && isGenerateDialogOpen}
         onOpenChange={handleOpenGenerateDialog}
         batchOptions={batchOptions}
         batchId={batchId}

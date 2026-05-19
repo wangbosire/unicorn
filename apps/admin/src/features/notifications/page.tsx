@@ -27,7 +27,9 @@ import {
   updateNotificationTemplate,
   updateNotificationTemplateStatus,
 } from '@/apis/notifications/notifications'
+import { AdminReadOnlyNotice } from '@/components/admin/admin-readonly-notice'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { useAdminPermission } from '@/hooks/use-admin-permission'
 import { PageLayout } from '@/components/layout/page-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -74,6 +76,12 @@ import {
   buildNotificationFailureSummaryCsv,
   downloadUtf8Csv,
 } from '@/lib/notifications-csv'
+import {
+  ADMIN_PERMISSION_NOTIFICATIONS_DISPATCH_RETRY,
+  ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_CREATE,
+  ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_TOGGLE_STATUS,
+  ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_UPDATE,
+} from '@/lib/admin-route-access'
 import { toast } from 'sonner'
 
 const DISPATCH_MESSAGE_TYPE_OPTIONS = [
@@ -215,6 +223,24 @@ function formatExportFilenameDate(date: Date): string {
 
 export function NotificationsPage() {
   const queryClient = useQueryClient()
+  const { hasPermission } = useAdminPermission()
+  const canCreateTemplate = hasPermission(
+    ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_CREATE
+  )
+  const canUpdateTemplate = hasPermission(
+    ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_UPDATE
+  )
+  const canToggleTemplateStatus = hasPermission(
+    ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_TOGGLE_STATUS
+  )
+  const canRetryDispatch = hasPermission(
+    ADMIN_PERMISSION_NOTIFICATIONS_DISPATCH_RETRY
+  )
+  const canManageNotifications =
+    canCreateTemplate ||
+    canUpdateTemplate ||
+    canToggleTemplateStatus ||
+    canRetryDispatch
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DISABLED'>(
     'ALL'
   )
@@ -465,6 +491,9 @@ export function NotificationsPage() {
   const failureSummaryRows = failureSummary?.items ?? []
   const templateDetail = templateDetailQuery.data ?? null
   const isEditing = editingTemplateId != null
+  const templateDialogOpen =
+    (canCreateTemplate && isCreateDialogOpen) ||
+    (canUpdateTemplate && editingTemplateId != null)
 
   const summaryCards = useMemo(
     () => [
@@ -506,6 +535,9 @@ export function NotificationsPage() {
   }
 
   const handleOpenCreateTemplate = () => {
+    if (!canCreateTemplate) {
+      return
+    }
     setEditingTemplateId(null)
     setExpandedVersionId(null)
     setEditableTemplate(createEmptyEditableTemplate())
@@ -522,6 +554,9 @@ export function NotificationsPage() {
   }
 
   const handleOpenEditTemplate = (templateId: string) => {
+    if (!canUpdateTemplate) {
+      return
+    }
     setIsCreateDialogOpen(false)
     setExpandedVersionId(null)
     setEditableTemplate(createEmptyEditableTemplate())
@@ -595,6 +630,16 @@ export function NotificationsPage() {
       return
     }
 
+    if (isEditing && !canUpdateTemplate) {
+      toast.error('当前账号没有通知模板编辑权限。')
+      return
+    }
+
+    if (!isEditing && !canCreateTemplate) {
+      toast.error('当前账号没有通知模板创建权限。')
+      return
+    }
+
     const payload = buildTemplatePayload(
       {
         templateKey,
@@ -662,6 +707,10 @@ export function NotificationsPage() {
             管理站内信、微信通知模板和关键事件的发送通道。
           </p>
         </div>
+
+        {!canManageNotifications ? (
+          <AdminReadOnlyNotice description='当前账号仅具备通知中心查看权限，模板维护与失败重投动作已隐藏。' />
+        ) : null}
 
         {isOverviewLoading ||
         isTemplatesLoading ||
@@ -734,10 +783,12 @@ export function NotificationsPage() {
                         <SelectItem value='DISABLED'>仅看停用</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button type='button' size='sm' onClick={handleOpenCreateTemplate}>
-                      <Plus className='mr-1 h-4 w-4' />
-                      新建模板
-                    </Button>
+                    {canCreateTemplate ? (
+                      <Button type='button' size='sm' onClick={handleOpenCreateTemplate}>
+                        <Plus className='mr-1 h-4 w-4' />
+                        新建模板
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               </CardHeader>
@@ -780,29 +831,33 @@ export function NotificationsPage() {
                           <TableCell>{formatNotificationTimestamp(row.updatedAt)}</TableCell>
                           <TableCell className='text-right'>
                             <div className='flex justify-end gap-2'>
-                              <Button
-                                type='button'
-                                size='sm'
-                                variant='outline'
-                                onClick={() => handleOpenEditTemplate(row.templateId)}
-                              >
-                                <PencilLine className='mr-1 h-4 w-4' />
-                                编辑
-                              </Button>
-                              <Button
-                                type='button'
-                                size='sm'
-                                variant={row.status === 'ACTIVE' ? 'outline' : 'default'}
-                                onClick={() =>
-                                  setStatusConfirm({
-                                    templateId: row.templateId,
-                                    displayName: row.displayName,
-                                    nextStatus: row.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
-                                  })
-                                }
-                              >
-                                {row.status === 'ACTIVE' ? '停用' : '启用'}
-                              </Button>
+                              {canUpdateTemplate ? (
+                                <Button
+                                  type='button'
+                                  size='sm'
+                                  variant='outline'
+                                  onClick={() => handleOpenEditTemplate(row.templateId)}
+                                >
+                                  <PencilLine className='mr-1 h-4 w-4' />
+                                  编辑
+                                </Button>
+                              ) : null}
+                              {canToggleTemplateStatus ? (
+                                <Button
+                                  type='button'
+                                  size='sm'
+                                  variant={row.status === 'ACTIVE' ? 'outline' : 'default'}
+                                  onClick={() =>
+                                    setStatusConfirm({
+                                      templateId: row.templateId,
+                                      displayName: row.displayName,
+                                      nextStatus: row.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
+                                    })
+                                  }
+                                >
+                                  {row.status === 'ACTIVE' ? '停用' : '启用'}
+                                </Button>
+                              ) : null}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -918,19 +973,21 @@ export function NotificationsPage() {
                               >
                                 查看最近失败
                               </Button>
-                              <Button
-                                type='button'
-                                size='sm'
-                                variant='outline'
-                                disabled={retryDispatchMutation.isPending}
-                                onClick={() =>
-                                  void handlePrepareRetryDispatchRecordById(
-                                    row.latestDispatchRecordId
-                                  )
-                                }
-                              >
-                                重投最近失败
-                              </Button>
+                              {canRetryDispatch ? (
+                                <Button
+                                  type='button'
+                                  size='sm'
+                                  variant='outline'
+                                  disabled={retryDispatchMutation.isPending}
+                                  onClick={() =>
+                                    void handlePrepareRetryDispatchRecordById(
+                                      row.latestDispatchRecordId
+                                    )
+                                  }
+                                >
+                                  重投最近失败
+                                </Button>
+                              ) : null}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1195,17 +1252,20 @@ export function NotificationsPage() {
                               >
                                 查看详情
                               </Button>
-                              <Button
-                                type='button'
-                                size='sm'
-                                variant='outline'
-                                disabled={
-                                  row.status !== 'FAILED' || retryDispatchMutation.isPending
-                                }
-                                onClick={() => setRetryConfirm(row)}
-                              >
-                                重投
-                              </Button>
+                              {canRetryDispatch ? (
+                                <Button
+                                  type='button'
+                                  size='sm'
+                                  variant='outline'
+                                  disabled={
+                                    row.status !== 'FAILED' ||
+                                    retryDispatchMutation.isPending
+                                  }
+                                  onClick={() => setRetryConfirm(row)}
+                                >
+                                  重投
+                                </Button>
+                              ) : null}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1420,14 +1480,16 @@ export function NotificationsPage() {
 
               {selectedDispatchRecord.status === 'FAILED' ? (
                 <div className='flex justify-end'>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    disabled={retryDispatchMutation.isPending}
-                    onClick={() => setRetryConfirm(selectedDispatchRecord)}
-                  >
-                    重投这条派发
-                  </Button>
+                  {canRetryDispatch ? (
+                    <Button
+                      type='button'
+                      variant='outline'
+                      disabled={retryDispatchMutation.isPending}
+                      onClick={() => setRetryConfirm(selectedDispatchRecord)}
+                    >
+                      重投这条派发
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -1446,7 +1508,7 @@ export function NotificationsPage() {
       </Dialog>
 
       <Dialog
-        open={isCreateDialogOpen || editingTemplateId != null}
+        open={templateDialogOpen}
         onOpenChange={handleTemplateDialogChange}
       >
         <DialogContent className='max-h-[85vh] overflow-y-auto sm:max-w-3xl'>
@@ -1734,6 +1796,7 @@ export function NotificationsPage() {
             <Button
               onClick={handleSubmitTemplate}
               disabled={
+                (isEditing ? !canUpdateTemplate : !canCreateTemplate) ||
                 createTemplateMutation.isPending ||
                 updateTemplateMutation.isPending ||
                 (isEditing &&
@@ -1751,7 +1814,7 @@ export function NotificationsPage() {
       </Dialog>
 
       <ConfirmDialog
-        open={retryConfirm != null}
+        open={canRetryDispatch && retryConfirm != null}
         onOpenChange={(open) => !open && setRetryConfirm(null)}
         title='确认重投失败派发'
         desc={
@@ -1774,7 +1837,7 @@ export function NotificationsPage() {
       />
 
       <ConfirmDialog
-        open={statusConfirm != null}
+        open={canToggleTemplateStatus && statusConfirm != null}
         onOpenChange={(open) => !open && setStatusConfirm(null)}
         title={statusConfirm?.nextStatus === 'ACTIVE' ? '启用通知模板' : '停用通知模板'}
         desc={

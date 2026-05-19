@@ -16,6 +16,8 @@ import {
 export type SeriesTableActions = {
   /** 为 true 时禁用行内操作按钮，避免并发写冲突。 */
   actionsDisabled: boolean
+  canEdit: boolean
+  canToggleStatus: boolean
   onEdit: (row: SeriesListItem) => void
   onSetStatus: (row: SeriesListItem, status: 'ENABLED' | 'DISABLED') => void
 }
@@ -87,6 +89,11 @@ export function createSeriesColumns(
       cell: ({ row }) => {
         const item = row.original
         const isEnabled = item.status === 'ENABLED'
+        const canOpenMenu = actions.canEdit || actions.canToggleStatus
+
+        if (!canOpenMenu) {
+          return null
+        }
 
         return (
           <DropdownMenu modal={false}>
@@ -103,31 +110,35 @@ export function createSeriesColumns(
             <DropdownMenuContent align='end' className='w-44'>
               <DropdownMenuLabel>操作</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  actions.onEdit(item)
-                }}
-              >
-                编辑信息
-              </DropdownMenuItem>
-              {isEnabled ? (
-                <DropdownMenuItem
-                  className='text-destructive focus:text-destructive'
-                  onClick={() => {
-                    actions.onSetStatus(item, 'DISABLED')
-                  }}
-                >
-                  停用系列
-                </DropdownMenuItem>
-              ) : (
+              {actions.canEdit ? (
                 <DropdownMenuItem
                   onClick={() => {
-                    actions.onSetStatus(item, 'ENABLED')
+                    actions.onEdit(item)
                   }}
                 >
-                  启用系列
+                  编辑信息
                 </DropdownMenuItem>
-              )}
+              ) : null}
+              {actions.canToggleStatus ? (
+                isEnabled ? (
+                  <DropdownMenuItem
+                    className='text-destructive focus:text-destructive'
+                    onClick={() => {
+                      actions.onSetStatus(item, 'DISABLED')
+                    }}
+                  >
+                    停用系列
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      actions.onSetStatus(item, 'ENABLED')
+                    }}
+                  >
+                    启用系列
+                  </DropdownMenuItem>
+                )
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         )

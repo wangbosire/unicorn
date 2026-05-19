@@ -32,6 +32,7 @@ import { createActivationCodesColumns } from './activation-codes-columns'
 type ActivationCodesTableProps = {
   data: ActivationCodeListItem[]
   actionsDisabled: boolean
+  canVoidActivationCode: boolean
   onVoidRequest: (row: ActivationCodeListItem) => void
   /** 右侧操作栏：导出、批量生成等。 */
   toolbarActions?: ReactNode
@@ -44,6 +45,7 @@ type ActivationCodesTableProps = {
 export function ActivationCodesTable({
   data,
   actionsDisabled,
+  canVoidActivationCode,
   onVoidRequest,
   toolbarActions,
   totalCount,
@@ -60,9 +62,10 @@ export function ActivationCodesTable({
     () =>
       createActivationCodesColumns({
         actionsDisabled,
+        canVoidActivationCode,
         onVoidRequest,
       }),
-    [actionsDisabled, onVoidRequest]
+    [actionsDisabled, canVoidActivationCode, onVoidRequest]
   )
 
   // eslint-disable-next-line react-hooks/incompatible-library

@@ -31,6 +31,82 @@ enum PermissionType {
   ACTION
 }
 
+/// 权限启停状态。
+enum PermissionStatus {
+  /// 可正常参与授权与配置。
+  ENABLED
+  /// 已停用，不再参与新授权与菜单命中。
+  DISABLED
+}
+
+/// 权限组类别。
+enum PermissionGroupType {
+  /// 业务域权限组。
+  BUSINESS
+  /// 系统管理权限组。
+  SYSTEM
+  /// 页面域或菜单域权限组。
+  PAGE_DOMAIN
+}
+
+/// 权限组启停状态。
+enum PermissionGroupStatus {
+  /// 可正常参与菜单命中与批量授权。
+  ENABLED
+  /// 已停用，不再参与菜单命中。
+  DISABLED
+}
+
+/// 菜单类型。
+enum MenuType {
+  /// 目录节点，仅用于承载子菜单。
+  DIRECTORY
+  /// 可进入的页面节点。
+  PAGE
+  /// 外部链接节点。
+  EXTERNAL_LINK
+}
+
+/// 菜单启停状态。
+enum MenuStatus {
+  /// 菜单可正常展示。
+  ENABLED
+  /// 菜单已停用，不再返回给前端。
+  DISABLED
+}
+
+/// 权限变更目标类型。
+enum AuthorizationChangeTargetType {
+  /// 后台用户。
+  ADMIN_USER
+  /// 角色。
+  ROLE
+  /// 权限点。
+  PERMISSION
+  /// 权限组。
+  PERMISSION_GROUP
+  /// 菜单。
+  MENU
+}
+
+/// 权限变更类型。
+enum AuthorizationChangeType {
+  /// 创建。
+  CREATE
+  /// 更新。
+  UPDATE
+  /// 启用。
+  ENABLE
+  /// 停用。
+  DISABLE
+  /// 替换绑定关系。
+  REPLACE_BINDINGS
+  /// 授予。
+  ASSIGN
+  /// 撤销。
+  REVOKE
+}
+
 /// 会员状态。
 enum MemberStatus {
   /// 会员可正常登录和领取藏品。
@@ -279,6 +355,8 @@ model AdminUser {
   passwordHash     String                          @map("password_hash")
   /// 用户状态。
   status           AdminUserStatus                 @default(ACTIVE)
+  /// 当前后台用户鉴权版本号，用于权限缓存与登录态失效控制。
+  authzVersion     Int                             @default(1) @map("authz_version")
   /// 最近一次登录时间。
   lastLoginAt      DateTime?                       @map("last_login_at")
   /// 创建时间。
@@ -293,6 +371,8 @@ model AdminUser {
   reviewedComments CollectionCommentReviewRecord[]
   /// 该管理员执行过的转让运营处置记录。
   transferOperationRecords CollectionTransferOperationRecord[]
+  /// 该管理员发起过的权限配置变更记录。
+  authorizationChangeLogs AuthorizationChangeLog[]
 
   @@map("admin_users")
 }
@@ -305,8 +385,16 @@ model Role {
   roleKey     String           @unique @map("role_key")
   /// 角色名称。
   roleName    String           @map("role_name")
+  /// 角色职责说明。
+  description String?
   /// 角色状态。
   status      RoleStatus       @default(ENABLED)
+  /// 是否为系统内置角色。
+  isBuiltin   Boolean          @default(false) @map("is_builtin")
+  /// 页面排序值，越小越靠前。
+  sortOrder   Int              @default(0) @map("sort_order")
+  /// 角色权限集版本号，角色授权变更时递增。
+  permissionVersion Int        @default(1) @map("permission_version")
   /// 创建时间。
   createdAt   DateTime         @default(now()) @map("created_at")
   /// 更新时间。
@@ -316,6 +404,7 @@ model Role {
   /// 该角色拥有的权限关系。
   permissions RolePermission[]
 
+  @@index([status])
   @@map("roles")
 }
 
@@ -329,14 +418,77 @@ model Permission {
   permissionName String           @map("permission_name")
   /// 权限类别。
   permissionType PermissionType   @map("permission_type")
+  /// 权限用途与风险说明。
+  description    String?
+  /// 权限状态。
+  status         PermissionStatus @default(ENABLED)
+  /// 是否为系统内置权限。
+  isBuiltin      Boolean          @default(false) @map("is_builtin")
+  /// 页面排序值，越小越靠前。
+  sortOrder      Int              @default(0) @map("sort_order")
   /// 创建时间。
   createdAt      DateTime         @default(now()) @map("created_at")
   /// 更新时间。
   updatedAt      DateTime         @updatedAt @map("updated_at")
   /// 拥有该权限的角色关系。
   roles          RolePermission[]
+  /// 归属到的权限组关系。
+  groupItems     PermissionGroupItem[]
 
+  @@index([status])
   @@map("permissions")
+}
+
+/// 权限组定义，用于组织一组 action 级权限。
+model PermissionGroup {
+  /// 权限组主键。
+  id             String                @id @default(cuid())
+  /// 权限组唯一标识。
+  groupKey       String                @unique @map("group_key")
+  /// 权限组显示名称。
+  groupName      String                @map("group_name")
+  /// 权限组类别。
+  groupType      PermissionGroupType   @map("group_type")
+  /// 权限组说明。
+  description    String?
+  /// 权限组状态。
+  status         PermissionGroupStatus @default(ENABLED)
+  /// 是否为系统内置权限组。
+  isBuiltin      Boolean               @default(false) @map("is_builtin")
+  /// 页面排序值，越小越靠前。
+  sortOrder      Int                   @default(0) @map("sort_order")
+  /// 创建时间。
+  createdAt      DateTime              @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+  /// 权限组包含的权限点关系。
+  items          PermissionGroupItem[]
+  /// 命中该权限组即可展示的菜单绑定关系。
+  menuBindings   MenuPermissionGroup[]
+
+  @@index([status])
+  @@map("permission_groups")
+}
+
+/// 权限组与权限点关系表。
+model PermissionGroupItem {
+  /// 关系主键。
+  id                String          @id @default(cuid())
+  /// 权限组外键。
+  permissionGroupId String          @map("permission_group_id")
+  /// 权限点外键。
+  permissionId      String          @map("permission_id")
+  /// 建立关联的时间。
+  createdAt         DateTime        @default(now()) @map("created_at")
+  /// 权限组实体。
+  permissionGroup   PermissionGroup @relation(fields: [permissionGroupId], references: [id])
+  /// 权限点实体。
+  permission        Permission      @relation(fields: [permissionId], references: [id])
+
+  /// 同一权限组与同一权限点只允许建立一条关系。
+  @@unique([permissionGroupId, permissionId])
+  @@index([permissionId])
+  @@map("permission_group_items")
 }
 
 /// 后台用户与角色关系表。
@@ -377,6 +529,93 @@ model RolePermission {
   /// 同一角色与同一权限只允许建立一条关系。
   @@unique([roleId, permissionId])
   @@map("role_permissions")
+}
+
+/// 后台菜单定义。
+model Menu {
+  /// 菜单主键。
+  id          String                @id @default(cuid())
+  /// 父菜单外键，根节点为空。
+  parentId    String?               @map("parent_id")
+  /// 菜单唯一标识。
+  menuKey     String                @unique @map("menu_key")
+  /// 菜单名称。
+  menuName    String                @map("menu_name")
+  /// 菜单类型。
+  menuType    MenuType              @map("menu_type")
+  /// 前端路由路径或外部链接地址。
+  routePath   String?               @map("route_path")
+  /// 前端图标标识。
+  iconName    String?               @map("icon_name")
+  /// 菜单状态。
+  status      MenuStatus            @default(ENABLED)
+  /// 是否为系统内置菜单。
+  isBuiltin   Boolean               @default(false) @map("is_builtin")
+  /// 页面排序值，越小越靠前。
+  sortOrder   Int                   @default(0) @map("sort_order")
+  /// 创建时间。
+  createdAt   DateTime              @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+  /// 父菜单实体。
+  parent      Menu?                 @relation("MenuTree", fields: [parentId], references: [id])
+  /// 子菜单实体。
+  children    Menu[]                @relation("MenuTree")
+  /// 当前菜单绑定的权限组关系。
+  permissionGroups MenuPermissionGroup[]
+
+  @@index([parentId, sortOrder])
+  @@index([status])
+  @@map("menus")
+}
+
+/// 菜单与权限组绑定表，语义固定为 anyOf。
+model MenuPermissionGroup {
+  /// 关系主键。
+  id                String          @id @default(cuid())
+  /// 菜单外键。
+  menuId            String          @map("menu_id")
+  /// 权限组外键。
+  permissionGroupId String          @map("permission_group_id")
+  /// 建立关联的时间。
+  createdAt         DateTime        @default(now()) @map("created_at")
+  /// 菜单实体。
+  menu              Menu            @relation(fields: [menuId], references: [id])
+  /// 权限组实体。
+  permissionGroup   PermissionGroup @relation(fields: [permissionGroupId], references: [id])
+
+  /// 同一菜单与同一权限组只允许建立一条关系。
+  @@unique([menuId, permissionGroupId])
+  @@index([permissionGroupId])
+  @@map("menu_permission_groups")
+}
+
+/// 后台权限配置变更日志。
+model AuthorizationChangeLog {
+  /// 日志主键。
+  id                  String                       @id @default(cuid())
+  /// 变更目标类型。
+  targetType          AuthorizationChangeTargetType @map("target_type")
+  /// 变更目标主键。
+  targetId            String                       @map("target_id")
+  /// 变更类型。
+  changeType          AuthorizationChangeType      @map("change_type")
+  /// 操作人后台用户外键。
+  operatorAdminUserId String                       @map("operator_admin_user_id")
+  /// 变更前快照。
+  beforeSnapshot      Json?                        @map("before_snapshot")
+  /// 变更后快照。
+  afterSnapshot       Json?                        @map("after_snapshot")
+  /// 操作说明。
+  changeReason        String?                      @map("change_reason")
+  /// 创建时间。
+  createdAt           DateTime                     @default(now()) @map("created_at")
+  /// 操作人实体。
+  operatorAdminUser   AdminUser                    @relation(fields: [operatorAdminUserId], references: [id])
+
+  @@index([operatorAdminUserId, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@map("authorization_change_logs")
 }
 
 /// 会员主账户。

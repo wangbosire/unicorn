@@ -3,6 +3,7 @@ import { defineConfig } from '@tarojs/cli';
 
 const dockerDev = process.env.UNICORN_DOCKER_DEV === '1';
 const miniappApiProxy = process.env.MINIAPP_API_PROXY_TARGET;
+const enableH5DevProxy = dockerDev || Boolean(miniappApiProxy);
 
 export default defineConfig({
   projectName: 'unicorn-miniapp',
@@ -52,17 +53,17 @@ export default defineConfig({
   /**
    * H5 构建：供 Docker 内编译并在网关 `/h5/` 下静态托管。
    * 使用 hash 路由，避免刷新时 nginx 需为每个路由配置 fallback。
-   * Docker 热更（UNICORN_DOCKER_DEV=1）下 publicPath 为 `/`，并由 devServer 将 `/api` 反代到后端。
+   * 本地或 Docker 开发时，可通过 MINIAPP_API_PROXY_TARGET 将 `/api` 反代到目标 API。
    */
   h5: {
-    publicPath: dockerDev ? '/' : '/h5/',
+    publicPath: enableH5DevProxy ? '/' : '/h5/',
     router: {
       mode: 'hash',
     },
-    ...(dockerDev
+    ...(enableH5DevProxy
       ? {
           devServer: {
-            host: '0.0.0.0',
+            host: dockerDev ? '0.0.0.0' : '127.0.0.1',
             port: 10086,
             hot: true,
             ...(miniappApiProxy

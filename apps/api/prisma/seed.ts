@@ -17,7 +17,12 @@ import {
   CollectionStatus,
   IssuanceBatchStatus,
   MemberStatus,
+  MenuStatus,
+  MenuType,
   PermissionType,
+  PermissionGroupStatus,
+  PermissionGroupType,
+  PermissionStatus,
   Prisma,
   PrismaClient,
   RoleStatus,
@@ -38,84 +43,472 @@ async function seedPermissions() {
     key: string;
     name: string;
     type: PermissionType;
+    description?: string;
+    sortOrder: number;
   }[] = [
     {
       id: 'perm_wildcard',
       key: '*',
       name: '超级管理员全权',
       type: PermissionType.PAGE,
+      description: '超级管理员角色的全量放行标记。',
+      sortOrder: 0,
     },
     {
       id: 'perm_dashboard_read',
       key: 'dashboard.read',
       name: '仪表盘访问',
       type: PermissionType.PAGE,
+      description: '允许进入后台仪表盘并查看聚合概览。',
+      sortOrder: 10,
     },
     {
       id: 'perm_issuance_series',
       key: 'issuance.series',
-      name: '系列管理',
+      name: '查看系列列表',
       type: PermissionType.PAGE,
+      description: '允许访问系列管理页面并查询系列列表、详情。',
+      sortOrder: 20,
+    },
+    {
+      id: 'perm_issuance_series_create',
+      key: 'issuance.series.create',
+      name: '创建系列',
+      type: PermissionType.ACTION,
+      description: '允许新增发行系列。',
+      sortOrder: 21,
+    },
+    {
+      id: 'perm_issuance_series_update',
+      key: 'issuance.series.update',
+      name: '编辑系列',
+      type: PermissionType.ACTION,
+      description: '允许编辑发行系列基础信息。',
+      sortOrder: 22,
+    },
+    {
+      id: 'perm_issuance_series_toggle_status',
+      key: 'issuance.series.toggle_status',
+      name: '切换系列状态',
+      type: PermissionType.ACTION,
+      description: '允许启用或停用发行系列。',
+      sortOrder: 23,
     },
     {
       id: 'perm_issuance_batches',
       key: 'issuance.batches',
-      name: '发行批次',
+      name: '查看发行批次',
       type: PermissionType.PAGE,
+      description: '允许访问发行批次页面并查询批次列表、详情。',
+      sortOrder: 30,
+    },
+    {
+      id: 'perm_issuance_batches_create',
+      key: 'issuance.batches.create',
+      name: '创建发行批次',
+      type: PermissionType.ACTION,
+      description: '允许新增发行批次。',
+      sortOrder: 31,
+    },
+    {
+      id: 'perm_issuance_batches_update',
+      key: 'issuance.batches.update',
+      name: '编辑发行批次',
+      type: PermissionType.ACTION,
+      description: '允许编辑发行批次基础信息。',
+      sortOrder: 32,
+    },
+    {
+      id: 'perm_issuance_batches_toggle_status',
+      key: 'issuance.batches.toggle_status',
+      name: '切换发行批次状态',
+      type: PermissionType.ACTION,
+      description: '允许启用或停用发行批次。',
+      sortOrder: 33,
     },
     {
       id: 'perm_issuance_activation_codes',
       key: 'issuance.activation_codes',
-      name: '激活码管理',
+      name: '查看激活码列表',
       type: PermissionType.PAGE,
+      description: '允许访问激活码页面并查询列表、详情。',
+      sortOrder: 40,
+    },
+    {
+      id: 'perm_issuance_activation_codes_generate',
+      key: 'issuance.activation_codes.generate',
+      name: '批量生成激活码',
+      type: PermissionType.ACTION,
+      description: '允许批量生成激活码。',
+      sortOrder: 41,
+    },
+    {
+      id: 'perm_issuance_activation_codes_void',
+      key: 'issuance.activation_codes.void',
+      name: '作废激活码',
+      type: PermissionType.ACTION,
+      description: '允许作废未使用且未过期的激活码。',
+      sortOrder: 42,
     },
     {
       id: 'perm_collections_manage',
       key: 'collections.manage',
       name: '藏品管理',
       type: PermissionType.PAGE,
+      description: '允许查看与治理藏品列表。',
+      sortOrder: 50,
     },
     {
       id: 'perm_collection_reviews_manage',
       key: 'collection_reviews.manage',
       name: '藏品内容复核',
       type: PermissionType.PAGE,
+      description: '允许查看内容复核列表并执行复核动作。',
+      sortOrder: 60,
     },
     {
       id: 'perm_collection_comments_manage',
       key: 'collection_comments.manage',
       name: '评论治理',
       type: PermissionType.PAGE,
+      description: '允许查看评论列表并执行评论治理动作。',
+      sortOrder: 70,
     },
     {
       id: 'perm_members_read',
       key: 'members.read',
       name: '会员列表',
       type: PermissionType.PAGE,
+      description: '允许查看会员列表与会员详情。',
+      sortOrder: 80,
     },
     {
       id: 'perm_members_manage',
       key: 'members.manage',
       name: '会员状态管理',
       type: PermissionType.PAGE,
+      description: '允许冻结、解冻等会员状态管理动作。',
+      sortOrder: 90,
+    },
+    {
+      id: 'perm_notifications_read',
+      key: 'notifications.read',
+      name: '查看通知中心',
+      type: PermissionType.PAGE,
+      description: '允许访问通知中心并查看模板、失败聚合与派发记录。',
+      sortOrder: 100,
+    },
+    {
+      id: 'perm_notifications_template_create',
+      key: 'notifications.template.create',
+      name: '创建通知模板',
+      type: PermissionType.ACTION,
+      description: '允许创建通知模板并发布首个版本。',
+      sortOrder: 101,
+    },
+    {
+      id: 'perm_notifications_template_update',
+      key: 'notifications.template.update',
+      name: '编辑通知模板',
+      type: PermissionType.ACTION,
+      description: '允许编辑通知模板并发布新版本。',
+      sortOrder: 102,
+    },
+    {
+      id: 'perm_notifications_template_toggle_status',
+      key: 'notifications.template.toggle_status',
+      name: '切换通知模板状态',
+      type: PermissionType.ACTION,
+      description: '允许启用或停用通知模板。',
+      sortOrder: 103,
+    },
+    {
+      id: 'perm_notifications_dispatch_retry',
+      key: 'notifications.dispatch.retry',
+      name: '重投通知派发',
+      type: PermissionType.ACTION,
+      description: '允许将失败的通知派发重新入队。',
+      sortOrder: 104,
     },
     {
       id: 'perm_notifications_manage',
       key: 'notifications.manage',
-      name: '通知中心',
+      name: '通知中心（兼容旧权限）',
       type: PermissionType.PAGE,
+      description: '历史兼容权限，保留用于已有角色平滑迁移。',
+      sortOrder: 105,
+    },
+    {
+      id: 'perm_transfers_read',
+      key: 'transfers.read',
+      name: '查看转让记录',
+      type: PermissionType.PAGE,
+      description: '允许访问转让记录并查看转让单、异常态与运营留痕。',
+      sortOrder: 110,
+    },
+    {
+      id: 'perm_transfers_complete',
+      key: 'transfers.complete',
+      name: '强制完成转让',
+      type: PermissionType.ACTION,
+      description: '允许将异常到账的转让单补记为已完成。',
+      sortOrder: 111,
+    },
+    {
+      id: 'perm_transfers_rollback',
+      key: 'transfers.rollback',
+      name: '强制回滚转让',
+      type: PermissionType.ACTION,
+      description: '允许将已完成转让回滚为发起方持有。',
+      sortOrder: 112,
+    },
+    {
+      id: 'perm_transfers_expire',
+      key: 'transfers.expire',
+      name: '释放超时转让',
+      type: PermissionType.ACTION,
+      description: '允许手动释放超时未接收的转让单。',
+      sortOrder: 113,
+    },
+    {
+      id: 'perm_transfers_sync_owner',
+      key: 'transfers.sync_owner',
+      name: '修复转让归属',
+      type: PermissionType.ACTION,
+      description: '允许按已完成转让结果修复藏品归属。',
+      sortOrder: 114,
     },
     {
       id: 'perm_transfers_manage',
       key: 'transfers.manage',
-      name: '转让记录',
+      name: '转让记录（兼容旧权限）',
       type: PermissionType.PAGE,
+      description: '历史兼容权限，保留用于已有角色平滑迁移。',
+      sortOrder: 115,
     },
     {
       id: 'perm_nav_m2_placeholder',
       key: 'nav.m2_placeholder',
       name: 'M2+ 占位导航',
       type: PermissionType.PAGE,
+      description: '历史过渡导航权限，不再给新菜单使用。',
+      sortOrder: 120,
+    },
+    {
+      id: 'perm_admin_users_read',
+      key: 'admin_users.read',
+      name: '查看后台用户',
+      type: PermissionType.ACTION,
+      description: '允许查看后台用户列表与详情。',
+      sortOrder: 200,
+    },
+    {
+      id: 'perm_admin_users_create',
+      key: 'admin_users.create',
+      name: '创建后台用户',
+      type: PermissionType.ACTION,
+      description: '允许创建后台用户。',
+      sortOrder: 210,
+    },
+    {
+      id: 'perm_admin_users_update',
+      key: 'admin_users.update',
+      name: '编辑后台用户',
+      type: PermissionType.ACTION,
+      description: '允许编辑后台用户基础信息。',
+      sortOrder: 220,
+    },
+    {
+      id: 'perm_admin_users_enable',
+      key: 'admin_users.enable',
+      name: '启用后台用户',
+      type: PermissionType.ACTION,
+      description: '允许启用后台用户账号。',
+      sortOrder: 230,
+    },
+    {
+      id: 'perm_admin_users_disable',
+      key: 'admin_users.disable',
+      name: '停用后台用户',
+      type: PermissionType.ACTION,
+      description: '允许停用后台用户账号。',
+      sortOrder: 240,
+    },
+    {
+      id: 'perm_admin_users_assign_roles',
+      key: 'admin_users.assign_roles',
+      name: '分配后台用户角色',
+      type: PermissionType.ACTION,
+      description: '允许给后台用户分配和调整角色。',
+      sortOrder: 250,
+    },
+    {
+      id: 'perm_roles_read',
+      key: 'roles.read',
+      name: '查看角色',
+      type: PermissionType.ACTION,
+      description: '允许查看角色列表与详情。',
+      sortOrder: 260,
+    },
+    {
+      id: 'perm_roles_create',
+      key: 'roles.create',
+      name: '创建角色',
+      type: PermissionType.ACTION,
+      description: '允许创建自定义角色。',
+      sortOrder: 270,
+    },
+    {
+      id: 'perm_roles_update',
+      key: 'roles.update',
+      name: '编辑角色',
+      type: PermissionType.ACTION,
+      description: '允许编辑角色基础信息。',
+      sortOrder: 280,
+    },
+    {
+      id: 'perm_roles_enable',
+      key: 'roles.enable',
+      name: '启用角色',
+      type: PermissionType.ACTION,
+      description: '允许启用角色。',
+      sortOrder: 290,
+    },
+    {
+      id: 'perm_roles_disable',
+      key: 'roles.disable',
+      name: '停用角色',
+      type: PermissionType.ACTION,
+      description: '允许停用角色。',
+      sortOrder: 300,
+    },
+    {
+      id: 'perm_roles_assign_permissions',
+      key: 'roles.assign_permissions',
+      name: '分配角色权限',
+      type: PermissionType.ACTION,
+      description: '允许给角色分配和调整权限点。',
+      sortOrder: 310,
+    },
+    {
+      id: 'perm_permissions_read',
+      key: 'permissions.read',
+      name: '查看权限点',
+      type: PermissionType.ACTION,
+      description: '允许查看权限点列表与详情。',
+      sortOrder: 320,
+    },
+    {
+      id: 'perm_permissions_create',
+      key: 'permissions.create',
+      name: '创建权限点',
+      type: PermissionType.ACTION,
+      description: '允许创建自定义权限点。',
+      sortOrder: 330,
+    },
+    {
+      id: 'perm_permissions_update',
+      key: 'permissions.update',
+      name: '编辑权限点',
+      type: PermissionType.ACTION,
+      description: '允许编辑权限点显示信息与状态。',
+      sortOrder: 340,
+    },
+    {
+      id: 'perm_permissions_enable',
+      key: 'permissions.enable',
+      name: '启用权限点',
+      type: PermissionType.ACTION,
+      description: '允许启用权限点。',
+      sortOrder: 350,
+    },
+    {
+      id: 'perm_permissions_disable',
+      key: 'permissions.disable',
+      name: '停用权限点',
+      type: PermissionType.ACTION,
+      description: '允许停用权限点。',
+      sortOrder: 360,
+    },
+    {
+      id: 'perm_permission_groups_read',
+      key: 'permission_groups.read',
+      name: '查看权限组',
+      type: PermissionType.ACTION,
+      description: '允许查看权限组列表与详情。',
+      sortOrder: 370,
+    },
+    {
+      id: 'perm_permission_groups_create',
+      key: 'permission_groups.create',
+      name: '创建权限组',
+      type: PermissionType.ACTION,
+      description: '允许创建权限组。',
+      sortOrder: 380,
+    },
+    {
+      id: 'perm_permission_groups_update',
+      key: 'permission_groups.update',
+      name: '编辑权限组',
+      type: PermissionType.ACTION,
+      description: '允许编辑权限组及其成员关系。',
+      sortOrder: 390,
+    },
+    {
+      id: 'perm_permission_groups_enable',
+      key: 'permission_groups.enable',
+      name: '启用权限组',
+      type: PermissionType.ACTION,
+      description: '允许启用权限组。',
+      sortOrder: 400,
+    },
+    {
+      id: 'perm_permission_groups_disable',
+      key: 'permission_groups.disable',
+      name: '停用权限组',
+      type: PermissionType.ACTION,
+      description: '允许停用权限组。',
+      sortOrder: 410,
+    },
+    {
+      id: 'perm_menus_read',
+      key: 'menus.read',
+      name: '查看菜单',
+      type: PermissionType.ACTION,
+      description: '允许查看菜单配置。',
+      sortOrder: 420,
+    },
+    {
+      id: 'perm_menus_create',
+      key: 'menus.create',
+      name: '创建菜单',
+      type: PermissionType.ACTION,
+      description: '允许创建菜单节点。',
+      sortOrder: 430,
+    },
+    {
+      id: 'perm_menus_update',
+      key: 'menus.update',
+      name: '编辑菜单',
+      type: PermissionType.ACTION,
+      description: '允许编辑菜单与绑定关系。',
+      sortOrder: 440,
+    },
+    {
+      id: 'perm_menus_enable',
+      key: 'menus.enable',
+      name: '启用菜单',
+      type: PermissionType.ACTION,
+      description: '允许启用菜单。',
+      sortOrder: 450,
+    },
+    {
+      id: 'perm_menus_disable',
+      key: 'menus.disable',
+      name: '停用菜单',
+      type: PermissionType.ACTION,
+      description: '允许停用菜单。',
+      sortOrder: 460,
     },
   ];
 
@@ -127,13 +520,547 @@ async function seedPermissions() {
         permissionKey: row.key,
         permissionName: row.name,
         permissionType: row.type,
+        description: row.description,
+        status: PermissionStatus.ENABLED,
+        isBuiltin: true,
+        sortOrder: row.sortOrder,
       },
       update: {
         permissionName: row.name,
         permissionType: row.type,
+        description: row.description,
+        status: PermissionStatus.ENABLED,
+        isBuiltin: true,
+        sortOrder: row.sortOrder,
       },
     });
   }
+}
+
+async function seedPermissionGroups() {
+  const rows: Array<{
+    id: string;
+    key: string;
+    name: string;
+    type: PermissionGroupType;
+    description: string;
+    sortOrder: number;
+    permissionIds: string[];
+  }> = [
+    {
+      id: 'perm_group_dashboard',
+      key: 'dashboard',
+      name: '仪表盘',
+      type: PermissionGroupType.PAGE_DOMAIN,
+      description: '用于仪表盘菜单展示与角色批量授权。',
+      sortOrder: 10,
+      permissionIds: ['perm_dashboard_read'],
+    },
+    {
+      id: 'perm_group_issuance_series',
+      key: 'issuance.series',
+      name: '系列管理',
+      type: PermissionGroupType.BUSINESS,
+      description: '用于系列管理相关菜单和授权。',
+      sortOrder: 20,
+      permissionIds: [
+        'perm_issuance_series',
+        'perm_issuance_series_create',
+        'perm_issuance_series_update',
+        'perm_issuance_series_toggle_status',
+      ],
+    },
+    {
+      id: 'perm_group_issuance_batches',
+      key: 'issuance.batches',
+      name: '发行批次',
+      type: PermissionGroupType.BUSINESS,
+      description: '用于发行批次相关菜单和授权。',
+      sortOrder: 30,
+      permissionIds: [
+        'perm_issuance_batches',
+        'perm_issuance_batches_create',
+        'perm_issuance_batches_update',
+        'perm_issuance_batches_toggle_status',
+      ],
+    },
+    {
+      id: 'perm_group_issuance_activation_codes',
+      key: 'issuance.activation_codes',
+      name: '激活码管理',
+      type: PermissionGroupType.BUSINESS,
+      description: '用于激活码相关菜单和授权。',
+      sortOrder: 40,
+      permissionIds: [
+        'perm_issuance_activation_codes',
+        'perm_issuance_activation_codes_generate',
+        'perm_issuance_activation_codes_void',
+      ],
+    },
+    {
+      id: 'perm_group_collections',
+      key: 'collections',
+      name: '藏品列表',
+      type: PermissionGroupType.BUSINESS,
+      description: '用于藏品列表相关菜单和授权。',
+      sortOrder: 50,
+      permissionIds: ['perm_collections_manage'],
+    },
+    {
+      id: 'perm_group_collection_reviews',
+      key: 'collection_reviews',
+      name: '内容复核',
+      type: PermissionGroupType.BUSINESS,
+      description: '用于内容复核相关菜单和授权。',
+      sortOrder: 60,
+      permissionIds: ['perm_collection_reviews_manage'],
+    },
+    {
+      id: 'perm_group_collection_comments',
+      key: 'collection_comments',
+      name: '评论治理',
+      type: PermissionGroupType.BUSINESS,
+      description: '用于评论列表与评论审核菜单和授权。',
+      sortOrder: 70,
+      permissionIds: ['perm_collection_comments_manage'],
+    },
+    {
+      id: 'perm_group_members',
+      key: 'members',
+      name: '会员管理',
+      type: PermissionGroupType.BUSINESS,
+      description: '用于会员管理菜单和授权。',
+      sortOrder: 80,
+      permissionIds: ['perm_members_read', 'perm_members_manage'],
+    },
+    {
+      id: 'perm_group_notifications',
+      key: 'notifications',
+      name: '通知中心',
+      type: PermissionGroupType.BUSINESS,
+      description: '用于通知中心菜单和授权。',
+      sortOrder: 90,
+      permissionIds: [
+        'perm_notifications_read',
+        'perm_notifications_template_create',
+        'perm_notifications_template_update',
+        'perm_notifications_template_toggle_status',
+        'perm_notifications_dispatch_retry',
+      ],
+    },
+    {
+      id: 'perm_group_transfers',
+      key: 'transfers',
+      name: '转让记录',
+      type: PermissionGroupType.BUSINESS,
+      description: '用于转让记录菜单和授权。',
+      sortOrder: 100,
+      permissionIds: [
+        'perm_transfers_read',
+        'perm_transfers_complete',
+        'perm_transfers_rollback',
+        'perm_transfers_expire',
+        'perm_transfers_sync_owner',
+      ],
+    },
+    {
+      id: 'perm_group_system_admin_users',
+      key: 'system.admin_users',
+      name: '后台用户',
+      type: PermissionGroupType.SYSTEM,
+      description: '用于后台用户系统管理菜单和授权。',
+      sortOrder: 200,
+      permissionIds: [
+        'perm_admin_users_read',
+        'perm_admin_users_create',
+        'perm_admin_users_update',
+        'perm_admin_users_enable',
+        'perm_admin_users_disable',
+        'perm_admin_users_assign_roles',
+      ],
+    },
+    {
+      id: 'perm_group_system_roles',
+      key: 'system.roles',
+      name: '角色权限',
+      type: PermissionGroupType.SYSTEM,
+      description: '用于角色权限系统管理菜单和授权。',
+      sortOrder: 210,
+      permissionIds: [
+        'perm_roles_read',
+        'perm_roles_create',
+        'perm_roles_update',
+        'perm_roles_enable',
+        'perm_roles_disable',
+        'perm_roles_assign_permissions',
+      ],
+    },
+    {
+      id: 'perm_group_system_permissions',
+      key: 'system.permissions',
+      name: '权限点管理',
+      type: PermissionGroupType.SYSTEM,
+      description: '用于权限点系统管理授权。',
+      sortOrder: 220,
+      permissionIds: [
+        'perm_permissions_read',
+        'perm_permissions_create',
+        'perm_permissions_update',
+        'perm_permissions_enable',
+        'perm_permissions_disable',
+      ],
+    },
+    {
+      id: 'perm_group_system_permission_groups',
+      key: 'system.permission_groups',
+      name: '权限组管理',
+      type: PermissionGroupType.SYSTEM,
+      description: '用于权限组系统管理授权。',
+      sortOrder: 230,
+      permissionIds: [
+        'perm_permission_groups_read',
+        'perm_permission_groups_create',
+        'perm_permission_groups_update',
+        'perm_permission_groups_enable',
+        'perm_permission_groups_disable',
+      ],
+    },
+    {
+      id: 'perm_group_system_menus',
+      key: 'system.menus',
+      name: '菜单管理',
+      type: PermissionGroupType.SYSTEM,
+      description: '用于菜单系统管理授权。',
+      sortOrder: 240,
+      permissionIds: [
+        'perm_menus_read',
+        'perm_menus_create',
+        'perm_menus_update',
+        'perm_menus_enable',
+        'perm_menus_disable',
+      ],
+    },
+  ];
+
+  for (const row of rows) {
+    await prisma.permissionGroup.upsert({
+      where: { groupKey: row.key },
+      create: {
+        id: row.id,
+        groupKey: row.key,
+        groupName: row.name,
+        groupType: row.type,
+        description: row.description,
+        status: PermissionGroupStatus.ENABLED,
+        isBuiltin: true,
+        sortOrder: row.sortOrder,
+      },
+      update: {
+        groupName: row.name,
+        groupType: row.type,
+        description: row.description,
+        status: PermissionGroupStatus.ENABLED,
+        isBuiltin: true,
+        sortOrder: row.sortOrder,
+      },
+    });
+  }
+
+  await prisma.permissionGroupItem.deleteMany({
+    where: {
+      permissionGroupId: { in: rows.map((row) => row.id) },
+    },
+  });
+
+  await prisma.permissionGroupItem.createMany({
+    data: rows.flatMap((row) =>
+      row.permissionIds.map((permissionId) => ({
+        permissionGroupId: row.id,
+        permissionId,
+      })),
+    ),
+  });
+}
+
+async function seedMenus() {
+  const rows: Array<{
+    id: string;
+    parentId: string | null;
+    key: string;
+    name: string;
+    type: MenuType;
+    routePath: string | null;
+    iconName: string | null;
+    sortOrder: number;
+    permissionGroupIds: string[];
+  }> = [
+    {
+      id: 'menu_dashboard',
+      parentId: null,
+      key: 'dashboard',
+      name: '仪表盘',
+      type: MenuType.PAGE,
+      routePath: '/',
+      iconName: 'LayoutDashboard',
+      sortOrder: 10,
+      permissionGroupIds: ['perm_group_dashboard'],
+    },
+    {
+      id: 'menu_issuance_root',
+      parentId: null,
+      key: 'issuance',
+      name: '发行管理',
+      type: MenuType.DIRECTORY,
+      routePath: null,
+      iconName: 'FolderKanban',
+      sortOrder: 20,
+      permissionGroupIds: [
+        'perm_group_issuance_series',
+        'perm_group_issuance_batches',
+        'perm_group_issuance_activation_codes',
+      ],
+    },
+    {
+      id: 'menu_issuance_series',
+      parentId: 'menu_issuance_root',
+      key: 'issuance.series',
+      name: '系列管理',
+      type: MenuType.PAGE,
+      routePath: '/issuance/series',
+      iconName: 'FolderKanban',
+      sortOrder: 10,
+      permissionGroupIds: ['perm_group_issuance_series'],
+    },
+    {
+      id: 'menu_issuance_batches',
+      parentId: 'menu_issuance_root',
+      key: 'issuance.batches',
+      name: '发行批次',
+      type: MenuType.PAGE,
+      routePath: '/issuance/batches',
+      iconName: 'Tags',
+      sortOrder: 20,
+      permissionGroupIds: ['perm_group_issuance_batches'],
+    },
+    {
+      id: 'menu_issuance_activation_codes',
+      parentId: 'menu_issuance_root',
+      key: 'issuance.activation_codes',
+      name: '激活码管理',
+      type: MenuType.PAGE,
+      routePath: '/issuance/activation-codes',
+      iconName: 'KeyRound',
+      sortOrder: 30,
+      permissionGroupIds: ['perm_group_issuance_activation_codes'],
+    },
+    {
+      id: 'menu_collections_root',
+      parentId: null,
+      key: 'collections',
+      name: '藏品业务',
+      type: MenuType.DIRECTORY,
+      routePath: null,
+      iconName: 'Boxes',
+      sortOrder: 30,
+      permissionGroupIds: [
+        'perm_group_collections',
+        'perm_group_collection_reviews',
+      ],
+    },
+    {
+      id: 'menu_collections_list',
+      parentId: 'menu_collections_root',
+      key: 'collections.list',
+      name: '藏品列表',
+      type: MenuType.PAGE,
+      routePath: '/collections/list',
+      iconName: 'Boxes',
+      sortOrder: 10,
+      permissionGroupIds: ['perm_group_collections'],
+    },
+    {
+      id: 'menu_collection_reviews',
+      parentId: 'menu_collections_root',
+      key: 'collections.reviews',
+      name: '内容复核',
+      type: MenuType.PAGE,
+      routePath: '/collections/reviews',
+      iconName: 'ScanSearch',
+      sortOrder: 20,
+      permissionGroupIds: ['perm_group_collection_reviews'],
+    },
+    {
+      id: 'menu_members_root',
+      parentId: null,
+      key: 'members_and_comments',
+      name: '互动与会员',
+      type: MenuType.DIRECTORY,
+      routePath: null,
+      iconName: 'Users',
+      sortOrder: 40,
+      permissionGroupIds: [
+        'perm_group_collection_comments',
+        'perm_group_members',
+      ],
+    },
+    {
+      id: 'menu_comments_list',
+      parentId: 'menu_members_root',
+      key: 'comments.list',
+      name: '评论列表',
+      type: MenuType.PAGE,
+      routePath: '/comments/list',
+      iconName: 'MessageSquareMore',
+      sortOrder: 10,
+      permissionGroupIds: ['perm_group_collection_comments'],
+    },
+    {
+      id: 'menu_comments_reviews',
+      parentId: 'menu_members_root',
+      key: 'comments.reviews',
+      name: '评论审核',
+      type: MenuType.PAGE,
+      routePath: '/comments/reviews',
+      iconName: 'ScrollText',
+      sortOrder: 20,
+      permissionGroupIds: ['perm_group_collection_comments'],
+    },
+    {
+      id: 'menu_members',
+      parentId: 'menu_members_root',
+      key: 'members',
+      name: '会员管理',
+      type: MenuType.PAGE,
+      routePath: '/members',
+      iconName: 'Users',
+      sortOrder: 30,
+      permissionGroupIds: ['perm_group_members'],
+    },
+    {
+      id: 'menu_operations_root',
+      parentId: null,
+      key: 'operations',
+      name: '转让与通知',
+      type: MenuType.DIRECTORY,
+      routePath: null,
+      iconName: 'Bell',
+      sortOrder: 50,
+      permissionGroupIds: ['perm_group_transfers', 'perm_group_notifications'],
+    },
+    {
+      id: 'menu_transfers',
+      parentId: 'menu_operations_root',
+      key: 'transfers',
+      name: '转让记录',
+      type: MenuType.PAGE,
+      routePath: '/transfers',
+      iconName: 'BookOpenText',
+      sortOrder: 10,
+      permissionGroupIds: ['perm_group_transfers'],
+    },
+    {
+      id: 'menu_notifications',
+      parentId: 'menu_operations_root',
+      key: 'notifications',
+      name: '通知中心',
+      type: MenuType.PAGE,
+      routePath: '/notifications',
+      iconName: 'Bell',
+      sortOrder: 20,
+      permissionGroupIds: ['perm_group_notifications'],
+    },
+    {
+      id: 'menu_system_root',
+      parentId: null,
+      key: 'system',
+      name: '系统管理',
+      type: MenuType.DIRECTORY,
+      routePath: null,
+      iconName: 'Shield',
+      sortOrder: 60,
+      permissionGroupIds: [
+        'perm_group_system_admin_users',
+        'perm_group_system_roles',
+        'perm_group_system_menus',
+      ],
+    },
+    {
+      id: 'menu_system_admin_users',
+      parentId: 'menu_system_root',
+      key: 'system.admin_users',
+      name: '后台用户',
+      type: MenuType.PAGE,
+      routePath: '/system/admin-users',
+      iconName: 'SquareTerminal',
+      sortOrder: 10,
+      permissionGroupIds: ['perm_group_system_admin_users'],
+    },
+    {
+      id: 'menu_system_roles',
+      parentId: 'menu_system_root',
+      key: 'system.roles',
+      name: '角色权限',
+      type: MenuType.PAGE,
+      routePath: '/system/roles',
+      iconName: 'Shield',
+      sortOrder: 20,
+      permissionGroupIds: ['perm_group_system_roles'],
+    },
+    {
+      id: 'menu_system_menus',
+      parentId: 'menu_system_root',
+      key: 'system.menus',
+      name: '菜单权限',
+      type: MenuType.PAGE,
+      routePath: '/system/menus',
+      iconName: 'ScanSearch',
+      sortOrder: 30,
+      permissionGroupIds: ['perm_group_system_menus'],
+    },
+  ];
+
+  for (const row of rows) {
+    await prisma.menu.upsert({
+      where: { menuKey: row.key },
+      create: {
+        id: row.id,
+        parentId: row.parentId,
+        menuKey: row.key,
+        menuName: row.name,
+        menuType: row.type,
+        routePath: row.routePath,
+        iconName: row.iconName,
+        status: MenuStatus.ENABLED,
+        isBuiltin: true,
+        sortOrder: row.sortOrder,
+      },
+      update: {
+        parentId: row.parentId,
+        menuName: row.name,
+        menuType: row.type,
+        routePath: row.routePath,
+        iconName: row.iconName,
+        status: MenuStatus.ENABLED,
+        isBuiltin: true,
+        sortOrder: row.sortOrder,
+      },
+    });
+  }
+
+  await prisma.menuPermissionGroup.deleteMany({
+    where: {
+      menuId: { in: rows.map((row) => row.id) },
+    },
+  });
+
+  await prisma.menuPermissionGroup.createMany({
+    data: rows.flatMap((row) =>
+      row.permissionGroupIds.map((permissionGroupId) => ({
+        menuId: row.id,
+        permissionGroupId,
+      })),
+    ),
+  });
 }
 
 async function seedRoles() {
@@ -143,9 +1070,18 @@ async function seedRoles() {
       id: 'role_super_admin',
       roleKey: 'super_admin',
       roleName: '超级管理员',
+      description: '拥有后台全部权限的系统内置角色。',
       status: RoleStatus.ENABLED,
+      isBuiltin: true,
+      sortOrder: 0,
     },
-    update: { status: RoleStatus.ENABLED },
+    update: {
+      roleName: '超级管理员',
+      description: '拥有后台全部权限的系统内置角色。',
+      status: RoleStatus.ENABLED,
+      isBuiltin: true,
+      sortOrder: 0,
+    },
   });
 
   await prisma.role.upsert({
@@ -154,26 +1090,26 @@ async function seedRoles() {
       id: 'role_viewer',
       roleKey: 'viewer',
       roleName: '仅仪表盘访客',
+      description: '仅用于只读查看后台仪表盘的演示角色。',
       status: RoleStatus.ENABLED,
+      isBuiltin: true,
+      sortOrder: 10,
     },
-    update: { status: RoleStatus.ENABLED },
+    update: {
+      roleName: '仅仪表盘访客',
+      description: '仅用于只读查看后台仪表盘的演示角色。',
+      status: RoleStatus.ENABLED,
+      isBuiltin: true,
+      sortOrder: 10,
+    },
   });
 
-  const superLinks = [
-    'perm_wildcard',
-    'perm_dashboard_read',
-    'perm_issuance_series',
-    'perm_issuance_batches',
-    'perm_issuance_activation_codes',
-    'perm_collections_manage',
-    'perm_collection_reviews_manage',
-    'perm_collection_comments_manage',
-    'perm_members_read',
-    'perm_members_manage',
-    'perm_notifications_manage',
-    'perm_transfers_manage',
-    'perm_nav_m2_placeholder',
-  ];
+  const superLinks = (
+    await prisma.permission.findMany({
+      where: { status: PermissionStatus.ENABLED },
+      select: { id: true },
+    })
+  ).map((item) => item.id);
 
   await prisma.rolePermission.deleteMany({
     where: { roleId: 'role_super_admin' },
@@ -198,6 +1134,52 @@ async function seedRoles() {
       permissionId: 'perm_dashboard_read',
     },
   });
+}
+
+async function expandLegacyManagePermissions() {
+  const legacyExpansions = [
+    {
+      legacyPermissionId: 'perm_notifications_manage',
+      expandedPermissionIds: [
+        'perm_notifications_read',
+        'perm_notifications_template_create',
+        'perm_notifications_template_update',
+        'perm_notifications_template_toggle_status',
+        'perm_notifications_dispatch_retry',
+      ],
+    },
+    {
+      legacyPermissionId: 'perm_transfers_manage',
+      expandedPermissionIds: [
+        'perm_transfers_read',
+        'perm_transfers_complete',
+        'perm_transfers_rollback',
+        'perm_transfers_expire',
+        'perm_transfers_sync_owner',
+      ],
+    },
+  ] as const;
+
+  for (const expansion of legacyExpansions) {
+    const legacyRoleLinks = await prisma.rolePermission.findMany({
+      where: { permissionId: expansion.legacyPermissionId },
+      select: { roleId: true },
+    });
+
+    if (legacyRoleLinks.length === 0) {
+      continue;
+    }
+
+    await prisma.rolePermission.createMany({
+      data: legacyRoleLinks.flatMap((link) =>
+        expansion.expandedPermissionIds.map((permissionId) => ({
+          roleId: link.roleId,
+          permissionId,
+        })),
+      ),
+      skipDuplicates: true,
+    });
+  }
 }
 
 /**
@@ -1234,7 +2216,10 @@ async function seedAdminUsers() {
 
 async function main() {
   await seedPermissions();
+  await seedPermissionGroups();
+  await seedMenus();
   await seedRoles();
+  await expandLegacyManagePermissions();
   await seedAdminUsers();
   await seedPendingManualReviewDemo();
   await seedPendingManualCommentReviewDemo();

@@ -16,6 +16,9 @@ type SeriesTableProps = {
   data: SeriesListItem[]
   /** 列表行内写操作进行中时为 true，避免重复触发。 */
   actionsDisabled: boolean
+  canCreateSeries: boolean
+  canEditSeries: boolean
+  canToggleSeriesStatus: boolean
   onEditSeries: (row: SeriesListItem) => void
   onSetSeriesStatus: (
     row: SeriesListItem,
@@ -28,6 +31,9 @@ type SeriesTableProps = {
 export function SeriesTable({
   data,
   actionsDisabled,
+  canCreateSeries,
+  canEditSeries,
+  canToggleSeriesStatus,
   onEditSeries,
   onSetSeriesStatus,
   onCreateSeries,
@@ -41,10 +47,18 @@ export function SeriesTable({
     () =>
       createSeriesColumns({
         actionsDisabled,
+        canEdit: canEditSeries,
+        canToggleStatus: canToggleSeriesStatus,
         onEdit: onEditSeries,
         onSetStatus: onSetSeriesStatus,
       }),
-    [actionsDisabled, onEditSeries, onSetSeriesStatus]
+    [
+      actionsDisabled,
+      canEditSeries,
+      canToggleSeriesStatus,
+      onEditSeries,
+      onSetSeriesStatus,
+    ]
   )
 
   const filteredData = useMemo(() => {
@@ -114,9 +128,11 @@ export function SeriesTable({
         emptyTitle='暂无符合条件的系列'
         emptyDescription='可以尝试放宽关键字或切换状态条件后再查看。'
         extra={
-          <Button size='sm' onClick={onCreateSeries}>
-            新增系列
-          </Button>
+          canCreateSeries ? (
+            <Button size='sm' onClick={onCreateSeries}>
+              新增系列
+            </Button>
+          ) : null
         }
         loading={isLoading}
         pagination={{

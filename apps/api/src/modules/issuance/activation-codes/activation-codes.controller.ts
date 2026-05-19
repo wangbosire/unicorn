@@ -4,7 +4,11 @@ import type {
   ListActivationCodesQuery,
 } from '@contracts/admin/activation-codes';
 import { AdminAccessGuard } from '../../admin/auth/admin-access.guard';
-import { ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES } from '../../admin/auth/admin-permission-keys';
+import {
+  ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES,
+  ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES_GENERATE,
+  ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES_VOID,
+} from '../../admin/auth/admin-permission-keys';
 import { RequireAdminPermissions } from '../../admin/auth/admin-permissions.decorator';
 import { ActivationCodesService } from './activation-codes.service';
 
@@ -14,7 +18,6 @@ import { ActivationCodesService } from './activation-codes.service';
  */
 @Controller('admin-api/activation-codes')
 @UseGuards(AdminAccessGuard)
-@RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES)
 export class ActivationCodesController {
   constructor(private readonly activationCodesService: ActivationCodesService) {}
 
@@ -22,6 +25,7 @@ export class ActivationCodesController {
    * 查询激活码列表。
    */
   @Get()
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES)
   async listActivationCodes(@Query() query: ListActivationCodesQuery) {
     return this.activationCodesService.listActivationCodes(query);
   }
@@ -30,6 +34,7 @@ export class ActivationCodesController {
    * 查询单个激活码详情。
    */
   @Get(':activationCodeId')
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES)
   async getActivationCodeById(
     @Param('activationCodeId') activationCodeId: string,
   ) {
@@ -40,6 +45,7 @@ export class ActivationCodesController {
    * 批量生成激活码并同步创建待领取藏品。
    */
   @Post('generate')
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES_GENERATE)
   async generateActivationCodes(@Body() body: GenerateActivationCodesRequest) {
     return this.activationCodesService.generateActivationCodes(body);
   }
@@ -48,6 +54,7 @@ export class ActivationCodesController {
    * 作废单条激活码（仅未使用且未过期状态可操作）。
    */
   @Patch(':activationCodeId/void')
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES_VOID)
   async voidActivationCode(
     @Param('activationCodeId') activationCodeId: string,
   ) {

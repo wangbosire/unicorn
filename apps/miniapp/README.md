@@ -28,7 +28,7 @@ TaroJS 小程序应用骨架目录。
 
 在仓库根目录安装依赖后，于本包目录执行：
 
-- `pnpm dev:h5`：H5 联调（默认 `10086` 端口，可按 `config/index.ts` 与 `UNICORN_DOCKER_DEV` 使用 `/api` 反代）
+- `pnpm dev:h5`：H5 联调（默认 `10086` 端口；本地可配 `MINIAPP_API_PROXY_TARGET`，容器内可配 `UNICORN_DOCKER_DEV=1`，两者都会把 `/api` 反代到目标 API）
 - `pnpm dev`：微信小程序产物监听编译
 - `pnpm test`：Vitest 纯函数单测
 - `pnpm lint` / `pnpm run build`：类型检查与 weapp 构建

@@ -5,6 +5,9 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
 
+const dockerDev = process.env.DOCKER === '1'
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -21,19 +24,19 @@ export default defineConfig({
       '@contracts': path.resolve(__dirname, '../../packages/api-contracts/src'),
     },
   },
-  /** Docker 热更：绑定 0.0.0.0，并将 /api 反代到 compose 中的 api 服务。 */
-  ...(process.env.DOCKER === '1'
+  /** 本地或 Docker 开发：可通过 VITE_API_PROXY_TARGET 将 /api 反代到目标 API。 */
+  ...(dockerDev || apiProxyTarget
     ? {
         server: {
-          host: '0.0.0.0',
+          host: dockerDev ? '0.0.0.0' : '127.0.0.1',
           port: 5173,
           strictPort: true,
-          watch: { usePolling: true },
-          ...(process.env.VITE_API_PROXY_TARGET
+          ...(dockerDev ? { watch: { usePolling: true } } : {}),
+          ...(apiProxyTarget
             ? {
                 proxy: {
                   '/api': {
-                    target: process.env.VITE_API_PROXY_TARGET,
+                    target: apiProxyTarget,
                     changeOrigin: true,
                   },
                 },

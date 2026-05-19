@@ -5,8 +5,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
+import { AdminUserStatus } from '@prisma/client';
 import * as jwt from 'jsonwebtoken';
 import { BizError } from '../../../common/http/biz-error';
+import { PrismaService } from '../../../platform/prisma/prisma.service';
 import {
   ADMIN_REQUIRED_PERMISSIONS_KEY,
 } from './admin-permissions.decorator';
@@ -16,6 +18,7 @@ type AdminJwtPayload = {
   sub: string;
   username: string;
   accountNo: string;
+  authzVersion: number;
   permissionKeys: string[];
   typ: 'admin';
 };
@@ -29,9 +32,10 @@ export class AdminAccessGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AdminHttpRequest>();
     const token = this.extractBearerToken(request.headers.authorization);
 
@@ -64,6 +68,42 @@ export class AdminAccessGuard implements CanActivate {
       });
     }
 
+    const currentAdmin = await this.prisma.adminUser.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        status: true,
+        authzVersion: true,
+      },
+    });
+
+    if (!currentAdmin) {
+      throw new BizError({
+        code: 'ADMIN_AUTH_TOKEN_INVALID',
+        message: 'admin session is no longer valid',
+        status: 401,
+      });
+    }
+
+    if (currentAdmin.status !== AdminUserStatus.ACTIVE) {
+      throw new BizError({
+        code: 'ADMIN_ACCOUNT_DISABLED',
+        message: 'admin account is disabled or removed',
+        status: 403,
+      });
+    }
+
+    if (
+      !Number.isInteger(payload.authzVersion) ||
+      payload.authzVersion !== currentAdmin.authzVersion
+    ) {
+      throw new BizError({
+        code: 'ADMIN_AUTH_TOKEN_STALE',
+        message: 'admin session expired due to permission change',
+        status: 401,
+      });
+    }
+
     const permissionKeys = Array.isArray(payload.permissionKeys)
       ? payload.permissionKeys
       : [];
@@ -72,6 +112,7 @@ export class AdminAccessGuard implements CanActivate {
       id: payload.sub,
       username: payload.username,
       accountNo: payload.accountNo,
+      authzVersion: payload.authzVersion,
       permissionKeys,
     };
 

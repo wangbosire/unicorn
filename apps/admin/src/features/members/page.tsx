@@ -4,7 +4,9 @@ import { type PaginationState } from '@tanstack/react-table'
 import type { AdminMemberListItem } from '@contracts/admin/members'
 import { UsersIcon, WalletCardsIcon } from 'lucide-react'
 import { listMembers, updateMemberStatus } from '@/apis/members/members'
+import { AdminReadOnlyNotice } from '@/components/admin/admin-readonly-notice'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { useAdminPermission } from '@/hooks/use-admin-permission'
 import { PageLayout } from '@/components/layout/page-layout'
 import {
   ProCard,
@@ -24,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ApiError } from '@/lib/api-error'
+import { ADMIN_PERMISSION_MEMBERS_MANAGE } from '@/lib/admin-route-access'
 import { toast } from 'sonner'
 import { MembersTable } from './components/members-table'
 
@@ -78,6 +81,8 @@ function mapUpdateMemberStatusErrorMessage(error: ApiError): string {
 
 export function MembersPage() {
   const queryClient = useQueryClient()
+  const { hasPermission } = useAdminPermission()
+  const canManageMembers = hasPermission(ADMIN_PERMISSION_MEMBERS_MANAGE)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [searchInput, setSearchInput] = useState('')
@@ -286,16 +291,22 @@ export function MembersPage() {
               </div>
             </ProCard>
           ) : (
-            <MembersTable
-              data={items}
-              total={total}
-              page={page}
-              pageSize={pageSize}
-              onPaginationModelChange={handlePaginationModelChange}
-              actionsDisabled={updateStatusMutation.isPending}
-              onRequestFreeze={handleRequestFreeze}
-              onRequestUnfreeze={handleRequestUnfreeze}
-            />
+            <>
+              {!canManageMembers ? (
+                <AdminReadOnlyNotice description='当前账号仅具备会员查看权限，冻结与解冻动作已隐藏。' />
+              ) : null}
+              <MembersTable
+                data={items}
+                total={total}
+                page={page}
+                pageSize={pageSize}
+                onPaginationModelChange={handlePaginationModelChange}
+                actionsDisabled={updateStatusMutation.isPending}
+                canManageStatus={canManageMembers}
+                onRequestFreeze={handleRequestFreeze}
+                onRequestUnfreeze={handleRequestUnfreeze}
+              />
+            </>
           )}
         </ProPageContainer>
       </PageLayout>

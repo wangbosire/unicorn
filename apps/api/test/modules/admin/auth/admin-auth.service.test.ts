@@ -49,6 +49,7 @@ test('AdminAuthService.buildMeResponseHydrated returns enriched admin user summa
         displayName: '超级管理员',
         passwordHash: 'hash',
         status: AdminUserStatus.ACTIVE,
+        authzVersion: 3,
         lastLoginAt: new Date('2026-05-18T08:00:00.000Z'),
         createdAt: new Date('2026-05-18T07:00:00.000Z'),
         updatedAt: new Date('2026-05-18T08:00:00.000Z'),
@@ -82,6 +83,7 @@ test('AdminAuthService.buildMeResponseHydrated returns enriched admin user summa
     id: 'admin_1',
     username: 'root',
     accountNo: 'ADM-001',
+    authzVersion: 3,
     permissionKeys: ['*'],
   });
 

@@ -38,6 +38,7 @@ import { Route as ClerkAuthenticatedUserManagementRouteImport } from './routes/c
 import { Route as ClerkauthSignUpRouteImport } from './routes/clerk/(auth)/sign-up'
 import { Route as ClerkauthSignInRouteImport } from './routes/clerk/(auth)/sign-in'
 import { Route as AuthenticatedSystemRolesRouteImport } from './routes/_authenticated/system/roles'
+import { Route as AuthenticatedSystemMenusRouteImport } from './routes/_authenticated/system/menus'
 import { Route as AuthenticatedSystemAdminUsersRouteImport } from './routes/_authenticated/system/admin-users'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
@@ -200,6 +201,12 @@ const AuthenticatedSystemRolesRoute =
     path: '/system/roles',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSystemMenusRoute =
+  AuthenticatedSystemMenusRouteImport.update({
+    id: '/system/menus',
+    path: '/system/menus',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSystemAdminUsersRoute =
   AuthenticatedSystemAdminUsersRouteImport.update({
     id: '/system/admin-users',
@@ -309,6 +316,7 @@ export interface FileRoutesByFullPath {
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/system/admin-users': typeof AuthenticatedSystemAdminUsersRoute
+  '/system/menus': typeof AuthenticatedSystemMenusRoute
   '/system/roles': typeof AuthenticatedSystemRolesRoute
   '/clerk/sign-in': typeof ClerkauthSignInRoute
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
@@ -349,6 +357,7 @@ export interface FileRoutesByTo {
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/system/admin-users': typeof AuthenticatedSystemAdminUsersRoute
+  '/system/menus': typeof AuthenticatedSystemMenusRoute
   '/system/roles': typeof AuthenticatedSystemRolesRoute
   '/clerk/sign-in': typeof ClerkauthSignInRoute
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
@@ -394,6 +403,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/system/admin-users': typeof AuthenticatedSystemAdminUsersRoute
+  '/_authenticated/system/menus': typeof AuthenticatedSystemMenusRoute
   '/_authenticated/system/roles': typeof AuthenticatedSystemRolesRoute
   '/clerk/(auth)/sign-in': typeof ClerkauthSignInRoute
   '/clerk/(auth)/sign-up': typeof ClerkauthSignUpRoute
@@ -437,6 +447,7 @@ export interface FileRouteTypes {
     | '/settings/display'
     | '/settings/notifications'
     | '/system/admin-users'
+    | '/system/menus'
     | '/system/roles'
     | '/clerk/sign-in'
     | '/clerk/sign-up'
@@ -477,6 +488,7 @@ export interface FileRouteTypes {
     | '/settings/display'
     | '/settings/notifications'
     | '/system/admin-users'
+    | '/system/menus'
     | '/system/roles'
     | '/clerk/sign-in'
     | '/clerk/sign-up'
@@ -521,6 +533,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/display'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/system/admin-users'
+    | '/_authenticated/system/menus'
     | '/_authenticated/system/roles'
     | '/clerk/(auth)/sign-in'
     | '/clerk/(auth)/sign-up'
@@ -753,6 +766,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSystemRolesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/system/menus': {
+      id: '/_authenticated/system/menus'
+      path: '/system/menus'
+      fullPath: '/system/menus'
+      preLoaderRoute: typeof AuthenticatedSystemMenusRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/system/admin-users': {
       id: '/_authenticated/system/admin-users'
       path: '/system/admin-users'
@@ -885,6 +905,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedIssuanceBatchesRoute: typeof AuthenticatedIssuanceBatchesRoute
   AuthenticatedIssuanceSeriesRoute: typeof AuthenticatedIssuanceSeriesRoute
   AuthenticatedSystemAdminUsersRoute: typeof AuthenticatedSystemAdminUsersRoute
+  AuthenticatedSystemMenusRoute: typeof AuthenticatedSystemMenusRoute
   AuthenticatedSystemRolesRoute: typeof AuthenticatedSystemRolesRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
@@ -909,6 +930,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIssuanceBatchesRoute: AuthenticatedIssuanceBatchesRoute,
   AuthenticatedIssuanceSeriesRoute: AuthenticatedIssuanceSeriesRoute,
   AuthenticatedSystemAdminUsersRoute: AuthenticatedSystemAdminUsersRoute,
+  AuthenticatedSystemMenusRoute: AuthenticatedSystemMenusRoute,
   AuthenticatedSystemRolesRoute: AuthenticatedSystemRolesRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,

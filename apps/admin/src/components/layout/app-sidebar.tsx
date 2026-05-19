@@ -1,6 +1,9 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { getAdminNavigation } from '@/apis/admin-auth'
 import { useLayout } from '@/context/layout-provider'
 import { useAuthStore } from '@/stores/auth-store'
+import { buildAdminNavGroups } from '@/lib/admin-nav'
 import { canSeeNavItem } from '@/lib/nav-permissions'
 import {
   Sidebar,
@@ -52,11 +55,36 @@ export function AppSidebar() {
   const { collapsible, variant } = useLayout()
   const authUser = useAuthStore((s) => s.auth.user)
   const permissionKeys = authUser?.permissionKeys ?? EMPTY_PERMISSION_KEYS
+  const navigationQuery = useQuery({
+    queryKey: ['admin', 'auth', 'navigation'],
+    queryFn: getAdminNavigation,
+    staleTime: 60_000,
+  })
 
-  const navGroups = useMemo(
+  const fallbackNavGroups = useMemo(
     () => filterNavGroups(sidebarData.navGroups, permissionKeys),
     [permissionKeys]
   )
+  const runtimeNav = useMemo(() => {
+    if (!navigationQuery.data) {
+      return null
+    }
+
+    return {
+      navGroups: buildAdminNavGroups({
+        menus: navigationQuery.data.menus,
+      }).navGroups,
+      warnings: navigationQuery.data.warnings,
+    }
+  }, [navigationQuery.data])
+  const navGroups = runtimeNav?.navGroups ?? fallbackNavGroups
+
+  useEffect(() => {
+    for (const warning of runtimeNav?.warnings ?? []) {
+      // eslint-disable-next-line no-console
+      console.warn(`[admin-nav] ${warning}`)
+    }
+  }, [runtimeNav?.warnings])
 
   const navUser = authUser
     ? {

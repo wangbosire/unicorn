@@ -1,6 +1,6 @@
 import type { RedisOptions } from 'ioredis';
 
-const DEFAULT_REDIS_URL = 'redis://127.0.0.1:6379';
+const DEFAULT_REDIS_URL = 'redis://127.0.0.1:6380';
 
 /// 把 `redis://user:pass@host:port/db` 形式的 URL 转成 ioredis 选项。
 /// BullMQ Worker 要求 `maxRetriesPerRequest = null`，统一关闭以避免运行时报错。

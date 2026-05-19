@@ -28,6 +28,16 @@ apiClient.interceptors.response.use(
       const data = error.response?.data
 
       if (isApiFailureResponse(data)) {
+        if (shouldResetAdminSession(data.code)) {
+          useAuthStore.getState().auth.reset()
+          if (
+            typeof window !== 'undefined' &&
+            !window.location.pathname.includes('/sign-in')
+          ) {
+            window.location.assign('/sign-in')
+          }
+        }
+
         return Promise.reject(
           new ApiError({
             code: data.code,
@@ -55,4 +65,13 @@ function isApiFailureResponse(data: unknown): data is ApiFailureResponse {
     'message' in data &&
     typeof data.message === 'string'
   )
+}
+
+function shouldResetAdminSession(code: string): boolean {
+  return [
+    'ADMIN_AUTH_TOKEN_MISSING',
+    'ADMIN_AUTH_TOKEN_INVALID',
+    'ADMIN_AUTH_TOKEN_STALE',
+    'ADMIN_ACCOUNT_DISABLED',
+  ].includes(code)
 }

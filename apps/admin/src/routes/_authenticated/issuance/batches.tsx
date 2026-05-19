@@ -1,8 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { BatchesPage } from '@/features/issuance/batches-page'
-import { enforceIssuanceRouteAccess } from '@/lib/issuance-route-guard'
+import {
+  ADMIN_PERMISSION_ISSUANCE_BATCHES,
+  enforceAdminRouteAccess,
+} from '@/lib/admin-route-access'
 
 export const Route = createFileRoute('/_authenticated/issuance/batches')({
-  beforeLoad: enforceIssuanceRouteAccess,
+  beforeLoad: () =>
+    enforceAdminRouteAccess({
+      allOfPermissions: [ADMIN_PERMISSION_ISSUANCE_BATCHES],
+    }),
   component: BatchesPage,
 })

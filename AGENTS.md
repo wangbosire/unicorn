@@ -31,7 +31,7 @@
 
 - 涉及需求范围、业务目标、用户流程时，优先查看 `docs/产品理解.md` 与 `docs/product-specs/`
 - 涉及架构、模型、状态、接口、权限时，优先查看 `docs/设计.md` 与 `docs/design-docs/`
-- 涉及开发顺序、阶段目标、里程碑、验收标准时，优先查看 `docs/执行计划.md`、`docs/exec-plans/active/二期-通知与转让运营增强.md` 与 `docs/exec-plans/completed/一期V1归档总览.md`
+- 涉及开发顺序、阶段目标、里程碑、验收标准时，优先查看 `docs/执行计划.md`、`docs/exec-plans/completed/二期-通知与转让运营增强.md` 与 `docs/exec-plans/completed/一期V1归档总览.md`
 - 涉及质量、可靠性、安全要求时，分别查看 `docs/质量评分.md`、`docs/可靠性.md`、`docs/安全.md`
 - 涉及外部资料、生成结果或工具参考时，查看 `docs/references/` 与 `docs/generated/`
 
@@ -43,7 +43,7 @@
 - [docs/设计.md](./docs/设计.md) 设计文档入口。
 - [docs/前端研发.md](./docs/前端研发.md) 前端研发入口。
 - [docs/执行计划.md](./docs/执行计划.md) 执行计划入口。
-- [docs/exec-plans/active/二期-通知与转让运营增强.md](./docs/exec-plans/active/二期-通知与转让运营增强.md) 当前进行中计划。
+- [docs/exec-plans/completed/二期-通知与转让运营增强.md](./docs/exec-plans/completed/二期-通知与转让运营增强.md) 最近完成的二期阶段归档。
 - [docs/exec-plans/completed/一期V1归档总览.md](./docs/exec-plans/completed/一期V1归档总览.md) 已归档一期总览。
 - [docs/质量评分.md](./docs/质量评分.md) 质量治理入口。
 - [docs/可靠性.md](./docs/可靠性.md) 可靠性入口。
@@ -53,14 +53,14 @@
 
 ## 当前状态
 
-当前仓库的一期主链路与运营治理能力已完成收口，二期已正式进入“通知编排 + 转让运营增强”的阶段性交付阶段：
+当前仓库的一期主链路与运营治理能力已完成收口，二期“通知编排 + 转让运营增强”阶段也已完成归档：
 
 - `apps/admin`：已接入仪表盘、通知、转让、审核治理、会员治理等一期后台主链路页面
 - `apps/miniapp`：已接入登录、激活、我的藏品、内容编辑、公开展示、消息与基础转让链路
 - `apps/api`：已形成可支撑 admin-api、member-api、public-api 的一期业务闭环与验收能力
 - `docs/`：已沉淀 PRD、架构设计、执行计划、阶段验收与专项归档资料
 
-当前优先级以二期通知派发、模板治理、转让运营闭环的交付收口与环境验证为主，详细内容以 `docs/` 为准。
+当前优先级回到文档归档、导航维护、技术债治理和后续阶段规划，详细内容以 `docs/` 为准。
 
 ## 编码规范
 

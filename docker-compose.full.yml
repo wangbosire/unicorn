@@ -1,0 +1,42 @@
+# 可选全栈容器模式：在基础设施之外，再启动 API + 静态网关
+#
+# 启动：
+#   docker compose -f docker-compose.yml -f docker-compose.full.yml up -d --build
+#
+# 访问：
+#   后台：http://localhost:8080/
+#   小程序 H5：http://localhost:8080/h5/
+#   API 直连：http://localhost:3000/api/...
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: unicorn-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql://root:root123..@mysql:3306/unicorn
+      REDIS_URL: redis://redis:6379
+      PORT: '3000'
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-dev-admin-jwt-secret-change-me}
+      API_DEBUG_ERRORS: ${API_DEBUG_ERRORS:-true}
+      CONTENT_MANUAL_GATE_AFTER_MACHINE: ${CONTENT_MANUAL_GATE_AFTER_MACHINE:-0}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    container_name: unicorn-web
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    depends_on:
+      - api

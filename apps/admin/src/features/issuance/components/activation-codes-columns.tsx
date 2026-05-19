@@ -15,6 +15,7 @@ import {
 
 export type ActivationCodesTableActions = {
   actionsDisabled: boolean
+  canVoidActivationCode: boolean
   onVoidRequest: (row: ActivationCodeListItem) => void
 }
 
@@ -84,7 +85,12 @@ export function createActivationCodesColumns(
       header: () => <span className='sr-only'>操作</span>,
       cell: ({ row }) => {
         const item = row.original
-        const voidable = canVoidActivationCode(item.status)
+        const voidable =
+          actions.canVoidActivationCode && canVoidActivationCode(item.status)
+
+        if (!actions.canVoidActivationCode) {
+          return null
+        }
 
         return (
           <DropdownMenu modal={false}>

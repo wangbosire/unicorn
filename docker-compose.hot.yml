@@ -1,7 +1,7 @@
-# 与 docker-compose.yml 合并使用，实现 API / Admin / 小程序 H5 在容器内热更新。
+# 与 `docker-compose.yml` 合并使用，实现 API / Admin / 小程序 H5 在容器内热更新。
 #
 # 启动示例（不启动生产 nginx 静态站 web，避免与 Admin 开发端口混淆）：
-#   docker compose -f docker-compose.yml -f docker-compose.hot.yml up --build mysql api admin-dev miniapp-h5-dev
+#   docker compose -f docker-compose.yml -f docker-compose.hot.yml up --build mysql redis api admin-dev miniapp-h5-dev
 #
 # 访问：
 #   API：http://localhost:3000/api/…
@@ -15,11 +15,31 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.dev
+    container_name: unicorn-api-dev
+    restart: unless-stopped
     entrypoint: ["/bin/sh", "/repo/docker/api-dev-entrypoint.sh"]
     environment:
+      DATABASE_URL: mysql://root:root123..@mysql:3306/unicorn
+      REDIS_URL: redis://redis:6379
+      PORT: "3000"
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-dev-admin-jwt-secret-change-me}
+      API_DEBUG_ERRORS: ${API_DEBUG_ERRORS:-true}
+      CONTENT_MANUAL_GATE_AFTER_MACHINE: ${CONTENT_MANUAL_GATE_AFTER_MACHINE:-0}
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "1000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
     volumes:
+      - ./package.json:/repo/package.json
+      - ./pnpm-lock.yaml:/repo/pnpm-lock.yaml
+      - ./pnpm-workspace.yaml:/repo/pnpm-workspace.yaml
+      - ./turbo.json:/repo/turbo.json
+      - ./apps/api/package.json:/repo/apps/api/package.json
       - ./apps/api/src:/repo/apps/api/src
       - ./apps/api/prisma:/repo/apps/api/prisma
       - ./apps/api/test:/repo/apps/api/test

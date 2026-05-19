@@ -15,6 +15,8 @@ import {
 
 export type BatchesTableActions = {
   actionsDisabled: boolean
+  canEditBatch: boolean
+  canToggleBatchStatus: boolean
   onEditBatch: (row: IssuanceBatchListItem) => void
   onSetBatchStatus: (
     row: IssuanceBatchListItem,
@@ -114,6 +116,11 @@ export function createBatchesColumns(
       cell: ({ row }) => {
         const item = row.original
         const isEnabled = item.status === 'ENABLED'
+        const canOpenMenu = actions.canEditBatch || actions.canToggleBatchStatus
+
+        if (!canOpenMenu) {
+          return null
+        }
 
         return (
           <DropdownMenu modal={false}>
@@ -129,33 +136,41 @@ export function createBatchesColumns(
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-44'>
               <DropdownMenuLabel>操作</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  actions.onEditBatch(item)
-                }}
-              >
-                编辑批次
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {isEnabled ? (
-                <DropdownMenuItem
-                  className='text-destructive focus:text-destructive'
-                  onClick={() => {
-                    actions.onSetBatchStatus(item, 'DISABLED')
-                  }}
-                >
-                  停用批次
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  onClick={() => {
-                    actions.onSetBatchStatus(item, 'ENABLED')
-                  }}
-                >
-                  启用批次
-                </DropdownMenuItem>
-              )}
+              {actions.canEditBatch ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      actions.onEditBatch(item)
+                    }}
+                  >
+                    编辑批次
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+              {actions.canToggleBatchStatus ? (
+                <>
+                  <DropdownMenuSeparator />
+                  {isEnabled ? (
+                    <DropdownMenuItem
+                      className='text-destructive focus:text-destructive'
+                      onClick={() => {
+                        actions.onSetBatchStatus(item, 'DISABLED')
+                      }}
+                    >
+                      停用批次
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        actions.onSetBatchStatus(item, 'ENABLED')
+                      }}
+                    >
+                      启用批次
+                    </DropdownMenuItem>
+                  )}
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         )

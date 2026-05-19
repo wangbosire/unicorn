@@ -14,7 +14,13 @@ import type {
 } from '@contracts/admin/transfers';
 import { AdminAccessGuard } from '../auth/admin-access.guard';
 import type { AdminHttpRequest } from '../auth/admin-http.types';
-import { ADMIN_PERMISSION_TRANSFERS_MANAGE } from '../auth/admin-permission-keys';
+import {
+  ADMIN_PERMISSION_TRANSFERS_COMPLETE,
+  ADMIN_PERMISSION_TRANSFERS_EXPIRE,
+  ADMIN_PERMISSION_TRANSFERS_READ,
+  ADMIN_PERMISSION_TRANSFERS_ROLLBACK,
+  ADMIN_PERMISSION_TRANSFERS_SYNC_OWNER,
+} from '../auth/admin-permission-keys';
 import { RequireAdminPermissions } from '../auth/admin-permissions.decorator';
 import { TransfersService } from './transfers.service';
 
@@ -24,7 +30,6 @@ import { TransfersService } from './transfers.service';
  */
 @Controller('admin-api/transfers')
 @UseGuards(AdminAccessGuard)
-@RequireAdminPermissions(ADMIN_PERMISSION_TRANSFERS_MANAGE)
 export class TransfersController {
   constructor(private readonly transfersService: TransfersService) {}
 
@@ -32,6 +37,7 @@ export class TransfersController {
    * 查询后台转让记录列表。
    */
   @Get()
+  @RequireAdminPermissions(ADMIN_PERMISSION_TRANSFERS_READ)
   async listTransferOrders(@Query() query: ListTransferOrdersQuery) {
     return this.transfersService.listTransferOrders(query);
   }
@@ -40,6 +46,7 @@ export class TransfersController {
    * 查询转让运营处置累计概览。
    */
   @Get('operations/overview')
+  @RequireAdminPermissions(ADMIN_PERMISSION_TRANSFERS_READ)
   async getTransferOperationsOverview() {
     return this.transfersService.getTransferOperationsOverview();
   }
@@ -48,6 +55,7 @@ export class TransfersController {
    * 查询转让运营处置记录列表。
    */
   @Get('operations')
+  @RequireAdminPermissions(ADMIN_PERMISSION_TRANSFERS_READ)
   async listTransferOperationRecords(
     @Query() query: ListTransferOperationRecordsQuery,
   ) {
@@ -58,6 +66,7 @@ export class TransfersController {
    * 查询单条转让单的运营处置时间线。
    */
   @Get(':transferId/history')
+  @RequireAdminPermissions(ADMIN_PERMISSION_TRANSFERS_READ)
   async getTransferOrderHistory(@Param() params: GetTransferOrderHistoryParams) {
     return this.transfersService.getTransferOrderHistory(params.transferId);
   }
@@ -66,6 +75,7 @@ export class TransfersController {
    * 运营将一条已实质到账但仍停留待接收的转让补记为已完成。
    */
   @Post(':transferId/complete')
+  @RequireAdminPermissions(ADMIN_PERMISSION_TRANSFERS_COMPLETE)
   async completeTransferOrder(
     @Param() params: CompleteTransferOrderParams,
     @Body() body: CompleteTransferOrderRequest,
@@ -82,6 +92,7 @@ export class TransfersController {
    * 运营将一条已完成转让回滚为发起方持有。
    */
   @Post(':transferId/rollback')
+  @RequireAdminPermissions(ADMIN_PERMISSION_TRANSFERS_ROLLBACK)
   async rollbackTransferOrder(
     @Param() params: RollbackTransferOrderParams,
     @Body() body: RollbackTransferOrderRequest,
@@ -98,6 +109,7 @@ export class TransfersController {
    * 运营手动释放一条超时未释放的待接收转让。
    */
   @Post(':transferId/expire')
+  @RequireAdminPermissions(ADMIN_PERMISSION_TRANSFERS_EXPIRE)
   async expireTransferOrder(
     @Param() params: ExpireTransferOrderParams,
     @Body() body: ExpireTransferOrderRequest,
@@ -114,6 +126,7 @@ export class TransfersController {
    * 运营修复一条已完成但归属未对齐的转让。
    */
   @Post(':transferId/sync-owner')
+  @RequireAdminPermissions(ADMIN_PERMISSION_TRANSFERS_SYNC_OWNER)
   async syncTransferOrderOwner(
     @Param() params: SyncTransferOrderOwnerParams,
     @Body() body: SyncTransferOrderOwnerRequest,

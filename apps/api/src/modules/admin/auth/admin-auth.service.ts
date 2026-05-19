@@ -1,10 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AdminUserStatus, Prisma, RoleStatus } from '@prisma/client';
+import {
+  AdminUserStatus,
+  MenuStatus,
+  MenuType,
+  Prisma,
+  RoleStatus,
+} from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import type {
   AdminAuthUser,
+  AdminGetNavigationResponseData,
   AdminGetMeResponseData,
   AdminLoginRequest,
   AdminLoginResponseData,
@@ -124,6 +131,7 @@ export class AdminAuthService {
       sub: user.id,
       username: user.username,
       accountNo: user.accountNo,
+      authzVersion: user.authzVersion,
       permissionKeys,
     });
 
@@ -152,6 +160,7 @@ export class AdminAuthService {
     id: string;
     username: string;
     accountNo: string;
+    authzVersion: number;
     permissionKeys: string[];
   }): Promise<AdminGetMeResponseData> {
     const user = await this.prisma.adminUser.findUnique({
@@ -181,6 +190,117 @@ export class AdminAuthService {
    */
   logout(): AdminLogoutResponseData {
     return { success: true };
+  }
+
+  /**
+   * 计算当前登录后台用户的可见导航菜单。
+   * 仅返回已启用菜单、命中有效权限组的页面节点，以及展示所需的祖先目录。
+   */
+  async buildNavigationResponse(admin: {
+    id: string;
+    username: string;
+    accountNo: string;
+    authzVersion: number;
+    permissionKeys: string[];
+  }): Promise<AdminGetNavigationResponseData> {
+    const rows = await this.prisma.menu.findMany({
+      where: { status: MenuStatus.ENABLED },
+      include: {
+        permissionGroups: {
+          include: {
+            permissionGroup: {
+              include: {
+                items: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    const permissionSet = new Set(admin.permissionKeys);
+    const hasWildcardPermission = permissionSet.has(ADMIN_PERMISSION_WILDCARD);
+    const menuById = new Map(rows.map((row) => [row.id, row]));
+    const visibleMenuIds = new Set<string>();
+    const warnings = new Set<string>();
+
+    for (const row of rows) {
+      const enabledBindings = row.permissionGroups.filter(
+        (item) => item.permissionGroup.status === 'ENABLED',
+      );
+      const disabledBindings = row.permissionGroups.filter(
+        (item) => item.permissionGroup.status !== 'ENABLED',
+      );
+
+      if (enabledBindings.length === 0) {
+        warnings.add(
+          `菜单 ${row.menuKey} 未绑定有效权限组，已在导航中自动隐藏。`,
+        );
+        continue;
+      }
+
+      if (disabledBindings.length > 0) {
+        warnings.add(
+          `菜单 ${row.menuKey} 绑定了失效权限组 ${disabledBindings
+            .map((item) => item.permissionGroup.groupKey)
+            .sort()
+            .join('、')}，运行时已按有效组重新计算可见性。`,
+        );
+      }
+
+      const matched =
+        hasWildcardPermission ||
+        enabledBindings.some((binding) =>
+          binding.permissionGroup.items.some((item) => {
+            if (item.permission.status !== 'ENABLED') {
+              return false;
+            }
+            return permissionSet.has(item.permission.permissionKey);
+          }),
+        );
+
+      if (matched) {
+        visibleMenuIds.add(row.id);
+      }
+    }
+
+    const includedMenuIds = new Set<string>();
+    const includeMenuAndAncestors = (menuId: string) => {
+      let current = menuById.get(menuId);
+      while (current) {
+        if (includedMenuIds.has(current.id)) {
+          return;
+        }
+        includedMenuIds.add(current.id);
+        current = current.parentId ? menuById.get(current.parentId) : undefined;
+      }
+    };
+
+    for (const menuId of visibleMenuIds) {
+      includeMenuAndAncestors(menuId);
+    }
+
+    return {
+      menus: rows
+        .filter((row) => includedMenuIds.has(row.id))
+        .map((row) => ({
+          menuId: row.id,
+          parentId: row.parentId ?? null,
+          menuKey: row.menuKey,
+          menuName: row.menuName,
+          menuType: row.menuType,
+          routePath:
+            row.menuType === MenuType.DIRECTORY ? null : (row.routePath ?? null),
+          iconName: row.iconName ?? null,
+          sortOrder: row.sortOrder,
+        })),
+      warnings: [...warnings].sort(),
+    };
   }
 
   private toAuthUser(
@@ -227,6 +347,7 @@ export class AdminAuthService {
     sub: string;
     username: string;
     accountNo: string;
+    authzVersion: number;
     permissionKeys: string[];
   }): string {
     const secret = this.getJwtSecret();
@@ -236,6 +357,7 @@ export class AdminAuthService {
         sub: payload.sub,
         username: payload.username,
         accountNo: payload.accountNo,
+        authzVersion: payload.authzVersion,
         permissionKeys: payload.permissionKeys,
         typ: 'admin' as const,
       },

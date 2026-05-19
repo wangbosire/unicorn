@@ -1,8 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { ActivationCodesPage } from '@/features/issuance/activation-codes-page'
-import { enforceIssuanceRouteAccess } from '@/lib/issuance-route-guard'
+import {
+  ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES,
+  enforceAdminRouteAccess,
+} from '@/lib/admin-route-access'
 
 export const Route = createFileRoute('/_authenticated/issuance/activation-codes')({
-  beforeLoad: enforceIssuanceRouteAccess,
+  beforeLoad: () =>
+    enforceAdminRouteAccess({
+      allOfPermissions: [ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES],
+    }),
   component: ActivationCodesPage,
 })

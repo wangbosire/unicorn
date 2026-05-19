@@ -1,4 +1,5 @@
 import type {
+  AdminGetNavigationResponseData,
   AdminGetMeResponseData,
   AdminLoginRequest,
   AdminLoginResponseData,
@@ -19,4 +20,11 @@ export async function loginAdmin(
  */
 export async function getCurrentAdmin(): Promise<AdminGetMeResponseData> {
   return apiClient.get('/admin-api/auth/me')
+}
+
+/**
+ * 获取当前登录后台用户的可见导航菜单。
+ */
+export async function getAdminNavigation(): Promise<AdminGetNavigationResponseData> {
+  return apiClient.get('/admin-api/auth/navigation')
 }

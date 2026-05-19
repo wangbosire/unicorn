@@ -6,7 +6,12 @@ import type {
   UpdateIssuanceBatchStatusRequest,
 } from '@contracts/admin/issuance-batches';
 import { AdminAccessGuard } from '../../admin/auth/admin-access.guard';
-import { ADMIN_PERMISSION_ISSUANCE_BATCHES } from '../../admin/auth/admin-permission-keys';
+import {
+  ADMIN_PERMISSION_ISSUANCE_BATCHES,
+  ADMIN_PERMISSION_ISSUANCE_BATCHES_CREATE,
+  ADMIN_PERMISSION_ISSUANCE_BATCHES_TOGGLE_STATUS,
+  ADMIN_PERMISSION_ISSUANCE_BATCHES_UPDATE,
+} from '../../admin/auth/admin-permission-keys';
 import { RequireAdminPermissions } from '../../admin/auth/admin-permissions.decorator';
 import { IssuanceBatchesService } from './issuance-batches.service';
 
@@ -16,7 +21,6 @@ import { IssuanceBatchesService } from './issuance-batches.service';
  */
 @Controller('admin-api/issuance-batches')
 @UseGuards(AdminAccessGuard)
-@RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_BATCHES)
 export class IssuanceBatchesController {
   constructor(private readonly issuanceBatchesService: IssuanceBatchesService) {}
 
@@ -24,6 +28,7 @@ export class IssuanceBatchesController {
    * 查询发行批次列表。
    */
   @Get()
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_BATCHES)
   listIssuanceBatches(@Query() query: ListIssuanceBatchesQuery) {
     return this.issuanceBatchesService.listIssuanceBatches(query);
   }
@@ -32,6 +37,7 @@ export class IssuanceBatchesController {
    * 查询发行批次详情。
    */
   @Get(':batchId')
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_BATCHES)
   getIssuanceBatch(@Param('batchId') batchId: string) {
     return this.issuanceBatchesService.getIssuanceBatchById(batchId);
   }
@@ -40,6 +46,7 @@ export class IssuanceBatchesController {
    * 创建发行批次。
    */
   @Post()
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_BATCHES_CREATE)
   createIssuanceBatch(@Body() body: CreateIssuanceBatchRequest) {
     return this.issuanceBatchesService.createIssuanceBatch(body);
   }
@@ -48,6 +55,7 @@ export class IssuanceBatchesController {
    * 编辑发行批次。
    */
   @Patch(':batchId')
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_BATCHES_UPDATE)
   updateIssuanceBatch(
     @Param('batchId') batchId: string,
     @Body() body: UpdateIssuanceBatchRequest,
@@ -59,6 +67,7 @@ export class IssuanceBatchesController {
    * 更新发行批次状态。
    */
   @Patch(':batchId/status')
+  @RequireAdminPermissions(ADMIN_PERMISSION_ISSUANCE_BATCHES_TOGGLE_STATUS)
   updateIssuanceBatchStatus(
     @Param('batchId') batchId: string,
     @Body() body: UpdateIssuanceBatchStatusRequest,
