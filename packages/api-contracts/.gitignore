@@ -1,6 +1,5 @@
-# 本包仅以 src/**/*.ts 为契约源码；exports 指向 ./src/index.ts。
-# 若在本机用 tsc / IDE 对 src 做了 emit，会在 .ts 旁生成下列文件，不应提交。
-# 若日后在 src 内 intentional 放入手写 .js / .d.ts，请改为更窄的规则或 ! 例外。
+# 契约包仅以 src/**/*.ts 为源码真相源，不做 emit。
+# 若 IDE / tsc 误对 src 做了 emit，下列文件不应提交。
 src/**/*.js
 src/**/*.js.map
 src/**/*.d.ts
