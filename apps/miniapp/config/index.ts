@@ -41,7 +41,7 @@ export default defineConfig({
      * 显式改成 `false`，避免 webpack schema 校验把 `null` 视为非法 alias 值。
      */
     webpackChain(chain) {
-      chain.resolve.alias.set('@tarojs/shared', false);
+      chain.resolve.alias.set('@tarojs/shared', false as unknown as string);
     },
   },
   /** tabBar 图标等纯静态资源：需显式拷贝到 `dist`，否则真机/开发者工具找不到路径。 */

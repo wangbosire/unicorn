@@ -1,10 +1,12 @@
 import {
   AdminUserStatus,
   CollectionTransferMode,
+  CollectionTransferOperationType,
   CollectionTransferStatus,
   NotificationChannel,
   NotificationDispatchStatus,
   NotificationMessageType,
+  NotificationTemplateStatus,
   CollectionCommentReviewSource,
   CollectionCommentStatus,
   CollectionContentEditStatus,
@@ -16,6 +18,7 @@ import {
   IssuanceBatchStatus,
   MemberStatus,
   PermissionType,
+  Prisma,
   PrismaClient,
   RoleStatus,
   SeriesStatus,
@@ -371,6 +374,218 @@ async function seedNotificationDemo() {
 }
 
 /**
+ * 写入通知模板初始数据，
+ * 作为后台模板治理的第一批可维护文案。
+ */
+async function seedNotificationTemplates() {
+  const templates: Array<{
+    id: string;
+    templateKey: NotificationMessageType;
+    displayName: string;
+    description: string;
+    changeNote: string;
+    channels: Array<{
+      channel: NotificationChannel;
+      title: string;
+      content: string;
+    }>;
+  }> = [
+    {
+      id: 'tmpl_activate_success',
+      templateKey: NotificationMessageType.ACTIVATE_SUCCESS,
+      displayName: '激活成功通知',
+      description: '会员成功激活藏品后发送的触达文案。',
+      changeNote: '一期硬编码文案迁移为模板化初始版本',
+      channels: [
+        {
+          channel: NotificationChannel.IN_APP,
+          title: '激活成功',
+          content: '你的藏品「{collectionName}」已激活，进入「我的藏品」查看。',
+        },
+      ],
+    },
+    {
+      id: 'tmpl_content_approved',
+      templateKey: NotificationMessageType.CONTENT_APPROVED,
+      displayName: '内容审核通过通知',
+      description: '藏品内容审核通过后通知会员内容已可展示。',
+      changeNote: '一期硬编码文案迁移为模板化初始版本',
+      channels: [
+        {
+          channel: NotificationChannel.IN_APP,
+          title: '内容审核通过',
+          content: '藏品「{collectionName}」的内容审核已通过，已对外展示。',
+        },
+      ],
+    },
+    {
+      id: 'tmpl_content_rejected',
+      templateKey: NotificationMessageType.CONTENT_REJECTED,
+      displayName: '内容审核驳回通知',
+      description: '藏品内容审核未通过时提示修改后重提。',
+      changeNote: '一期硬编码文案迁移为模板化初始版本',
+      channels: [
+        {
+          channel: NotificationChannel.IN_APP,
+          title: '内容审核驳回',
+          content: '藏品「{collectionName}」的内容审核未通过：{reason}。请修改后重新提交。',
+        },
+      ],
+    },
+    {
+      id: 'tmpl_content_takedown',
+      templateKey: NotificationMessageType.CONTENT_TAKEDOWN,
+      displayName: '内容下架通知',
+      description: '运营人工下架公开内容后通知会员处理。',
+      changeNote: '一期硬编码文案迁移为模板化初始版本',
+      channels: [
+        {
+          channel: NotificationChannel.IN_APP,
+          title: '内容已下架',
+          content: '藏品「{collectionName}」的展示内容已被下架：{reason}。',
+        },
+      ],
+    },
+    {
+      id: 'tmpl_comment_review_result',
+      templateKey: NotificationMessageType.COMMENT_REVIEW_RESULT,
+      displayName: '评论审核结果通知',
+      description: '评论审核完成后同步审核结论。',
+      changeNote: '一期硬编码文案迁移为模板化初始版本',
+      channels: [
+        {
+          channel: NotificationChannel.IN_APP,
+          title: '评论审核结果',
+          content: '你的评论「{excerpt}」审核{result}。',
+        },
+      ],
+    },
+    {
+      id: 'tmpl_transfer_pending_accept',
+      templateKey: NotificationMessageType.TRANSFER_PENDING_ACCEPT,
+      displayName: '转让待接收通知',
+      description: '接收方待确认转让时触发的提醒文案。',
+      changeNote: '一期硬编码文案迁移为模板化初始版本',
+      channels: [
+        {
+          channel: NotificationChannel.IN_APP,
+          title: '收到一笔转让',
+          content: '会员 {fromMemberNo} 向你转让藏品「{collectionName}」，待你确认。',
+        },
+      ],
+    },
+    {
+      id: 'tmpl_transfer_completed',
+      templateKey: NotificationMessageType.TRANSFER_COMPLETED,
+      displayName: '转让完成通知',
+      description: '转让完成后通知相关会员。',
+      changeNote: '一期硬编码文案迁移为模板化初始版本',
+      channels: [
+        {
+          channel: NotificationChannel.IN_APP,
+          title: '转让已完成',
+          content: '藏品「{collectionName}」的转让已完成。',
+        },
+      ],
+    },
+    {
+      id: 'tmpl_transfer_cancelled',
+      templateKey: NotificationMessageType.TRANSFER_CANCELLED,
+      displayName: '转让撤销通知',
+      description: '转让被发起方撤销后通知接收方。',
+      changeNote: '一期硬编码文案迁移为模板化初始版本',
+      channels: [
+        {
+          channel: NotificationChannel.IN_APP,
+          title: '转让已撤销',
+          content: '发起方已撤销藏品「{collectionName}」的转让。',
+        },
+      ],
+    },
+    {
+      id: 'tmpl_transfer_expired',
+      templateKey: NotificationMessageType.TRANSFER_EXPIRED,
+      displayName: '转让过期通知',
+      description: '转让在超时未确认后自动过期时的通知。',
+      changeNote: '一期硬编码文案迁移为模板化初始版本',
+      channels: [
+        {
+          channel: NotificationChannel.IN_APP,
+          title: '转让已过期',
+          content: '藏品「{collectionName}」的转让因超时未确认而过期。',
+        },
+      ],
+    },
+    {
+      id: 'tmpl_transfer_rolled_back',
+      templateKey: NotificationMessageType.TRANSFER_ROLLED_BACK,
+      displayName: '转让回滚通知',
+      description: '已完成转让被后台人工回滚后通知相关会员。',
+      changeNote: '二期转让运营新增后台强制回滚通知模板',
+      channels: [
+        {
+          channel: NotificationChannel.IN_APP,
+          title: '转让已回滚',
+          content: '藏品「{collectionName}」的已完成转让已被后台回滚，请以当前持有结果为准。',
+        },
+      ],
+    },
+  ];
+
+  for (const row of templates) {
+    const existing = await prisma.notificationTemplate.findUnique({
+      where: { templateKey: row.templateKey },
+      select: { id: true, currentVersionId: true },
+    });
+
+    const template =
+      existing ??
+      (await prisma.notificationTemplate.create({
+        data: {
+          id: row.id,
+          templateKey: row.templateKey,
+          displayName: row.displayName,
+          description: row.description,
+          status: NotificationTemplateStatus.ACTIVE,
+        },
+        select: { id: true, currentVersionId: true },
+      }));
+
+    await prisma.notificationTemplate.update({
+      where: { id: template.id },
+      data: {
+        displayName: row.displayName,
+        description: row.description,
+        status: NotificationTemplateStatus.ACTIVE,
+      },
+    });
+
+    if (template.currentVersionId) {
+      continue;
+    }
+
+    const version = await prisma.notificationTemplateVersion.create({
+      data: {
+        templateId: template.id,
+        version: 1,
+        changeNote: row.changeNote,
+        channels: {
+          create: row.channels,
+        },
+      },
+      select: { id: true },
+    });
+
+    await prisma.notificationTemplate.update({
+      where: { id: template.id },
+      data: {
+        currentVersionId: version.id,
+      },
+    });
+  }
+}
+
+/**
  * 写入转让记录演示数据，
  * 便于后台页面验证转让方式、状态筛选与流转去向展示。
  */
@@ -459,6 +674,12 @@ async function seedTransferDemo() {
       claimedAt: new Date('2026-05-17T08:30:00.000Z'),
     },
     {
+      id: 'seed_col_transfer_force_complete',
+      collectionNo: 'COL-SEED-TRANSFER-005',
+      currentOwnerMemberId: 'seed_mem_transfer_target',
+      claimedAt: new Date('2026-05-17T12:30:00.000Z'),
+    },
+    {
       id: 'seed_col_transfer_completed',
       collectionNo: 'COL-SEED-TRANSFER-002',
       currentOwnerMemberId: 'seed_mem_transfer_receiver',
@@ -525,6 +746,19 @@ async function seedTransferDemo() {
       createdAt: new Date('2026-05-18T08:00:00.000Z'),
     },
     {
+      id: 'seed_transfer_force_complete',
+      transferNo: 'TR-SEED-0005',
+      collectionId: 'seed_col_transfer_force_complete',
+      fromMemberId: 'seed_mem_transfer_sender',
+      toMemberId: 'seed_mem_transfer_target',
+      transferMode: CollectionTransferMode.DIRECT_MEMBER,
+      transferCode: null,
+      status: CollectionTransferStatus.PENDING_ACCEPT,
+      expiredAt: new Date('2026-05-26T08:00:00.000Z'),
+      completedAt: null,
+      createdAt: new Date('2026-05-18T12:00:00.000Z'),
+    },
+    {
       id: 'seed_transfer_completed',
       transferNo: 'TR-SEED-0002',
       collectionId: 'seed_col_transfer_completed',
@@ -589,6 +823,77 @@ async function seedTransferDemo() {
         status: row.status,
         expiredAt: row.expiredAt,
         completedAt: row.completedAt,
+      },
+    });
+  }
+
+  const transferOperationRows: Array<{
+    id: string;
+    transferId: string;
+    actionType: CollectionTransferOperationType;
+    reason: string;
+    beforeSnapshot: Prisma.InputJsonValue;
+    afterSnapshot: Prisma.InputJsonValue;
+    operatorAdminUserId: string;
+    createdAt: Date;
+  }> = [
+    {
+      id: 'seed_transfer_operation_expire',
+      transferId: 'seed_transfer_expired',
+      actionType: CollectionTransferOperationType.ADMIN_EXPIRE,
+      reason: 'seed 演示数据：客服确认接收方长期未处理，后台释放为已失效。',
+      beforeSnapshot: {
+        status: CollectionTransferStatus.PENDING_ACCEPT,
+        currentOwnerMemberId: 'seed_mem_transfer_sender',
+        toMemberId: null,
+        expiredAt: new Date('2026-05-18T12:00:00.000Z').getTime(),
+        completedAt: null,
+      },
+      afterSnapshot: {
+        status: CollectionTransferStatus.EXPIRED,
+        currentOwnerMemberId: 'seed_mem_transfer_sender',
+        toMemberId: null,
+        expiredAt: new Date('2026-05-18T12:00:00.000Z').getTime(),
+        completedAt: null,
+      },
+      operatorAdminUserId: 'admin_user_seed_admin',
+      createdAt: new Date('2026-05-18T12:05:00.000Z'),
+    },
+    {
+      id: 'seed_transfer_operation_sync_owner',
+      transferId: 'seed_transfer_completed',
+      actionType: CollectionTransferOperationType.ADMIN_SYNC_OWNER,
+      reason: 'seed 演示数据：历史补偿漏写 owner，后台按完成转让结果回填。',
+      beforeSnapshot: {
+        status: CollectionTransferStatus.COMPLETED,
+        currentOwnerMemberId: 'seed_mem_transfer_sender',
+        toMemberId: 'seed_mem_transfer_receiver',
+        expiredAt: new Date('2026-05-23T08:00:00.000Z').getTime(),
+        completedAt: new Date('2026-05-18T10:30:00.000Z').getTime(),
+      },
+      afterSnapshot: {
+        status: CollectionTransferStatus.COMPLETED,
+        currentOwnerMemberId: 'seed_mem_transfer_receiver',
+        toMemberId: 'seed_mem_transfer_receiver',
+        expiredAt: new Date('2026-05-23T08:00:00.000Z').getTime(),
+        completedAt: new Date('2026-05-18T10:30:00.000Z').getTime(),
+      },
+      operatorAdminUserId: 'admin_user_seed_admin',
+      createdAt: new Date('2026-05-18T10:35:00.000Z'),
+    },
+  ];
+
+  for (const row of transferOperationRows) {
+    await prisma.collectionTransferOperationRecord.upsert({
+      where: { id: row.id },
+      create: row,
+      update: {
+        actionType: row.actionType,
+        reason: row.reason,
+        beforeSnapshot: row.beforeSnapshot,
+        afterSnapshot: row.afterSnapshot,
+        operatorAdminUserId: row.operatorAdminUserId,
+        createdAt: row.createdAt,
       },
     });
   }
@@ -933,6 +1238,7 @@ async function main() {
   await seedAdminUsers();
   await seedPendingManualReviewDemo();
   await seedPendingManualCommentReviewDemo();
+  await seedNotificationTemplates();
   await seedNotificationDemo();
   await seedTransferDemo();
 }
@@ -942,7 +1248,7 @@ main()
     // eslint-disable-next-line no-console
     // eslint-disable-next-line no-console
     console.log(
-      '[prisma seed] admin: admin / Admin123! , viewer / Viewer123! | content review demo: COL-SEED-PENDING-MANUAL (review seed_crr_pending_manual) | comment review demo: COL-SEED-COMMENT-PENDING-MANUAL (comment seed_comment_pending_manual) | notification demo: seed_msg_activate_success / seed_msg_content_takedown / seed_msg_comment_review | transfer demo: TR-SEED-0001 / TR-SEED-0002 / TR-SEED-0003 / TR-SEED-0004',
+      '[prisma seed] admin: admin / Admin123! , viewer / Viewer123! | content review demo: COL-SEED-PENDING-MANUAL (review seed_crr_pending_manual) | comment review demo: COL-SEED-COMMENT-PENDING-MANUAL (comment seed_comment_pending_manual) | notification template demo: tmpl_activate_success..tmpl_transfer_expired | notification demo: seed_msg_activate_success / seed_msg_content_takedown / seed_msg_comment_review | transfer demo: TR-SEED-0001 / TR-SEED-0002 / TR-SEED-0003 / TR-SEED-0004 / TR-SEED-0005',
     );
     await prisma.$disconnect();
   })

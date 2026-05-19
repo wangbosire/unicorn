@@ -14,4 +14,6 @@ export type ListTransferOrdersQuery = PaginationQuery & {
   transferMode?: string
   /** 转让状态筛选。 */
   status?: string
+  /** 异常态筛选。 */
+  anomalyCode?: string
 }

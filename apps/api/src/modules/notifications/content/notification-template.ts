@@ -1,4 +1,10 @@
-import { NotificationChannel, NotificationMessageType } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import {
+  NotificationChannel,
+  NotificationMessageType,
+  NotificationTemplateStatus,
+} from '@prisma/client';
+import { PrismaService } from '../../../platform/prisma/prisma.service';
 
 interface TemplateEntry {
   title: string;
@@ -7,9 +13,9 @@ interface TemplateEntry {
   defaultChannels: NotificationChannel[];
 }
 
-/// 一期阶段通知文案表。
-/// TODO(milestone-2)：里程碑二上线通知模板管理器后，本表替换为后台维护。
-const TEMPLATES: Record<NotificationMessageType, TemplateEntry> = {
+/// 回退文案表。
+/// 当数据库模板尚未初始化或被误删时，仍保证通知链路可继续运行。
+const FALLBACK_TEMPLATES: Record<NotificationMessageType, TemplateEntry> = {
   ACTIVATE_SUCCESS: {
     title: '激活成功',
     content: '你的藏品「{collectionName}」已激活，进入「我的藏品」查看。',
@@ -55,6 +61,11 @@ const TEMPLATES: Record<NotificationMessageType, TemplateEntry> = {
     content: '藏品「{collectionName}」的转让因超时未确认而过期。',
     defaultChannels: [NotificationChannel.IN_APP],
   },
+  TRANSFER_ROLLED_BACK: {
+    title: '转让已回滚',
+    content: '藏品「{collectionName}」的已完成转让已被后台回滚，请以当前持有结果为准。',
+    defaultChannels: [NotificationChannel.IN_APP],
+  },
 };
 
 const PLACEHOLDER = /\{(\w+)\}/g;
@@ -72,15 +83,51 @@ export interface RenderedNotification {
   channels: NotificationChannel[];
 }
 
-export function renderNotification(
-  messageType: NotificationMessageType,
-  payload: Record<string, string | number> = {},
-  channelsOverride?: NotificationChannel[],
-): RenderedNotification {
-  const tmpl = TEMPLATES[messageType];
-  return {
-    title: interpolate(tmpl.title, payload),
-    content: interpolate(tmpl.content, payload),
-    channels: channelsOverride ?? tmpl.defaultChannels,
-  };
+/**
+ * 通知模板渲染服务。
+ * 运行时优先读取后台生效模板；缺失时回退到内置默认文案。
+ */
+@Injectable()
+export class NotificationTemplateRenderer {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async render(
+    messageType: NotificationMessageType,
+    payload: Record<string, string | number> = {},
+    channelsOverride?: NotificationChannel[],
+  ): Promise<RenderedNotification> {
+    const fromDb = await this.prisma.notificationTemplate.findUnique({
+      where: { templateKey: messageType },
+      include: {
+        currentVersion: {
+          include: {
+            channels: {
+              orderBy: { channel: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    const activeChannels =
+      fromDb?.status === NotificationTemplateStatus.ACTIVE
+        ? fromDb.currentVersion?.channels ?? []
+        : [];
+
+    if (activeChannels.length > 0) {
+      const primaryChannel = activeChannels[0]!;
+      return {
+        title: interpolate(primaryChannel.title, payload),
+        content: interpolate(primaryChannel.content, payload),
+        channels: channelsOverride ?? activeChannels.map((item) => item.channel),
+      };
+    }
+
+    const fallback = FALLBACK_TEMPLATES[messageType];
+    return {
+      title: interpolate(fallback.title, payload),
+      content: interpolate(fallback.content, payload),
+      channels: channelsOverride ?? fallback.defaultChannels,
+    };
+  }
 }

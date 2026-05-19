@@ -4,6 +4,7 @@ import { QUEUE_NAMES } from '../../platform/queue/queue.constants';
 import { InAppChannel } from './channels/in-app.channel';
 import { MiniappSubscriptionChannel } from './channels/miniapp-subscription.channel';
 import { WechatMpChannel } from './channels/wechat-mp.channel';
+import { NotificationTemplateRenderer } from './content/notification-template';
 import { NotificationDispatcherService } from './notification-dispatcher.service';
 import { NotificationProcessor } from './notification.processor';
 
@@ -15,6 +16,7 @@ import { NotificationProcessor } from './notification.processor';
   providers: [
     NotificationDispatcherService,
     NotificationProcessor,
+    NotificationTemplateRenderer,
     InAppChannel,
     MiniappSubscriptionChannel,
     WechatMpChannel,

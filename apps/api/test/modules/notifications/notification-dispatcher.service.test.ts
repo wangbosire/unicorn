@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict';
 import { NotificationChannel, NotificationMessageType } from '@prisma/client';
 import { test } from 'vitest';
+import { NotificationTemplateRenderer } from '../../../src/modules/notifications/content/notification-template';
 import { NotificationDispatcherService } from '../../../src/modules/notifications/notification-dispatcher.service';
 
 interface QueuedJob {
@@ -36,12 +37,55 @@ function createMocks() {
     },
   };
 
-  return { prisma, queue, messages, queued };
+  const notificationTemplateRenderer = {
+    render: async (
+      messageType: NotificationMessageType,
+      payload: Record<string, string | number> = {},
+      channelsOverride?: NotificationChannel[],
+    ) => {
+      switch (messageType) {
+        case NotificationMessageType.ACTIVATE_SUCCESS:
+          return {
+            title: '激活成功',
+            content: `你的藏品 ${payload.collectionName ?? ''} 已激活`,
+            channels: channelsOverride ?? [NotificationChannel.IN_APP],
+          };
+        case NotificationMessageType.TRANSFER_PENDING_ACCEPT:
+          return {
+            title: '转让待接收',
+            content: `${payload.fromMemberNo ?? ''} 向你发起了 ${payload.collectionName ?? ''} 转让`,
+            channels:
+              channelsOverride ?? [
+                NotificationChannel.IN_APP,
+                NotificationChannel.MINIAPP_SUBSCRIPTION,
+              ],
+          };
+        case NotificationMessageType.CONTENT_REJECTED:
+          return {
+            title: '内容审核驳回',
+            content: `${payload.collectionName ?? ''}：${payload.reason ?? ''}`,
+            channels: channelsOverride ?? [NotificationChannel.IN_APP],
+          };
+        default:
+          return {
+            title: String(messageType),
+            content: JSON.stringify(payload),
+            channels: channelsOverride ?? [NotificationChannel.IN_APP],
+          };
+      }
+    },
+  } satisfies Pick<NotificationTemplateRenderer, 'render'>;
+
+  return { prisma, queue, messages, queued, notificationTemplateRenderer };
 }
 
 test('NotificationDispatcherService.dispatch creates message and enqueues per-channel jobs', async () => {
-  const { prisma, queue, messages, queued } = createMocks();
-  const service = new NotificationDispatcherService(prisma as never, queue as never);
+  const { prisma, queue, messages, queued, notificationTemplateRenderer } = createMocks();
+  const service = new NotificationDispatcherService(
+    prisma as never,
+    notificationTemplateRenderer as never,
+    queue as never,
+  );
 
   const result = await service.dispatch({
     memberId: 'mem_1',
@@ -60,8 +104,12 @@ test('NotificationDispatcherService.dispatch creates message and enqueues per-ch
 });
 
 test('NotificationDispatcherService.dispatch honors explicit channels override', async () => {
-  const { prisma, queue, queued } = createMocks();
-  const service = new NotificationDispatcherService(prisma as never, queue as never);
+  const { prisma, queue, queued, notificationTemplateRenderer } = createMocks();
+  const service = new NotificationDispatcherService(
+    prisma as never,
+    notificationTemplateRenderer as never,
+    queue as never,
+  );
 
   await service.dispatch({
     memberId: 'mem_1',
@@ -78,8 +126,12 @@ test('NotificationDispatcherService.dispatch honors explicit channels override',
 });
 
 test('NotificationDispatcherService.dispatch interpolates placeholders from payload', async () => {
-  const { prisma, queue, messages } = createMocks();
-  const service = new NotificationDispatcherService(prisma as never, queue as never);
+  const { prisma, queue, messages, notificationTemplateRenderer } = createMocks();
+  const service = new NotificationDispatcherService(
+    prisma as never,
+    notificationTemplateRenderer as never,
+    queue as never,
+  );
 
   await service.dispatch({
     memberId: 'mem_2',

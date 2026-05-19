@@ -38,6 +38,10 @@ export type AdminTransferOrderListItem = {
   transferCode: string | null
   /** 转让状态。 */
   status: string
+  /** 归一化异常编码；无异常时为 `null`。 */
+  anomalyCode: string | null
+  /** 归一化异常标签；无异常时为 `null`。 */
+  anomalyLabel: string | null
   /** 失效时间（毫秒时间戳）；未设置时为 `null`。 */
   expiredAt: number | null
   /** 完成时间（毫秒时间戳）；未完成时为 `null`。 */

@@ -187,6 +187,8 @@ enum NotificationMessageType {
   TRANSFER_CANCELLED
   /// 转让超时未确认而过期通知。
   TRANSFER_EXPIRED
+  /// 已完成转让被后台人工回滚通知。
+  TRANSFER_ROLLED_BACK
 }
 
 /// 通知触达渠道。
@@ -209,6 +211,14 @@ enum NotificationDispatchStatus {
   FAILED
 }
 
+/// 通知模板状态。
+enum NotificationTemplateStatus {
+  /// 模板可用于派发渲染。
+  ACTIVE
+  /// 模板已停用，不允许继续作为生效模板。
+  DISABLED
+}
+
 /// 转让方式。
 enum CollectionTransferMode {
   /// 指定会员转让。
@@ -227,6 +237,20 @@ enum CollectionTransferStatus {
   CANCELLED
   /// 转让已过期。
   EXPIRED
+  /// 已完成转让被后台人工回滚。
+  ROLLED_BACK
+}
+
+/// 转让运营处置动作类型。
+enum CollectionTransferOperationType {
+  /// 后台手动将超时待接收转让释放为已过期。
+  ADMIN_EXPIRE
+  /// 后台将已完成转让的藏品归属回写为接收方。
+  ADMIN_SYNC_OWNER
+  /// 后台将已实质到账但仍停留待接收的转让补记为已完成。
+  ADMIN_FORCE_COMPLETE
+  /// 后台将一条已完成转让回滚为发起方持有。
+  ADMIN_FORCE_ROLLBACK
 }
 
 /// 健康检查种子表。
@@ -267,6 +291,8 @@ model AdminUser {
   reviewedItems    CollectionContentReviewRecord[]
   /// 该管理员审核过的评论记录。
   reviewedComments CollectionCommentReviewRecord[]
+  /// 该管理员执行过的转让运营处置记录。
+  transferOperationRecords CollectionTransferOperationRecord[]
 
   @@map("admin_users")
 }
@@ -805,6 +831,8 @@ model CollectionTransferOrder {
   fromMember   Member                   @relation("CollectionTransferFromMember", fields: [fromMemberId], references: [id])
   /// 转入会员实体。
   toMember     Member?                  @relation("CollectionTransferToMember", fields: [toMemberId], references: [id])
+  /// 该转让单对应的后台运营处置记录。
+  operationRecords CollectionTransferOperationRecord[]
 
   /// 支撑按藏品追溯流转历史。
   @@index([collectionId])
@@ -817,6 +845,39 @@ model CollectionTransferOrder {
   /// 支撑按转让方式筛选后台转让列表。
   @@index([transferMode])
   @@map("collection_transfer_orders")
+}
+
+/// 转让运营处置记录。
+/// 记录后台对异常转让的人工修复动作与前后快照，供追溯和对账使用。
+model CollectionTransferOperationRecord {
+  /// 处置记录主键。
+  id                 String                          @id @default(cuid())
+  /// 对应转让单外键。
+  transferId         String                          @map("transfer_id")
+  /// 处置动作类型。
+  actionType         CollectionTransferOperationType @map("action_type")
+  /// 运营处置原因。
+  reason             String
+  /// 操作前快照；当前记录转让状态与藏品归属等关键信息。
+  beforeSnapshot     Json                            @map("before_snapshot")
+  /// 操作后快照；用于对账和复盘。
+  afterSnapshot      Json                            @map("after_snapshot")
+  /// 执行处置的后台用户外键；系统补偿或匿名场景允许为空。
+  operatorAdminUserId String?                        @map("operator_admin_user_id")
+  /// 记录创建时间。
+  createdAt          DateTime                        @default(now()) @map("created_at")
+  /// 对应转让单实体。
+  transfer           CollectionTransferOrder         @relation(fields: [transferId], references: [id])
+  /// 执行处置的后台用户实体。
+  operatorAdminUser  AdminUser?                      @relation(fields: [operatorAdminUserId], references: [id])
+
+  /// 支撑按转让单读取运营处置时间线。
+  @@index([transferId, createdAt])
+  /// 支撑按动作类型汇总运营处置分布。
+  @@index([actionType])
+  /// 支撑按管理员追溯其处置记录。
+  @@index([operatorAdminUserId])
+  @@map("collection_transfer_operation_records")
 }
 
 /// 会员通知消息。
@@ -848,6 +909,87 @@ model NotificationMessage {
   /// 支撑按未读态统计。
   @@index([readAt])
   @@map("notification_messages")
+}
+
+/// 通知模板主表。
+/// 每种消息类型一条模板定义，当前版本指向最新生效文案。
+model NotificationTemplate {
+  /// 模板主键。
+  id               String                     @id @default(cuid())
+  /// 绑定的消息类型；当前约定一类消息对应一个模板。
+  templateKey      NotificationMessageType   @unique @map("template_key")
+  /// 后台展示名。
+  displayName      String                     @map("display_name")
+  /// 运营说明。
+  description      String?                    @map("description")
+  /// 模板状态。
+  status           NotificationTemplateStatus @default(ACTIVE)
+  /// 当前生效版本外键。
+  currentVersionId String?                    @unique @map("current_version_id")
+  /// 创建时间。
+  createdAt        DateTime                   @default(now()) @map("created_at")
+  /// 更新时间。
+  updatedAt        DateTime                   @updatedAt @map("updated_at")
+  /// 当前生效版本。
+  currentVersion   NotificationTemplateVersion? @relation("NotificationTemplateCurrentVersion", fields: [currentVersionId], references: [id])
+  /// 历史版本。
+  versions         NotificationTemplateVersion[] @relation("NotificationTemplateVersions")
+
+  /// 支撑按状态筛选模板。
+  @@index([status])
+  @@map("notification_templates")
+}
+
+/// 通知模板版本。
+/// 每次编辑都会生成新版本，保留历史留痕。
+model NotificationTemplateVersion {
+  /// 版本主键。
+  id         String                      @id @default(cuid())
+  /// 所属模板外键。
+  templateId String                      @map("template_id")
+  /// 版本号；同模板内递增。
+  version    Int
+  /// 本次变更说明。
+  changeNote String?                     @map("change_note")
+  /// 创建时间。
+  createdAt  DateTime                    @default(now()) @map("created_at")
+  /// 所属模板实体。
+  template   NotificationTemplate        @relation("NotificationTemplateVersions", fields: [templateId], references: [id])
+  /// 多渠道文案明细。
+  channels   NotificationTemplateChannel[]
+  /// 反向关联：如果当前模板正指向本版本，可从此字段回查。
+  currentFor NotificationTemplate?       @relation("NotificationTemplateCurrentVersion")
+
+  /// 支撑模板详情按版本倒序展示。
+  @@index([templateId, version])
+  /// 保证单个模板内版本号唯一。
+  @@unique([templateId, version])
+  @@map("notification_template_versions")
+}
+
+/// 通知模板版本下的渠道文案。
+/// 一条记录对应一个渠道的标题与正文模板。
+model NotificationTemplateChannel {
+  /// 渠道文案主键。
+  id        String                      @id @default(cuid())
+  /// 所属版本外键。
+  versionId String                      @map("version_id")
+  /// 触达渠道。
+  channel   NotificationChannel
+  /// 渠道标题模板。
+  title     String
+  /// 渠道正文模板。
+  content   String
+  /// 创建时间。
+  createdAt DateTime                    @default(now()) @map("created_at")
+  /// 所属版本实体。
+  version   NotificationTemplateVersion @relation(fields: [versionId], references: [id])
+
+  /// 保证同一版本内同渠道只有一份文案。
+  @@unique([versionId, channel])
+  /// 支撑按渠道聚合模板覆盖范围。
+  @@index([channel])
+  @@map("notification_template_channels")
 }
 
 /// 通知发送记录。

@@ -62,10 +62,10 @@ test('RequestIdMiddleware truncates oversized header values', () => {
   const middleware = new RequestIdMiddleware();
   const long = 'a'.repeat(200);
   const { req, res } = createReqRes({ 'x-request-id': long });
-  let observed: string | null = null;
+  let observed = '';
   middleware.use(req, res, () => {
-    observed = getRequestId();
+    observed = getRequestId() ?? '';
   });
 
-  assert.equal(observed?.length, 64);
+  assert.equal(observed.length, 64);
 });

@@ -4,12 +4,12 @@ import type { NotificationMessage } from '@prisma/client';
 import type { Queue } from 'bullmq';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { QUEUE_NAMES } from '../../platform/queue/queue.constants';
-import { renderNotification } from './content/notification-template';
 import {
   NOTIFICATION_DISPATCH_JOB,
   type NotificationDispatchInput,
   type NotificationDispatchJob,
 } from './types';
+import { NotificationTemplateRenderer } from './content/notification-template';
 
 /// 通知派发的统一入口。业务模块只通过本服务发起通知，不直接写表或入队。
 ///
@@ -22,13 +22,18 @@ export class NotificationDispatcherService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly notificationTemplateRenderer: NotificationTemplateRenderer,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS)
     private readonly queue: Queue<NotificationDispatchJob>,
   ) {}
 
   async dispatch(input: NotificationDispatchInput): Promise<NotificationMessage> {
     const { memberId, messageType, payload = {}, channels: channelsOverride } = input;
-    const { title, content, channels } = renderNotification(messageType, payload, channelsOverride);
+    const { title, content, channels } = await this.notificationTemplateRenderer.render(
+      messageType,
+      payload,
+      channelsOverride,
+    );
 
     const message = await this.prisma.notificationMessage.create({
       data: { memberId, messageType, title, content },

@@ -37,6 +37,8 @@ export function formatMemberMessageType(messageType: string): string {
       return '转让已撤销'
     case 'TRANSFER_EXPIRED':
       return '转让已过期'
+    case 'TRANSFER_ROLLED_BACK':
+      return '转让已回滚'
     default:
       return messageType
   }

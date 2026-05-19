@@ -11,6 +11,8 @@ export function formatMemberTransferStatus(status: string): string {
       return '已取消'
     case 'EXPIRED':
       return '已过期'
+    case 'ROLLED_BACK':
+      return '已回滚'
     default:
       return status
   }
