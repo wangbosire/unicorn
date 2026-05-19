@@ -4,9 +4,12 @@ import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
+import { loadEnv } from 'vite'
+import { fileURLToPath } from 'url'
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const dockerDev = process.env.DOCKER === '1'
-const apiProxyTarget = process.env.VITE_API_PROXY_TARGET
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || loadEnv('', __dirname, '').VITE_API_PROXY_TARGET
 
 // https://vite.dev/config/
 export default defineConfig({
