@@ -109,6 +109,10 @@ export class MemberContextService {
   }
 
   private resolveMemberIdFromLegacyMockToken(token: string): string | null {
+    if (process.env.NODE_ENV !== 'development') {
+      return null;
+    }
+
     const tokenPrefix = 'mock-member-token:';
 
     if (token.startsWith(tokenPrefix)) {
