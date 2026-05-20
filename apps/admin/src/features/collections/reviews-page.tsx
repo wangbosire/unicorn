@@ -9,8 +9,10 @@ import {
   rejectCollectionReview,
   takedownPublishedContentVersion,
 } from '@/apis/collections/collection-reviews'
+import { AdminReadOnlyNotice } from '@/components/admin/admin-readonly-notice'
 import { PageLayout } from '@/components/layout/page-layout'
 import { DataListIntro } from '@/components/data-table'
+import { useAdminPermission } from '@/hooks/use-admin-permission'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,6 +43,11 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { ApiError } from '@/lib/api-error'
 import {
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_APPROVE,
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_REJECT,
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_TAKEDOWN,
+} from '@/lib/admin-route-access'
+import {
   buildCollectionReviewsQueryParams,
   formatReviewSource,
   formatReviewStage,
@@ -58,6 +65,12 @@ import { buildCollectionReviewsCsv, downloadUtf8Csv } from '@/lib/collection-rev
 
 export function CollectionReviewsPage() {
   const queryClient = useQueryClient()
+  const { hasAnyPermissions } = useAdminPermission()
+  const canApproveReviews = hasAnyPermissions([ADMIN_PERMISSION_COLLECTION_REVIEWS_APPROVE])
+  const canRejectReviews = hasAnyPermissions([ADMIN_PERMISSION_COLLECTION_REVIEWS_REJECT])
+  const canTakedownReviews = hasAnyPermissions([ADMIN_PERMISSION_COLLECTION_REVIEWS_TAKEDOWN])
+  const canOperateReviews =
+    canApproveReviews || canRejectReviews || canTakedownReviews
   /** 默认展示待人工队列，与运营主路径一致；可切换为「全部状态」等。 */
   const [reviewStatus, setReviewStatus] = useState('PENDING_MANUAL')
   const [page, setPage] = useState(1)
@@ -343,148 +356,159 @@ export function CollectionReviewsPage() {
                 },
               ]}
             />
+            {!canOperateReviews ? (
+              <AdminReadOnlyNotice description='当前账号仅具备内容复核查看权限，人工通过、驳回与下架动作已隐藏。' />
+            ) : null}
             <div
               role='toolbar'
               className='flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between'
             >
-                  <div className='flex min-w-0 flex-1 flex-wrap items-end gap-3'>
-                    <div className='space-y-1.5'>
-                      <Label htmlFor='review-status-filter' className='text-xs text-muted-foreground'>
-                        审核状态
-                      </Label>
-                      <Select value={reviewStatus} onValueChange={handleReviewStatusChange}>
-                        <SelectTrigger id='review-status-filter' className='h-8 w-[200px]'>
-                          <SelectValue placeholder='筛选审核状态' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {REVIEW_STATUS_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className='flex min-w-0 flex-col gap-1.5'>
-                      <Label htmlFor='collection-no-filter' className='text-xs text-muted-foreground'>
-                        按藏品编号（精确）
-                      </Label>
-                      <div className='flex flex-wrap items-center gap-2'>
-                        <Input
-                          id='collection-no-filter'
-                          className='h-8 w-[min(100%,220px)]'
-                          placeholder='如 COL-SEED-PENDING-MANUAL'
-                          value={collectionNoDraft}
-                          onChange={(event) => setCollectionNoDraft(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                              event.preventDefault()
-                              applyCollectionNoFilter()
-                            }
-                          }}
-                        />
-                        <Button
-                          type='button'
-                          variant='secondary'
-                          size='sm'
-                          className='h-8'
-                          onClick={applyCollectionNoFilter}
-                        >
-                          应用
-                        </Button>
-                        <Button
-                          type='button'
-                          variant='ghost'
-                          size='sm'
-                          className='h-8'
-                          onClick={clearCollectionNoFilter}
-                          disabled={!collectionNoDraft.trim() && !collectionNoFilter.trim()}
-                        >
-                          清空
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className='flex shrink-0 flex-wrap items-center justify-end gap-2'>
+              <div className='flex min-w-0 flex-1 flex-wrap items-end gap-3'>
+                <div className='space-y-1.5'>
+                  <Label htmlFor='review-status-filter' className='text-xs text-muted-foreground'>
+                    审核状态
+                  </Label>
+                  <Select value={reviewStatus} onValueChange={handleReviewStatusChange}>
+                    <SelectTrigger id='review-status-filter' className='h-8 w-[200px]'>
+                      <SelectValue placeholder='筛选审核状态' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REVIEW_STATUS_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='flex min-w-0 flex-col gap-1.5'>
+                  <Label htmlFor='collection-no-filter' className='text-xs text-muted-foreground'>
+                    按藏品编号（精确）
+                  </Label>
+                  <div className='flex flex-wrap items-center gap-2'>
+                    <Input
+                      id='collection-no-filter'
+                      className='h-8 w-[min(100%,220px)]'
+                      placeholder='如 COL-SEED-PENDING-MANUAL'
+                      value={collectionNoDraft}
+                      onChange={(event) => setCollectionNoDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          applyCollectionNoFilter()
+                        }
+                      }}
+                    />
                     <Button
                       type='button'
-                      variant='outline'
+                      variant='secondary'
                       size='sm'
                       className='h-8'
-                      disabled={isLoading}
-                      title='导出当前列表页为 UTF-8 CSV（含表头与 BOM，便于 Excel 打开）；不含其他分页数据。'
-                      onClick={handleExportCurrentPageCsv}
+                      onClick={applyCollectionNoFilter}
                     >
-                      导出当前页 CSV
+                      应用
+                    </Button>
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='sm'
+                      className='h-8'
+                      onClick={clearCollectionNoFilter}
+                      disabled={!collectionNoDraft.trim() && !collectionNoFilter.trim()}
+                    >
+                      清空
                     </Button>
                   </div>
                 </div>
+              </div>
+              <div className='flex shrink-0 flex-wrap items-center justify-end gap-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  className='h-8'
+                  disabled={isLoading}
+                  title='导出当前列表页为 UTF-8 CSV（含表头与 BOM，便于 Excel 打开）；不含其他分页数据。'
+                  onClick={handleExportCurrentPageCsv}
+                >
+                  导出当前页 CSV
+                </Button>
+              </div>
+            </div>
 
-                <div className='overflow-hidden rounded-md border'>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>藏品编号</TableHead>
-                        <TableHead>内容版本号</TableHead>
-                        <TableHead>审核阶段</TableHead>
-                        <TableHead>审核状态</TableHead>
-                        <TableHead className='max-w-[220px]'>说明</TableHead>
-                        <TableHead>提交时间</TableHead>
-                        <TableHead className='min-w-[200px] text-end'>操作</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((row) => (
-                        <TableRow key={row.reviewId}>
-                          <TableCell className='font-medium'>
-                            {row.collectionNo}
-                          </TableCell>
-                          <TableCell>v{row.versionNo}</TableCell>
-                          <TableCell>{formatReviewStage(row.reviewStage)}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                row.reviewStatus === 'PENDING_MANUAL'
-                                  ? 'secondary'
-                                  : 'outline'
-                              }
-                            >
-                              {formatReviewStatus(row.reviewStatus)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell
-                            className='max-w-[220px] truncate text-muted-foreground text-xs'
-                            title={row.reviewReason ?? undefined}
+            <div className='overflow-hidden rounded-md border'>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>藏品编号</TableHead>
+                    <TableHead>内容版本号</TableHead>
+                    <TableHead>审核阶段</TableHead>
+                    <TableHead>审核状态</TableHead>
+                    <TableHead className='max-w-[220px]'>说明</TableHead>
+                    <TableHead>提交时间</TableHead>
+                    <TableHead className='min-w-[200px] text-end'>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((row) => {
+                    const mayTakedown = rowMayTakedownPublish(row)
+                    const mayApproveOrReject = row.reviewStatus === 'PENDING_MANUAL'
+                    const showTakedownAction = canTakedownReviews && mayTakedown
+                    const showApproveAction = canApproveReviews && mayApproveOrReject
+                    const showRejectAction = canRejectReviews && mayApproveOrReject
+
+                    return (
+                      <TableRow key={row.reviewId}>
+                        <TableCell className='font-medium'>
+                          {row.collectionNo}
+                        </TableCell>
+                        <TableCell>v{row.versionNo}</TableCell>
+                        <TableCell>{formatReviewStage(row.reviewStage)}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              row.reviewStatus === 'PENDING_MANUAL'
+                                ? 'secondary'
+                                : 'outline'
+                            }
                           >
-                            {row.reviewReason?.trim() ? row.reviewReason : '—'}
-                          </TableCell>
-                          <TableCell className='text-muted-foreground'>
-                            {formatSubmittedAt(row.submittedAt)}
-                          </TableCell>
-                          <TableCell className='text-end'>
-                            <div className='flex flex-wrap justify-end gap-2'>
+                            {formatReviewStatus(row.reviewStatus)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell
+                          className='max-w-[220px] truncate text-muted-foreground text-xs'
+                          title={row.reviewReason ?? undefined}
+                        >
+                          {row.reviewReason?.trim() ? row.reviewReason : '—'}
+                        </TableCell>
+                        <TableCell className='text-muted-foreground'>
+                          {formatSubmittedAt(row.submittedAt)}
+                        </TableCell>
+                        <TableCell className='text-end'>
+                          <div className='flex flex-wrap justify-end gap-2'>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              type='button'
+                              disabled={isReviewMutating}
+                              onClick={() => handleOpenHistory(row)}
+                            >
+                              审核历史
+                            </Button>
+                            {showTakedownAction ? (
                               <Button
                                 size='sm'
-                                variant='outline'
+                                variant='secondary'
                                 type='button'
                                 disabled={isReviewMutating}
-                                onClick={() => handleOpenHistory(row)}
+                                onClick={() => handleOpenTakedown(row)}
                               >
-                                审核历史
+                                下架公开
                               </Button>
-                              {rowMayTakedownPublish(row) ? (
-                                <Button
-                                  size='sm'
-                                  variant='secondary'
-                                  type='button'
-                                  disabled={isReviewMutating}
-                                  onClick={() => handleOpenTakedown(row)}
-                                >
-                                  下架公开
-                                </Button>
-                              ) : null}
-                              {row.reviewStatus === 'PENDING_MANUAL' ? (
-                                <>
+                            ) : null}
+                            {mayApproveOrReject ? (
+                              <>
+                                {showApproveAction ? (
                                   <Button
                                     size='sm'
                                     variant='default'
@@ -493,6 +517,8 @@ export function CollectionReviewsPage() {
                                   >
                                     人工通过
                                   </Button>
+                                ) : null}
+                                {showRejectAction ? (
                                   <Button
                                     size='sm'
                                     variant='destructive'
@@ -501,15 +527,17 @@ export function CollectionReviewsPage() {
                                   >
                                     人工驳回
                                   </Button>
-                                </>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                                ) : null}
+                              </>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
 
                 <div className='flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between'>
                   <p className='text-sm text-muted-foreground tabular-nums'>

@@ -38,7 +38,10 @@ import { Route as ClerkAuthenticatedUserManagementRouteImport } from './routes/c
 import { Route as ClerkauthSignUpRouteImport } from './routes/clerk/(auth)/sign-up'
 import { Route as ClerkauthSignInRouteImport } from './routes/clerk/(auth)/sign-in'
 import { Route as AuthenticatedSystemRolesRouteImport } from './routes/_authenticated/system/roles'
+import { Route as AuthenticatedSystemPermissionsRouteImport } from './routes/_authenticated/system/permissions'
+import { Route as AuthenticatedSystemPermissionGroupsRouteImport } from './routes/_authenticated/system/permission-groups'
 import { Route as AuthenticatedSystemMenusRouteImport } from './routes/_authenticated/system/menus'
+import { Route as AuthenticatedSystemAuthorizationChangeLogsRouteImport } from './routes/_authenticated/system/authorization-change-logs'
 import { Route as AuthenticatedSystemAdminUsersRouteImport } from './routes/_authenticated/system/admin-users'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
@@ -201,10 +204,28 @@ const AuthenticatedSystemRolesRoute =
     path: '/system/roles',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSystemPermissionsRoute =
+  AuthenticatedSystemPermissionsRouteImport.update({
+    id: '/system/permissions',
+    path: '/system/permissions',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSystemPermissionGroupsRoute =
+  AuthenticatedSystemPermissionGroupsRouteImport.update({
+    id: '/system/permission-groups',
+    path: '/system/permission-groups',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSystemMenusRoute =
   AuthenticatedSystemMenusRouteImport.update({
     id: '/system/menus',
     path: '/system/menus',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSystemAuthorizationChangeLogsRoute =
+  AuthenticatedSystemAuthorizationChangeLogsRouteImport.update({
+    id: '/system/authorization-change-logs',
+    path: '/system/authorization-change-logs',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedSystemAdminUsersRoute =
@@ -316,7 +337,10 @@ export interface FileRoutesByFullPath {
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/system/admin-users': typeof AuthenticatedSystemAdminUsersRoute
+  '/system/authorization-change-logs': typeof AuthenticatedSystemAuthorizationChangeLogsRoute
   '/system/menus': typeof AuthenticatedSystemMenusRoute
+  '/system/permission-groups': typeof AuthenticatedSystemPermissionGroupsRoute
+  '/system/permissions': typeof AuthenticatedSystemPermissionsRoute
   '/system/roles': typeof AuthenticatedSystemRolesRoute
   '/clerk/sign-in': typeof ClerkauthSignInRoute
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
@@ -357,7 +381,10 @@ export interface FileRoutesByTo {
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/system/admin-users': typeof AuthenticatedSystemAdminUsersRoute
+  '/system/authorization-change-logs': typeof AuthenticatedSystemAuthorizationChangeLogsRoute
   '/system/menus': typeof AuthenticatedSystemMenusRoute
+  '/system/permission-groups': typeof AuthenticatedSystemPermissionGroupsRoute
+  '/system/permissions': typeof AuthenticatedSystemPermissionsRoute
   '/system/roles': typeof AuthenticatedSystemRolesRoute
   '/clerk/sign-in': typeof ClerkauthSignInRoute
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
@@ -403,7 +430,10 @@ export interface FileRoutesById {
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/system/admin-users': typeof AuthenticatedSystemAdminUsersRoute
+  '/_authenticated/system/authorization-change-logs': typeof AuthenticatedSystemAuthorizationChangeLogsRoute
   '/_authenticated/system/menus': typeof AuthenticatedSystemMenusRoute
+  '/_authenticated/system/permission-groups': typeof AuthenticatedSystemPermissionGroupsRoute
+  '/_authenticated/system/permissions': typeof AuthenticatedSystemPermissionsRoute
   '/_authenticated/system/roles': typeof AuthenticatedSystemRolesRoute
   '/clerk/(auth)/sign-in': typeof ClerkauthSignInRoute
   '/clerk/(auth)/sign-up': typeof ClerkauthSignUpRoute
@@ -447,7 +477,10 @@ export interface FileRouteTypes {
     | '/settings/display'
     | '/settings/notifications'
     | '/system/admin-users'
+    | '/system/authorization-change-logs'
     | '/system/menus'
+    | '/system/permission-groups'
+    | '/system/permissions'
     | '/system/roles'
     | '/clerk/sign-in'
     | '/clerk/sign-up'
@@ -488,7 +521,10 @@ export interface FileRouteTypes {
     | '/settings/display'
     | '/settings/notifications'
     | '/system/admin-users'
+    | '/system/authorization-change-logs'
     | '/system/menus'
+    | '/system/permission-groups'
+    | '/system/permissions'
     | '/system/roles'
     | '/clerk/sign-in'
     | '/clerk/sign-up'
@@ -533,7 +569,10 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/display'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/system/admin-users'
+    | '/_authenticated/system/authorization-change-logs'
     | '/_authenticated/system/menus'
+    | '/_authenticated/system/permission-groups'
+    | '/_authenticated/system/permissions'
     | '/_authenticated/system/roles'
     | '/clerk/(auth)/sign-in'
     | '/clerk/(auth)/sign-up'
@@ -766,11 +805,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSystemRolesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/system/permissions': {
+      id: '/_authenticated/system/permissions'
+      path: '/system/permissions'
+      fullPath: '/system/permissions'
+      preLoaderRoute: typeof AuthenticatedSystemPermissionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/system/permission-groups': {
+      id: '/_authenticated/system/permission-groups'
+      path: '/system/permission-groups'
+      fullPath: '/system/permission-groups'
+      preLoaderRoute: typeof AuthenticatedSystemPermissionGroupsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/system/menus': {
       id: '/_authenticated/system/menus'
       path: '/system/menus'
       fullPath: '/system/menus'
       preLoaderRoute: typeof AuthenticatedSystemMenusRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/system/authorization-change-logs': {
+      id: '/_authenticated/system/authorization-change-logs'
+      path: '/system/authorization-change-logs'
+      fullPath: '/system/authorization-change-logs'
+      preLoaderRoute: typeof AuthenticatedSystemAuthorizationChangeLogsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/system/admin-users': {
@@ -905,7 +965,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedIssuanceBatchesRoute: typeof AuthenticatedIssuanceBatchesRoute
   AuthenticatedIssuanceSeriesRoute: typeof AuthenticatedIssuanceSeriesRoute
   AuthenticatedSystemAdminUsersRoute: typeof AuthenticatedSystemAdminUsersRoute
+  AuthenticatedSystemAuthorizationChangeLogsRoute: typeof AuthenticatedSystemAuthorizationChangeLogsRoute
   AuthenticatedSystemMenusRoute: typeof AuthenticatedSystemMenusRoute
+  AuthenticatedSystemPermissionGroupsRoute: typeof AuthenticatedSystemPermissionGroupsRoute
+  AuthenticatedSystemPermissionsRoute: typeof AuthenticatedSystemPermissionsRoute
   AuthenticatedSystemRolesRoute: typeof AuthenticatedSystemRolesRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
@@ -930,7 +993,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIssuanceBatchesRoute: AuthenticatedIssuanceBatchesRoute,
   AuthenticatedIssuanceSeriesRoute: AuthenticatedIssuanceSeriesRoute,
   AuthenticatedSystemAdminUsersRoute: AuthenticatedSystemAdminUsersRoute,
+  AuthenticatedSystemAuthorizationChangeLogsRoute:
+    AuthenticatedSystemAuthorizationChangeLogsRoute,
   AuthenticatedSystemMenusRoute: AuthenticatedSystemMenusRoute,
+  AuthenticatedSystemPermissionGroupsRoute:
+    AuthenticatedSystemPermissionGroupsRoute,
+  AuthenticatedSystemPermissionsRoute: AuthenticatedSystemPermissionsRoute,
   AuthenticatedSystemRolesRoute: AuthenticatedSystemRolesRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,

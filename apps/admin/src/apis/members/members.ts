@@ -16,7 +16,7 @@ export async function listMembers(
 }
 
 /**
- * 更新会员状态（需 `members.manage` 权限）。
+ * 统一更新会员状态；按目标状态分别要求 `members.freeze` / `members.unfreeze` 权限。
  */
 export async function updateMemberStatus(
   memberId: string,
@@ -24,4 +24,24 @@ export async function updateMemberStatus(
 ): Promise<UpdateMemberStatusResponseData> {
   const id = encodeURIComponent(memberId.trim())
   return apiClient.patch(`/admin-api/members/${id}/status`, payload)
+}
+
+/**
+ * 冻结会员（需 `members.freeze` 权限）。
+ */
+export async function freezeMember(
+  memberId: string
+): Promise<UpdateMemberStatusResponseData> {
+  const id = encodeURIComponent(memberId.trim())
+  return apiClient.patch(`/admin-api/members/${id}/freeze`)
+}
+
+/**
+ * 解冻会员（需 `members.unfreeze` 权限）。
+ */
+export async function unfreezeMember(
+  memberId: string
+): Promise<UpdateMemberStatusResponseData> {
+  const id = encodeURIComponent(memberId.trim())
+  return apiClient.patch(`/admin-api/members/${id}/unfreeze`)
 }

@@ -1,5 +1,12 @@
 import * as assert from 'node:assert/strict';
 import { test } from 'vitest';
+import { ADMIN_REQUIRED_PERMISSIONS_KEY } from '../../../../src/modules/admin/auth/admin-permissions.decorator';
+import {
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_APPROVE,
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_READ,
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_REJECT,
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_TAKEDOWN,
+} from '../../../../src/modules/admin/auth/admin-permission-keys';
 import { CollectionReviewsController } from '../../../../src/modules/admin/collection-reviews/collection-reviews.controller';
 
 test('CollectionReviewsController.listCollectionReviews forwards query to service', async () => {
@@ -121,4 +128,58 @@ test('CollectionReviewsController.rejectCollectionReview forwards reviewId and b
   assert.equal(receivedCalls.length, 1);
   assert.equal(receivedCalls[0]?.reviewId, 'crr_1');
   assert.deepEqual(receivedCalls[0]?.body, body);
+});
+
+test('CollectionReviewsController.listCollectionReviewHistory requires collection_reviews.read', () => {
+  const required = Reflect.getMetadata(
+    ADMIN_REQUIRED_PERMISSIONS_KEY,
+    CollectionReviewsController.prototype.listCollectionReviewHistory,
+  );
+
+  assert.deepEqual(required, [ADMIN_PERMISSION_COLLECTION_REVIEWS_READ]);
+});
+
+test('CollectionReviewsController.listCollectionReviews requires collection_reviews.read', () => {
+  const required = Reflect.getMetadata(
+    ADMIN_REQUIRED_PERMISSIONS_KEY,
+    CollectionReviewsController.prototype.listCollectionReviews,
+  );
+
+  assert.deepEqual(required, [ADMIN_PERMISSION_COLLECTION_REVIEWS_READ]);
+});
+
+test('CollectionReviewsController.getCollectionReviewById requires collection_reviews.read', () => {
+  const required = Reflect.getMetadata(
+    ADMIN_REQUIRED_PERMISSIONS_KEY,
+    CollectionReviewsController.prototype.getCollectionReviewById,
+  );
+
+  assert.deepEqual(required, [ADMIN_PERMISSION_COLLECTION_REVIEWS_READ]);
+});
+
+test('CollectionReviewsController.approveCollectionReview requires collection_reviews.approve', () => {
+  const required = Reflect.getMetadata(
+    ADMIN_REQUIRED_PERMISSIONS_KEY,
+    CollectionReviewsController.prototype.approveCollectionReview,
+  );
+
+  assert.deepEqual(required, [ADMIN_PERMISSION_COLLECTION_REVIEWS_APPROVE]);
+});
+
+test('CollectionReviewsController.rejectCollectionReview requires collection_reviews.reject', () => {
+  const required = Reflect.getMetadata(
+    ADMIN_REQUIRED_PERMISSIONS_KEY,
+    CollectionReviewsController.prototype.rejectCollectionReview,
+  );
+
+  assert.deepEqual(required, [ADMIN_PERMISSION_COLLECTION_REVIEWS_REJECT]);
+});
+
+test('CollectionReviewsController.takedownPublishedContentVersion requires collection_reviews.takedown', () => {
+  const required = Reflect.getMetadata(
+    ADMIN_REQUIRED_PERMISSIONS_KEY,
+    CollectionReviewsController.prototype.takedownPublishedContentVersion,
+  );
+
+  assert.deepEqual(required, [ADMIN_PERMISSION_COLLECTION_REVIEWS_TAKEDOWN]);
 });

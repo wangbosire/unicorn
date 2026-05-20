@@ -14,7 +14,8 @@ type MembersTableProps = {
   onPaginationModelChange: (model: PaginationState) => void
   /** 列表行内写操作进行中时为 true，避免重复触发。 */
   actionsDisabled: boolean
-  canManageStatus: boolean
+  canFreeze: boolean
+  canUnfreeze: boolean
   onRequestFreeze: (row: AdminMemberListItem) => void
   onRequestUnfreeze: (row: AdminMemberListItem) => void
 }
@@ -29,7 +30,8 @@ export function MembersTable({
   pageSize,
   onPaginationModelChange,
   actionsDisabled,
-  canManageStatus,
+  canFreeze,
+  canUnfreeze,
   onRequestFreeze,
   onRequestUnfreeze,
 }: MembersTableProps) {
@@ -37,11 +39,18 @@ export function MembersTable({
     () =>
       createMembersColumns({
         actionsDisabled,
-        canManageStatus,
+        canFreeze,
+        canUnfreeze,
         onRequestFreeze,
         onRequestUnfreeze,
       }),
-    [actionsDisabled, canManageStatus, onRequestFreeze, onRequestUnfreeze]
+    [
+      actionsDisabled,
+      canFreeze,
+      canUnfreeze,
+      onRequestFreeze,
+      onRequestUnfreeze,
+    ]
   )
 
   return (

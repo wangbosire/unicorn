@@ -8,8 +8,8 @@
 ## 快速摘要
 
 - 本文档是 `apps/api/prisma/schema.prisma` 的仓库内摘要，不是数据库结构真相源。
-- 当前 schema 已覆盖后台 RBAC、会员、发行、藏品、内容版本和内容审核记录。
-- 评论、转让、通知、审计等扩展域暂未进入当前 Prisma schema。
+- 当前 schema 已覆盖后台 RBAC、权限组与菜单、会员、发行、藏品、评论、通知、转让和审计留痕。
+- 鉴权与菜单扩展已进入 Prisma 真相源，不再停留在文档草案阶段。
 
 ## 真相源
 
@@ -33,6 +33,13 @@
 - `AdminUserStatus`
 - `RoleStatus`
 - `PermissionType`
+- `PermissionStatus`
+- `PermissionGroupType`
+- `PermissionGroupStatus`
+- `MenuType`
+- `MenuStatus`
+- `AuthorizationChangeTargetType`
+- `AuthorizationChangeType`
 - `MemberStatus`
 - `WechatChannelType`
 - `SeriesStatus`
@@ -44,22 +51,31 @@
 - `CollectionContentReviewStage`
 - `CollectionContentReviewStatus`
 - `CollectionContentReviewSource`
+- `CollectionCommentStatus`
+- `CollectionCommentReviewSource`
+- `NotificationMessageType`
+- `NotificationChannel`
+- `NotificationDispatchStatus`
+- `NotificationTemplateStatus`
+- `CollectionTransferMode`
+- `CollectionTransferStatus`
+- `CollectionTransferOperationType`
 
 ## 模型覆盖
 
 ### 已覆盖
 
-- 平台与治理：`AdminUser`、`Role`、`Permission`、`AdminUserRole`、`RolePermission`
+- 平台与治理：`HealthcheckSeed`、`AdminUser`、`Role`、`Permission`、`PermissionGroup`、`PermissionGroupItem`、`AdminUserRole`、`RolePermission`、`Menu`、`MenuPermissionGroup`、`AuthorizationChangeLog`
 - 会员体系：`Member`、`MemberWechatBinding`
 - 发行体系：`Series`、`IssuanceBatch`、`ActivationCode`
 - 藏品与内容：`Collection`、`CollectionContentVersion`、`CollectionContentReviewRecord`
+- 评论治理：`CollectionComment`、`CollectionCommentReviewRecord`
+- 转让体系：`CollectionTransferOrder`、`CollectionTransferOperationRecord`
+- 通知体系：`NotificationMessage`、`NotificationTemplate`、`NotificationTemplateVersion`、`NotificationTemplateChannel`、`NotificationDispatchRecord`
 
 ### 暂未覆盖
 
-- 评论
-- 转让
-- 通知
-- 审计与操作日志
+- 无。当前一期与二期准备阶段涉及的核心业务域已进入 Prisma schema。
 
 ## 刷新方法
 

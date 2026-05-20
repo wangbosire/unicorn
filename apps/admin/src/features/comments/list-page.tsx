@@ -6,7 +6,9 @@ import {
   blockCollectionComment,
   listCollectionComments,
 } from '@/apis/comments/collection-comments'
+import { AdminReadOnlyNotice } from '@/components/admin/admin-readonly-notice'
 import { DataListIntro } from '@/components/data-table'
+import { useAdminPermission } from '@/hooks/use-admin-permission'
 import { PageLayout } from '@/components/layout/page-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -38,6 +40,9 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { ApiError } from '@/lib/api-error'
 import {
+  ADMIN_PERMISSION_COLLECTION_COMMENTS_BLOCK,
+} from '@/lib/admin-route-access'
+import {
   buildCollectionCommentsQueryParams,
   COMMENT_STATUS_OPTIONS,
   COMMENT_STATUS_FILTER_ALL,
@@ -51,6 +56,8 @@ import {
 
 export function CommentListPage() {
   const queryClient = useQueryClient()
+  const { hasAnyPermissions } = useAdminPermission()
+  const canBlockComments = hasAnyPermissions([ADMIN_PERMISSION_COLLECTION_COMMENTS_BLOCK])
   const [status, setStatus] = useState(COMMENT_STATUS_FILTER_ALL)
   const [page, setPage] = useState(1)
   const pageSize = 20
@@ -168,6 +175,10 @@ export function CommentListPage() {
                 },
               ]}
             />
+
+            {!canBlockComments ? (
+              <AdminReadOnlyNotice description='当前账号仅具备评论查看权限，屏蔽动作已隐藏。' />
+            ) : null}
 
             <div
               role='toolbar'
@@ -293,7 +304,7 @@ export function CommentListPage() {
                             {row.content}
                           </TableCell>
                           <TableCell className='text-end'>
-                            {rowMayBlockComment(row) ? (
+                            {canBlockComments && rowMayBlockComment(row) ? (
                               <Button
                                 size='sm'
                                 variant='destructive'

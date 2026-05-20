@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type PaginationState } from '@tanstack/react-table'
 import type { AdminMemberListItem } from '@contracts/admin/members'
 import { UsersIcon, WalletCardsIcon } from 'lucide-react'
-import { listMembers, updateMemberStatus } from '@/apis/members/members'
+import { freezeMember, listMembers, unfreezeMember } from '@/apis/members/members'
 import { AdminReadOnlyNotice } from '@/components/admin/admin-readonly-notice'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { useAdminPermission } from '@/hooks/use-admin-permission'
@@ -26,7 +26,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ApiError } from '@/lib/api-error'
-import { ADMIN_PERMISSION_MEMBERS_MANAGE } from '@/lib/admin-route-access'
+import {
+  ADMIN_PERMISSION_MEMBERS_FREEZE,
+  ADMIN_PERMISSION_MEMBERS_UNFREEZE,
+} from '@/lib/admin-route-access'
 import { toast } from 'sonner'
 import { MembersTable } from './components/members-table'
 
@@ -73,7 +76,7 @@ function mapUpdateMemberStatusErrorMessage(error: ApiError): string {
     case 'ADMIN_AUTH_TOKEN_INVALID':
       return '登录已失效或未携带后台令牌，请重新登录后再试。'
     case 'ADMIN_AUTH_FORBIDDEN':
-      return '当前账号无「会员状态管理」权限，请联系管理员开通。'
+      return '当前账号无会员冻结或解冻权限，请联系管理员开通。'
     default:
       return error.message || '更新会员状态失败，请稍后重试。'
   }
@@ -81,8 +84,10 @@ function mapUpdateMemberStatusErrorMessage(error: ApiError): string {
 
 export function MembersPage() {
   const queryClient = useQueryClient()
-  const { hasPermission } = useAdminPermission()
-  const canManageMembers = hasPermission(ADMIN_PERMISSION_MEMBERS_MANAGE)
+  const { hasAnyPermissions } = useAdminPermission()
+  const canFreezeMembers = hasAnyPermissions([ADMIN_PERMISSION_MEMBERS_FREEZE])
+  const canUnfreezeMembers = hasAnyPermissions([ADMIN_PERMISSION_MEMBERS_UNFREEZE])
+  const canManageMembers = canFreezeMembers || canUnfreezeMembers
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [searchInput, setSearchInput] = useState('')
@@ -121,7 +126,9 @@ export function MembersPage() {
 
   const updateStatusMutation = useMutation({
     mutationFn: (variables: { memberId: string; status: 'ACTIVE' | 'FROZEN' }) =>
-      updateMemberStatus(variables.memberId, { status: variables.status }),
+      variables.status === 'FROZEN'
+        ? freezeMember(variables.memberId)
+        : unfreezeMember(variables.memberId),
     onSuccess: async (_, variables) => {
       const label = variables.status === 'FROZEN' ? '已冻结该会员' : '已解冻该会员'
       toast.success(label)
@@ -183,10 +190,17 @@ export function MembersPage() {
               <code className='mx-1 text-xs'>GET /admin-api/members</code>
               ，冻结 / 解冻：
               <code className='mx-1 text-xs'>
-                PATCH /admin-api/members/:id/status
+                PATCH /admin-api/members/:id/freeze
+              </code>
+              /
+              <code className='mx-1 text-xs'>
+                PATCH /admin-api/members/:id/unfreeze
               </code>
               （需
-              <code className='mx-1 text-xs'>members.manage</code>）。
+              <code className='mx-1 text-xs'>members.freeze</code>
+              /
+              <code className='mx-1 text-xs'>members.unfreeze</code>
+              。
             </>
           }
         >
@@ -302,7 +316,8 @@ export function MembersPage() {
                 pageSize={pageSize}
                 onPaginationModelChange={handlePaginationModelChange}
                 actionsDisabled={updateStatusMutation.isPending}
-                canManageStatus={canManageMembers}
+                canFreeze={canFreezeMembers}
+                canUnfreeze={canUnfreezeMembers}
                 onRequestFreeze={handleRequestFreeze}
                 onRequestUnfreeze={handleRequestUnfreeze}
               />

@@ -7,7 +7,12 @@ import type {
   TakedownPublishedContentVersionRequest,
 } from '@contracts/admin/collection-reviews';
 import { AdminAccessGuard } from '../auth/admin-access.guard';
-import { ADMIN_PERMISSION_COLLECTION_REVIEWS_MANAGE } from '../auth/admin-permission-keys';
+import {
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_APPROVE,
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_READ,
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_REJECT,
+  ADMIN_PERMISSION_COLLECTION_REVIEWS_TAKEDOWN,
+} from '../auth/admin-permission-keys';
 import { RequireAdminPermissions } from '../auth/admin-permissions.decorator';
 import { CollectionReviewsService } from './collection-reviews.service';
 
@@ -17,7 +22,6 @@ import { CollectionReviewsService } from './collection-reviews.service';
  */
 @Controller('admin-api/collection-reviews')
 @UseGuards(AdminAccessGuard)
-@RequireAdminPermissions(ADMIN_PERMISSION_COLLECTION_REVIEWS_MANAGE)
 export class CollectionReviewsController {
   constructor(
     private readonly collectionReviewsService: CollectionReviewsService,
@@ -28,6 +32,7 @@ export class CollectionReviewsController {
    * 路由需置于参数型 `GET :id` 之前，避免被误匹配。
    */
   @Get('history')
+  @RequireAdminPermissions(ADMIN_PERMISSION_COLLECTION_REVIEWS_READ)
   async listCollectionReviewHistory(@Query() query: ListCollectionReviewHistoryQuery) {
     return this.collectionReviewsService.listCollectionReviewHistory(query);
   }
@@ -36,6 +41,7 @@ export class CollectionReviewsController {
    * 查询藏品内容审核列表。
    */
   @Get()
+  @RequireAdminPermissions(ADMIN_PERMISSION_COLLECTION_REVIEWS_READ)
   async listCollectionReviews(@Query() query: ListCollectionReviewsQuery) {
     return this.collectionReviewsService.listCollectionReviews(query);
   }
@@ -44,6 +50,7 @@ export class CollectionReviewsController {
    * 查询单条审核记录详情。
    */
   @Get(':reviewId')
+  @RequireAdminPermissions(ADMIN_PERMISSION_COLLECTION_REVIEWS_READ)
   async getCollectionReviewById(@Param('reviewId') reviewId: string) {
     return this.collectionReviewsService.getCollectionReviewById(reviewId);
   }
@@ -53,6 +60,7 @@ export class CollectionReviewsController {
    * 路由需置于 `:reviewId/*` 之前，避免 `reviewId` 误匹配 `content-versions`。
    */
   @Post('content-versions/:contentVersionId/takedown')
+  @RequireAdminPermissions(ADMIN_PERMISSION_COLLECTION_REVIEWS_TAKEDOWN)
   async takedownPublishedContentVersion(
     @Param('contentVersionId') contentVersionId: string,
     @Body() body: TakedownPublishedContentVersionRequest,
@@ -64,6 +72,7 @@ export class CollectionReviewsController {
    * 人工驳回藏品内容审核。
    */
   @Post(':reviewId/reject')
+  @RequireAdminPermissions(ADMIN_PERMISSION_COLLECTION_REVIEWS_REJECT)
   async rejectCollectionReview(
     @Param('reviewId') reviewId: string,
     @Body() body: RejectCollectionReviewRequest,
@@ -75,6 +84,7 @@ export class CollectionReviewsController {
    * 人工通过藏品内容审核。
    */
   @Post(':reviewId/approve')
+  @RequireAdminPermissions(ADMIN_PERMISSION_COLLECTION_REVIEWS_APPROVE)
   async approveCollectionReview(
     @Param('reviewId') reviewId: string,
     @Body() body: ApproveCollectionReviewRequest,

@@ -151,28 +151,84 @@ async function seedPermissions() {
       sortOrder: 42,
     },
     {
-      id: 'perm_collections_manage',
-      key: 'collections.manage',
-      name: '藏品管理',
+      id: 'perm_collections_read',
+      key: 'collections.read',
+      name: '查看藏品列表',
       type: PermissionType.PAGE,
-      description: '允许查看与治理藏品列表。',
+      description: '允许访问藏品列表并查看藏品详情。',
       sortOrder: 50,
     },
     {
-      id: 'perm_collection_reviews_manage',
-      key: 'collection_reviews.manage',
-      name: '藏品内容复核',
+      id: 'perm_collections_toggle_status',
+      key: 'collections.toggle_status',
+      name: '切换藏品状态',
+      type: PermissionType.ACTION,
+      description: '允许冻结或恢复藏品状态。',
+      sortOrder: 51,
+    },
+    {
+      id: 'perm_collection_reviews_read',
+      key: 'collection_reviews.read',
+      name: '查看内容复核',
       type: PermissionType.PAGE,
-      description: '允许查看内容复核列表并执行复核动作。',
+      description: '允许查看内容复核列表、详情与审核历史。',
       sortOrder: 60,
     },
     {
-      id: 'perm_collection_comments_manage',
-      key: 'collection_comments.manage',
-      name: '评论治理',
+      id: 'perm_collection_reviews_approve',
+      key: 'collection_reviews.approve',
+      name: '人工通过内容复核',
+      type: PermissionType.ACTION,
+      description: '允许对待人工复核内容执行人工通过。',
+      sortOrder: 62,
+    },
+    {
+      id: 'perm_collection_reviews_reject',
+      key: 'collection_reviews.reject',
+      name: '人工驳回内容复核',
+      type: PermissionType.ACTION,
+      description: '允许对待人工复核内容执行人工驳回。',
+      sortOrder: 63,
+    },
+    {
+      id: 'perm_collection_reviews_takedown',
+      key: 'collection_reviews.takedown',
+      name: '下架公开内容',
+      type: PermissionType.ACTION,
+      description: '允许对已通过且已公开的内容版本执行下架。',
+      sortOrder: 64,
+    },
+    {
+      id: 'perm_collection_comments_read',
+      key: 'collection_comments.read',
+      name: '查看评论治理',
       type: PermissionType.PAGE,
-      description: '允许查看评论列表并执行评论治理动作。',
+      description: '允许查看评论列表与评论审核队列。',
       sortOrder: 70,
+    },
+    {
+      id: 'perm_collection_comments_approve',
+      key: 'collection_comments.approve',
+      name: '人工通过评论',
+      type: PermissionType.ACTION,
+      description: '允许对待人工审核评论执行人工通过。',
+      sortOrder: 72,
+    },
+    {
+      id: 'perm_collection_comments_reject',
+      key: 'collection_comments.reject',
+      name: '人工驳回评论',
+      type: PermissionType.ACTION,
+      description: '允许对待人工审核评论执行人工驳回。',
+      sortOrder: 73,
+    },
+    {
+      id: 'perm_collection_comments_block',
+      key: 'collection_comments.block',
+      name: '屏蔽评论',
+      type: PermissionType.ACTION,
+      description: '允许对已通过审核或已公开评论执行屏蔽。',
+      sortOrder: 74,
     },
     {
       id: 'perm_members_read',
@@ -183,12 +239,20 @@ async function seedPermissions() {
       sortOrder: 80,
     },
     {
-      id: 'perm_members_manage',
-      key: 'members.manage',
-      name: '会员状态管理',
-      type: PermissionType.PAGE,
-      description: '允许冻结、解冻等会员状态管理动作。',
-      sortOrder: 90,
+      id: 'perm_members_freeze',
+      key: 'members.freeze',
+      name: '冻结会员',
+      type: PermissionType.ACTION,
+      description: '允许将会员账号设为冻结状态。',
+      sortOrder: 81,
+    },
+    {
+      id: 'perm_members_unfreeze',
+      key: 'members.unfreeze',
+      name: '解冻会员',
+      type: PermissionType.ACTION,
+      description: '允许将冻结会员恢复为正常状态。',
+      sortOrder: 82,
     },
     {
       id: 'perm_notifications_read',
@@ -231,14 +295,6 @@ async function seedPermissions() {
       sortOrder: 104,
     },
     {
-      id: 'perm_notifications_manage',
-      key: 'notifications.manage',
-      name: '通知中心（兼容旧权限）',
-      type: PermissionType.PAGE,
-      description: '历史兼容权限，保留用于已有角色平滑迁移。',
-      sortOrder: 105,
-    },
-    {
       id: 'perm_transfers_read',
       key: 'transfers.read',
       name: '查看转让记录',
@@ -277,14 +333,6 @@ async function seedPermissions() {
       type: PermissionType.ACTION,
       description: '允许按已完成转让结果修复藏品归属。',
       sortOrder: 114,
-    },
-    {
-      id: 'perm_transfers_manage',
-      key: 'transfers.manage',
-      name: '转让记录（兼容旧权限）',
-      type: PermissionType.PAGE,
-      description: '历史兼容权限，保留用于已有角色平滑迁移。',
-      sortOrder: 115,
     },
     {
       id: 'perm_nav_m2_placeholder',
@@ -535,6 +583,26 @@ async function seedPermissions() {
       },
     });
   }
+
+  const deprecatedPermissionIds = [
+    'perm_collection_reviews_manage',
+    'perm_collection_comments_manage',
+    'perm_members_manage',
+    'perm_notifications_manage',
+    'perm_transfers_manage',
+  ];
+
+  await prisma.rolePermission.deleteMany({
+    where: { permissionId: { in: deprecatedPermissionIds } },
+  });
+
+  await prisma.permissionGroupItem.deleteMany({
+    where: { permissionId: { in: deprecatedPermissionIds } },
+  });
+
+  await prisma.permission.deleteMany({
+    where: { id: { in: deprecatedPermissionIds } },
+  });
 }
 
 async function seedPermissionGroups() {
@@ -604,7 +672,10 @@ async function seedPermissionGroups() {
       type: PermissionGroupType.BUSINESS,
       description: '用于藏品列表相关菜单和授权。',
       sortOrder: 50,
-      permissionIds: ['perm_collections_manage'],
+      permissionIds: [
+        'perm_collections_read',
+        'perm_collections_toggle_status',
+      ],
     },
     {
       id: 'perm_group_collection_reviews',
@@ -613,7 +684,12 @@ async function seedPermissionGroups() {
       type: PermissionGroupType.BUSINESS,
       description: '用于内容复核相关菜单和授权。',
       sortOrder: 60,
-      permissionIds: ['perm_collection_reviews_manage'],
+      permissionIds: [
+        'perm_collection_reviews_read',
+        'perm_collection_reviews_approve',
+        'perm_collection_reviews_reject',
+        'perm_collection_reviews_takedown',
+      ],
     },
     {
       id: 'perm_group_collection_comments',
@@ -622,7 +698,12 @@ async function seedPermissionGroups() {
       type: PermissionGroupType.BUSINESS,
       description: '用于评论列表与评论审核菜单和授权。',
       sortOrder: 70,
-      permissionIds: ['perm_collection_comments_manage'],
+      permissionIds: [
+        'perm_collection_comments_read',
+        'perm_collection_comments_approve',
+        'perm_collection_comments_reject',
+        'perm_collection_comments_block',
+      ],
     },
     {
       id: 'perm_group_members',
@@ -631,7 +712,11 @@ async function seedPermissionGroups() {
       type: PermissionGroupType.BUSINESS,
       description: '用于会员管理菜单和授权。',
       sortOrder: 80,
-      permissionIds: ['perm_members_read', 'perm_members_manage'],
+      permissionIds: [
+        'perm_members_read',
+        'perm_members_freeze',
+        'perm_members_unfreeze',
+      ],
     },
     {
       id: 'perm_group_notifications',
@@ -980,6 +1065,8 @@ async function seedMenus() {
       sortOrder: 60,
       permissionGroupIds: [
         'perm_group_system_admin_users',
+        'perm_group_system_permissions',
+        'perm_group_system_permission_groups',
         'perm_group_system_roles',
         'perm_group_system_menus',
       ],
@@ -1007,6 +1094,39 @@ async function seedMenus() {
       permissionGroupIds: ['perm_group_system_roles'],
     },
     {
+      id: 'menu_system_permissions',
+      parentId: 'menu_system_root',
+      key: 'system.permissions',
+      name: '权限点',
+      type: MenuType.PAGE,
+      routePath: '/system/permissions',
+      iconName: 'KeyRound',
+      sortOrder: 25,
+      permissionGroupIds: ['perm_group_system_permissions'],
+    },
+    {
+      id: 'menu_system_authorization_change_logs',
+      parentId: 'menu_system_root',
+      key: 'system.authorization_change_logs',
+      name: '变更日志',
+      type: MenuType.PAGE,
+      routePath: '/system/authorization-change-logs',
+      iconName: 'HistoryIcon',
+      sortOrder: 27,
+      permissionGroupIds: ['perm_group_system_permissions'],
+    },
+    {
+      id: 'menu_system_permission_groups',
+      parentId: 'menu_system_root',
+      key: 'system.permission_groups',
+      name: '权限组',
+      type: MenuType.PAGE,
+      routePath: '/system/permission-groups',
+      iconName: 'KeyRound',
+      sortOrder: 30,
+      permissionGroupIds: ['perm_group_system_permission_groups'],
+    },
+    {
       id: 'menu_system_menus',
       parentId: 'menu_system_root',
       key: 'system.menus',
@@ -1014,7 +1134,7 @@ async function seedMenus() {
       type: MenuType.PAGE,
       routePath: '/system/menus',
       iconName: 'ScanSearch',
-      sortOrder: 30,
+      sortOrder: 40,
       permissionGroupIds: ['perm_group_system_menus'],
     },
   ];
@@ -1134,52 +1254,6 @@ async function seedRoles() {
       permissionId: 'perm_dashboard_read',
     },
   });
-}
-
-async function expandLegacyManagePermissions() {
-  const legacyExpansions = [
-    {
-      legacyPermissionId: 'perm_notifications_manage',
-      expandedPermissionIds: [
-        'perm_notifications_read',
-        'perm_notifications_template_create',
-        'perm_notifications_template_update',
-        'perm_notifications_template_toggle_status',
-        'perm_notifications_dispatch_retry',
-      ],
-    },
-    {
-      legacyPermissionId: 'perm_transfers_manage',
-      expandedPermissionIds: [
-        'perm_transfers_read',
-        'perm_transfers_complete',
-        'perm_transfers_rollback',
-        'perm_transfers_expire',
-        'perm_transfers_sync_owner',
-      ],
-    },
-  ] as const;
-
-  for (const expansion of legacyExpansions) {
-    const legacyRoleLinks = await prisma.rolePermission.findMany({
-      where: { permissionId: expansion.legacyPermissionId },
-      select: { roleId: true },
-    });
-
-    if (legacyRoleLinks.length === 0) {
-      continue;
-    }
-
-    await prisma.rolePermission.createMany({
-      data: legacyRoleLinks.flatMap((link) =>
-        expansion.expandedPermissionIds.map((permissionId) => ({
-          roleId: link.roleId,
-          permissionId,
-        })),
-      ),
-      skipDuplicates: true,
-    });
-  }
 }
 
 /**
@@ -2219,7 +2293,6 @@ async function main() {
   await seedPermissionGroups();
   await seedMenus();
   await seedRoles();
-  await expandLegacyManagePermissions();
   await seedAdminUsers();
   await seedPendingManualReviewDemo();
   await seedPendingManualCommentReviewDemo();

@@ -13,6 +13,7 @@ import {
   RoleStatus,
 } from '@prisma/client';
 import type {
+  AdminAuthorizationChangeLogListItem,
   AdminMenuDetail,
   AdminMenuListItem,
   AdminPermissionDetail,
@@ -23,6 +24,8 @@ import type {
   AdminRoleListItem,
   AdminUserDetail,
   AdminUserListItem,
+  ListAuthorizationChangeLogsQuery,
+  ListAuthorizationChangeLogsResponseData,
   ListAdminUsersQuery,
   ListAdminUsersResponseData,
   ListMenusQuery,
@@ -37,6 +40,8 @@ import type {
   UpdateAdminUserRolesResponseData,
   UpdateMenuPermissionGroupsRequest,
   UpdateMenuPermissionGroupsResponseData,
+  UpdatePermissionGroupPermissionsRequest,
+  UpdatePermissionGroupPermissionsResponseData,
   UpdateRolePermissionsRequest,
   UpdateRolePermissionsResponseData,
 } from '@contracts/admin/system';
@@ -110,6 +115,11 @@ const updateMenuPermissionGroupsSchema = z.object({
   changeReason: nullableTextField().optional(),
 });
 
+const updatePermissionGroupPermissionsSchema = z.object({
+  permissionIds: z.array(requiredIdField('permission')).default([]),
+  changeReason: nullableTextField().optional(),
+});
+
 /**
  * 后台系统管理只读服务。
  */
@@ -175,6 +185,100 @@ export class SystemService {
       pageSize: pagination.pageSize,
       total,
     });
+  }
+
+  /**
+   * 分页查询权限变更日志。
+   */
+  async listAuthorizationChangeLogs(
+    query: ListAuthorizationChangeLogsQuery,
+  ): Promise<ListAuthorizationChangeLogsResponseData> {
+    const pagination = parsePaginationQuery({
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+    const targetType = parseOptionalEnumValue(
+      query.targetType,
+      [
+        AuthorizationChangeTargetType.ADMIN_USER,
+        AuthorizationChangeTargetType.ROLE,
+        AuthorizationChangeTargetType.PERMISSION,
+        AuthorizationChangeTargetType.PERMISSION_GROUP,
+        AuthorizationChangeTargetType.MENU,
+      ],
+      'INVALID_AUTHORIZATION_CHANGE_TARGET_TYPE',
+      'invalid authorization change target type in query',
+    );
+    const changeType = parseOptionalEnumValue(
+      query.changeType,
+      [
+        AuthorizationChangeType.CREATE,
+        AuthorizationChangeType.UPDATE,
+        AuthorizationChangeType.ENABLE,
+        AuthorizationChangeType.DISABLE,
+        AuthorizationChangeType.REPLACE_BINDINGS,
+        AuthorizationChangeType.ASSIGN,
+        AuthorizationChangeType.REVOKE,
+      ],
+      'INVALID_AUTHORIZATION_CHANGE_TYPE',
+      'invalid authorization change type in query',
+    );
+    const operatorAdminUserId = query.operatorAdminUserId?.trim();
+    const targetId = query.targetId?.trim();
+
+    const where: Prisma.AuthorizationChangeLogWhereInput = {
+      ...(targetType ? { targetType } : {}),
+      ...(changeType ? { changeType } : {}),
+      ...(operatorAdminUserId
+        ? {
+            operatorAdminUserId: this.requireId(
+              operatorAdminUserId,
+              'operator admin user',
+            ),
+          }
+        : {}),
+      ...(targetId ? { targetId } : {}),
+    };
+
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.authorizationChangeLog.findMany({
+        where,
+        include: {
+          operatorAdminUser: true,
+        },
+        orderBy: [{ createdAt: 'desc' }],
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.authorizationChangeLog.count({ where }),
+    ]);
+
+    const targetLabels = await this.resolveAuthorizationTargets(rows);
+
+    return buildPaginatedResult({
+      items: rows.map((row) => {
+        const target = targetLabels.get(`${row.targetType}:${row.targetId}`);
+        return {
+          changeLogId: row.id,
+          targetType: row.targetType,
+          targetId: row.targetId,
+          targetKey: target?.targetKey ?? null,
+          targetName: target?.targetName ?? null,
+          changeType: row.changeType,
+          operatorAdminUserId: row.operatorAdminUserId,
+          operatorAccountNo: row.operatorAdminUser.accountNo,
+          operatorUsername: row.operatorAdminUser.username,
+          operatorDisplayName: row.operatorAdminUser.displayName,
+          beforeSnapshot: row.beforeSnapshot ?? null,
+          afterSnapshot: row.afterSnapshot ?? null,
+          changeReason: row.changeReason ?? null,
+          createdAt: toTimestamp(row.createdAt),
+        } satisfies AdminAuthorizationChangeLogListItem
+      }),
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      total,
+    })
   }
 
   /**
@@ -990,6 +1094,152 @@ export class SystemService {
   }
 
   /**
+   * 保存权限组成员。
+   * 权限组仅负责组织与展示，不直接作为接口放行真相源。
+   */
+  async updatePermissionGroupPermissions(
+    permissionGroupId: string,
+    payload: UpdatePermissionGroupPermissionsRequest,
+    operatorAdminUserId: string | null,
+  ): Promise<UpdatePermissionGroupPermissionsResponseData> {
+    const normalizedPermissionGroupId = this.requireId(
+      permissionGroupId,
+      'permission group',
+    );
+    const operatorId = this.requireId(
+      operatorAdminUserId ?? '',
+      'operator admin user',
+    );
+    const input = parseWithSchema(updatePermissionGroupPermissionsSchema, payload);
+    const permissionIds = [...new Set(input.permissionIds)].sort();
+
+    const permissionGroup = await this.prisma.permissionGroup.findUnique({
+      where: { id: normalizedPermissionGroupId },
+      include: {
+        items: {
+          include: {
+            permission: true,
+          },
+        },
+      },
+    });
+
+    if (!permissionGroup) {
+      throw new BizError({
+        code: 'PERMISSION_GROUP_NOT_FOUND',
+        message: 'permission group not found',
+        status: 404,
+      });
+    }
+
+    const permissions =
+      permissionIds.length > 0
+        ? await this.prisma.permission.findMany({
+            where: {
+              id: { in: permissionIds },
+            },
+          })
+        : [];
+
+    if (permissions.length !== permissionIds.length) {
+      throw new BizError({
+        code: 'PERMISSION_NOT_FOUND',
+        message: 'one or more permissions do not exist',
+      });
+    }
+
+    const disabledPermission = permissions.find(
+      (permission) => permission.status !== PermissionStatus.ENABLED,
+    );
+    if (disabledPermission) {
+      throw new BizError({
+        code: 'PERMISSION_DISABLED',
+        message: 'disabled permission cannot be bound to permission group',
+        status: 409,
+      });
+    }
+
+    const wildcardPermission = permissions.find(
+      (permission) => permission.permissionKey === ADMIN_PERMISSION_WILDCARD,
+    );
+    if (wildcardPermission) {
+      throw new BizError({
+        code: 'PERMISSION_WILDCARD_FORBIDDEN',
+        message: 'wildcard permission cannot be bound to permission group',
+        status: 409,
+      });
+    }
+
+    const currentPermissionIds = permissionGroup.items
+      .map((item) => item.permissionId)
+      .sort();
+    const unchanged =
+      currentPermissionIds.length === permissionIds.length &&
+      currentPermissionIds.every(
+        (currentPermissionId, index) => currentPermissionId === permissionIds[index],
+      );
+
+    if (unchanged) {
+      return {
+        permissionGroupId: permissionGroup.id,
+        groupKey: permissionGroup.groupKey,
+        permissionIds,
+        permissionKeys: permissionGroup.items
+          .map((item) => item.permission.permissionKey)
+          .sort(),
+        updatedAt: toTimestamp(permissionGroup.updatedAt),
+      };
+    }
+
+    const nextPermissionKeys = permissions.map((permission) => permission.permissionKey).sort();
+    const handledAt = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.permissionGroupItem.deleteMany({
+        where: { permissionGroupId: permissionGroup.id },
+      });
+
+      if (permissionIds.length > 0) {
+        await tx.permissionGroupItem.createMany({
+          data: permissionIds.map((resolvedPermissionId) => ({
+            permissionGroupId: permissionGroup.id,
+            permissionId: resolvedPermissionId,
+          })),
+        });
+      }
+
+      await tx.authorizationChangeLog.create({
+        data: {
+          targetType: AuthorizationChangeTargetType.PERMISSION_GROUP,
+          targetId: permissionGroup.id,
+          changeType: AuthorizationChangeType.REPLACE_BINDINGS,
+          operatorAdminUserId: operatorId,
+          beforeSnapshot: {
+            permissionIds: currentPermissionIds,
+            permissionKeys: permissionGroup.items
+              .map((item) => item.permission.permissionKey)
+              .sort(),
+          },
+          afterSnapshot: {
+            permissionIds,
+            permissionKeys: nextPermissionKeys,
+          },
+          changeReason: input.changeReason ?? null,
+          createdAt: handledAt,
+        },
+      });
+    });
+
+    return {
+      permissionGroupId: permissionGroup.id,
+      groupKey: permissionGroup.groupKey,
+      permissionIds,
+      permissionKeys: nextPermissionKeys,
+      updatedAt: toTimestamp(handledAt),
+    };
+  }
+
+  /**
    * 分页查询菜单列表。
    */
   async listMenus(query: ListMenusQuery): Promise<ListMenusResponseData> {
@@ -1337,6 +1587,135 @@ export class SystemService {
     }
 
     return [...keys].sort();
+  }
+
+  private async resolveAuthorizationTargets(
+    rows: Array<{
+      targetType: AuthorizationChangeTargetType
+      targetId: string
+    }>,
+  ): Promise<Map<string, { targetKey: string | null; targetName: string | null }>> {
+    const targetMap = new Map<
+      string,
+      { targetKey: string | null; targetName: string | null }
+    >()
+    const idsByType = new Map<AuthorizationChangeTargetType, Set<string>>()
+
+    for (const row of rows) {
+      const current = idsByType.get(row.targetType) ?? new Set<string>()
+      current.add(row.targetId)
+      idsByType.set(row.targetType, current)
+    }
+
+    const [
+      adminUsers,
+      roles,
+      permissions,
+      permissionGroups,
+      menus,
+    ] = await Promise.all([
+      idsByType.has(AuthorizationChangeTargetType.ADMIN_USER)
+        ? this.prisma.adminUser.findMany({
+            where: {
+              id: {
+                in: [...(idsByType.get(AuthorizationChangeTargetType.ADMIN_USER) ?? [])],
+              },
+            },
+            select: {
+              id: true,
+              accountNo: true,
+              displayName: true,
+            },
+          })
+        : Promise.resolve([]),
+      idsByType.has(AuthorizationChangeTargetType.ROLE)
+        ? this.prisma.role.findMany({
+            where: {
+              id: { in: [...(idsByType.get(AuthorizationChangeTargetType.ROLE) ?? [])] },
+            },
+            select: {
+              id: true,
+              roleKey: true,
+              roleName: true,
+            },
+          })
+        : Promise.resolve([]),
+      idsByType.has(AuthorizationChangeTargetType.PERMISSION)
+        ? this.prisma.permission.findMany({
+            where: {
+              id: {
+                in: [...(idsByType.get(AuthorizationChangeTargetType.PERMISSION) ?? [])],
+              },
+            },
+            select: {
+              id: true,
+              permissionKey: true,
+              permissionName: true,
+            },
+          })
+        : Promise.resolve([]),
+      idsByType.has(AuthorizationChangeTargetType.PERMISSION_GROUP)
+        ? this.prisma.permissionGroup.findMany({
+            where: {
+              id: {
+                in: [
+                  ...(idsByType.get(AuthorizationChangeTargetType.PERMISSION_GROUP) ?? []),
+                ],
+              },
+            },
+            select: {
+              id: true,
+              groupKey: true,
+              groupName: true,
+            },
+          })
+        : Promise.resolve([]),
+      idsByType.has(AuthorizationChangeTargetType.MENU)
+        ? this.prisma.menu.findMany({
+            where: {
+              id: { in: [...(idsByType.get(AuthorizationChangeTargetType.MENU) ?? [])] },
+            },
+            select: {
+              id: true,
+              menuKey: true,
+              menuName: true,
+            },
+          })
+        : Promise.resolve([]),
+    ])
+
+    for (const row of adminUsers) {
+      targetMap.set(`${AuthorizationChangeTargetType.ADMIN_USER}:${row.id}`, {
+        targetKey: row.accountNo,
+        targetName: row.displayName,
+      })
+    }
+    for (const row of roles) {
+      targetMap.set(`${AuthorizationChangeTargetType.ROLE}:${row.id}`, {
+        targetKey: row.roleKey,
+        targetName: row.roleName,
+      })
+    }
+    for (const row of permissions) {
+      targetMap.set(`${AuthorizationChangeTargetType.PERMISSION}:${row.id}`, {
+        targetKey: row.permissionKey,
+        targetName: row.permissionName,
+      })
+    }
+    for (const row of permissionGroups) {
+      targetMap.set(`${AuthorizationChangeTargetType.PERMISSION_GROUP}:${row.id}`, {
+        targetKey: row.groupKey,
+        targetName: row.groupName,
+      })
+    }
+    for (const row of menus) {
+      targetMap.set(`${AuthorizationChangeTargetType.MENU}:${row.id}`, {
+        targetKey: row.menuKey,
+        targetName: row.menuName,
+      })
+    }
+
+    return targetMap
   }
 
   private parseOptionalBoolean(

@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type {
+  ListAuthorizationChangeLogsQuery,
   ListAdminUsersQuery,
   ListMenusQuery,
   ListPermissionGroupsQuery,
@@ -16,6 +17,7 @@ import type {
   ListRolesQuery,
   UpdateAdminUserRolesRequest,
   UpdateMenuPermissionGroupsRequest,
+  UpdatePermissionGroupPermissionsRequest,
   UpdateRolePermissionsRequest,
 } from '@contracts/admin/system';
 import { AdminAccessGuard } from '../auth/admin-access.guard';
@@ -26,6 +28,7 @@ import {
   ADMIN_PERMISSION_MENUS_READ,
   ADMIN_PERMISSION_MENUS_UPDATE,
   ADMIN_PERMISSION_PERMISSION_GROUPS_READ,
+  ADMIN_PERMISSION_PERMISSION_GROUPS_UPDATE,
   ADMIN_PERMISSION_PERMISSIONS_READ,
   ADMIN_PERMISSION_ROLES_ASSIGN_PERMISSIONS,
   ADMIN_PERMISSION_ROLES_READ,
@@ -41,6 +44,17 @@ import { SystemService } from './system.service';
 @UseGuards(AdminAccessGuard)
 export class SystemController {
   constructor(private readonly systemService: SystemService) {}
+
+  /**
+   * 分页查询权限变更日志。
+   */
+  @Get('authorization-change-logs')
+  @RequireAdminPermissions(ADMIN_PERMISSION_PERMISSIONS_READ)
+  async listAuthorizationChangeLogs(
+    @Query() query: ListAuthorizationChangeLogsQuery,
+  ) {
+    return this.systemService.listAuthorizationChangeLogs(query);
+  }
 
   /**
    * 分页查询后台用户列表。
@@ -149,6 +163,23 @@ export class SystemController {
     @Param('permissionGroupId') permissionGroupId: string,
   ) {
     return this.systemService.getPermissionGroupById(permissionGroupId);
+  }
+
+  /**
+   * 保存权限组成员。
+   */
+  @Patch('permission-groups/:permissionGroupId/permissions')
+  @RequireAdminPermissions(ADMIN_PERMISSION_PERMISSION_GROUPS_UPDATE)
+  async updatePermissionGroupPermissions(
+    @Param('permissionGroupId') permissionGroupId: string,
+    @Body() body: UpdatePermissionGroupPermissionsRequest,
+    @Req() request: AdminHttpRequest,
+  ) {
+    return this.systemService.updatePermissionGroupPermissions(
+      permissionGroupId,
+      body,
+      request.admin?.id ?? null,
+    );
   }
 
   /**

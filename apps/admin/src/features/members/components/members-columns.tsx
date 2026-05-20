@@ -16,7 +16,8 @@ import {
 export type MembersTableActions = {
   /** 为 true 时禁用行内菜单，避免并发写冲突。 */
   actionsDisabled: boolean
-  canManageStatus: boolean
+  canFreeze: boolean
+  canUnfreeze: boolean
   onRequestFreeze: (row: AdminMemberListItem) => void
   onRequestUnfreeze: (row: AdminMemberListItem) => void
 }
@@ -124,8 +125,10 @@ export function createMembersColumns(
         const item = row.original
         const isActive = item.status === 'ACTIVE'
         const isFrozen = item.status === 'FROZEN'
+        const canShowFreeze = isActive && actions.canFreeze
+        const canShowUnfreeze = isFrozen && actions.canUnfreeze
 
-        if (!actions.canManageStatus) {
+        if (!canShowFreeze && !canShowUnfreeze) {
           return null
         }
 
@@ -144,7 +147,7 @@ export function createMembersColumns(
             <DropdownMenuContent align='end' className='w-44'>
               <DropdownMenuLabel>操作</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {isActive ? (
+              {canShowFreeze ? (
                 <DropdownMenuItem
                   className='text-destructive focus:text-destructive'
                   onClick={() => {
@@ -154,7 +157,7 @@ export function createMembersColumns(
                   冻结会员
                 </DropdownMenuItem>
               ) : null}
-              {isFrozen ? (
+              {canShowUnfreeze ? (
                 <DropdownMenuItem
                   onClick={() => {
                     actions.onRequestUnfreeze(item)

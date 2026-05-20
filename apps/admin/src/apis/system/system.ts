@@ -1,5 +1,8 @@
 import type {
+  ListAuthorizationChangeLogsQuery,
+  ListAuthorizationChangeLogsResponseData,
   AdminMenuDetail,
+  AdminPermissionDetail,
   AdminPermissionGroupDetail,
   AdminRoleDetail,
   AdminUserDetail,
@@ -9,16 +12,31 @@ import type {
   ListMenusResponseData,
   ListPermissionGroupsQuery,
   ListPermissionGroupsResponseData,
+  ListPermissionsQuery,
+  ListPermissionsResponseData,
   ListRolesQuery,
   ListRolesResponseData,
   UpdateAdminUserRolesRequest,
   UpdateAdminUserRolesResponseData,
   UpdateMenuPermissionGroupsRequest,
   UpdateMenuPermissionGroupsResponseData,
+  UpdatePermissionGroupPermissionsRequest,
+  UpdatePermissionGroupPermissionsResponseData,
   UpdateRolePermissionsRequest,
   UpdateRolePermissionsResponseData,
 } from '@contracts/admin/system'
 import { apiClient } from '@/lib/api-client'
+
+/**
+ * 查询权限变更日志列表。
+ */
+export async function listAuthorizationChangeLogs(
+  query: ListAuthorizationChangeLogsQuery
+): Promise<ListAuthorizationChangeLogsResponseData> {
+  return apiClient.get('/admin-api/system/authorization-change-logs', {
+    params: query,
+  })
+}
 
 /**
  * 查询后台用户列表。
@@ -66,6 +84,25 @@ export async function getRole(roleId: string): Promise<AdminRoleDetail> {
 }
 
 /**
+ * 查询权限点列表。
+ */
+export async function listPermissions(
+  query: ListPermissionsQuery
+): Promise<ListPermissionsResponseData> {
+  return apiClient.get('/admin-api/system/permissions', { params: query })
+}
+
+/**
+ * 查询权限点详情。
+ */
+export async function getPermission(
+  permissionId: string
+): Promise<AdminPermissionDetail> {
+  const id = encodeURIComponent(permissionId.trim())
+  return apiClient.get(`/admin-api/system/permissions/${id}`)
+}
+
+/**
  * 保存角色权限。
  */
 export async function updateRolePermissions(
@@ -93,6 +130,20 @@ export async function getPermissionGroup(
 ): Promise<AdminPermissionGroupDetail> {
   const id = encodeURIComponent(permissionGroupId.trim())
   return apiClient.get(`/admin-api/system/permission-groups/${id}`)
+}
+
+/**
+ * 保存权限组成员。
+ */
+export async function updatePermissionGroupPermissions(
+  permissionGroupId: string,
+  payload: UpdatePermissionGroupPermissionsRequest
+): Promise<UpdatePermissionGroupPermissionsResponseData> {
+  const id = encodeURIComponent(permissionGroupId.trim())
+  return apiClient.patch(
+    `/admin-api/system/permission-groups/${id}/permissions`,
+    payload
+  )
 }
 
 /**

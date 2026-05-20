@@ -75,7 +75,19 @@ async function createTransfersHttpApp(
     ],
   })
     .overrideGuard(AdminAccessGuard)
-    .useValue({ canActivate: () => true })
+    .useValue({
+      canActivate: (context: { switchToHttp: () => { getRequest: () => { admin?: unknown } } }) => {
+        const request = context.switchToHttp().getRequest();
+        request.admin = {
+          id: 'admin_1',
+          username: 'admin',
+          accountNo: 'ADM000001',
+          authzVersion: 1,
+          permissionKeys: ['*'],
+        };
+        return true;
+      },
+    })
     .compile();
 
   const app = moduleRef.createNestApplication();
@@ -252,7 +264,7 @@ test('POST /admin-api/transfers/:transferId/expire returns wrapped payload', asy
     expireTransferOrder: async (transferId, body, operatorAdminUserId) => {
       assert.equal(transferId, 'transfer_1');
       assert.equal(body.reason, '客服人工释放');
-      assert.equal(operatorAdminUserId, null);
+      assert.equal(operatorAdminUserId, 'admin_1');
       return {
         transferId,
         transferNo: 'TR-0001',
@@ -287,7 +299,7 @@ test('POST /admin-api/transfers/:transferId/complete returns wrapped payload', a
     completeTransferOrder: async (transferId, body, operatorAdminUserId) => {
       assert.equal(transferId, 'transfer_3');
       assert.equal(body.reason, '链路补偿已到账但状态未完成');
-      assert.equal(operatorAdminUserId, null);
+      assert.equal(operatorAdminUserId, 'admin_1');
       return {
         transferId,
         transferNo: 'TR-0003',
@@ -324,7 +336,7 @@ test('POST /admin-api/transfers/:transferId/rollback returns wrapped payload', a
     rollbackTransferOrder: async (transferId, body, operatorAdminUserId) => {
       assert.equal(transferId, 'transfer_4');
       assert.equal(body.reason, '客诉判定需撤销已完成转让');
-      assert.equal(operatorAdminUserId, null);
+      assert.equal(operatorAdminUserId, 'admin_1');
       return {
         transferId,
         transferNo: 'TR-0004',
@@ -409,7 +421,7 @@ test('POST /admin-api/transfers/:transferId/sync-owner returns wrapped payload',
     syncTransferOrderOwner: async (transferId, body, operatorAdminUserId) => {
       assert.equal(transferId, 'transfer_2');
       assert.equal(body.reason, '历史补偿漏写 owner');
-      assert.equal(operatorAdminUserId, null);
+      assert.equal(operatorAdminUserId, 'admin_1');
       return {
         transferId,
         transferNo: 'TR-0002',

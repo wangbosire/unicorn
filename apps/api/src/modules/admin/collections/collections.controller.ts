@@ -1,11 +1,16 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, Req, UseGuards } from '@nestjs/common';
 import type {
   ListCollectionsQuery,
   UpdateCollectionStatusRequest,
 } from '@contracts/admin/collections';
+import { BizError } from '../../../common/http/biz-error';
 import { AdminAccessGuard } from '../auth/admin-access.guard';
-import { ADMIN_PERMISSION_COLLECTIONS_MANAGE } from '../auth/admin-permission-keys';
-import { RequireAdminPermissions } from '../auth/admin-permissions.decorator';
+import type { AdminHttpRequest } from '../auth/admin-http.types';
+import {
+  ADMIN_PERMISSION_COLLECTIONS_READ,
+  ADMIN_PERMISSION_COLLECTIONS_TOGGLE_STATUS,
+  ADMIN_PERMISSION_WILDCARD,
+} from '../auth/admin-permission-keys';
 import { CollectionsService } from './collections.service';
 
 /**
@@ -14,7 +19,6 @@ import { CollectionsService } from './collections.service';
  */
 @Controller('admin-api/collections')
 @UseGuards(AdminAccessGuard)
-@RequireAdminPermissions(ADMIN_PERMISSION_COLLECTIONS_MANAGE)
 export class CollectionsController {
   constructor(private readonly collectionsService: CollectionsService) {}
 
@@ -22,7 +26,11 @@ export class CollectionsController {
    * 分页查询藏品列表。
    */
   @Get()
-  async listCollections(@Query() query: ListCollectionsQuery) {
+  async listCollections(
+    @Query() query: ListCollectionsQuery,
+    @Req() request: AdminHttpRequest,
+  ) {
+    this.ensureAnyPermission(request, [ADMIN_PERMISSION_COLLECTIONS_READ]);
     return this.collectionsService.listCollections(query);
   }
 
@@ -30,7 +38,11 @@ export class CollectionsController {
    * 查询单个藏品详情。
    */
   @Get(':collectionId')
-  async getCollectionById(@Param('collectionId') collectionId: string) {
+  async getCollectionById(
+    @Param('collectionId') collectionId: string,
+    @Req() request: AdminHttpRequest,
+  ) {
+    this.ensureAnyPermission(request, [ADMIN_PERMISSION_COLLECTIONS_READ]);
     return this.collectionsService.getCollectionById(collectionId);
   }
 
@@ -41,7 +53,36 @@ export class CollectionsController {
   async updateCollectionStatus(
     @Param('collectionId') collectionId: string,
     @Body() body: UpdateCollectionStatusRequest,
+    @Req() request: AdminHttpRequest,
   ) {
+    this.ensureAnyPermission(request, [
+      ADMIN_PERMISSION_COLLECTIONS_TOGGLE_STATUS,
+    ]);
     return this.collectionsService.updateCollectionStatus(collectionId, body);
+  }
+
+  /**
+   * 藏品列表仅按最新 action 权限点放行，不再兼容历史 manage 模式。
+   */
+  private ensureAnyPermission(
+    request: AdminHttpRequest,
+    permissionKeys: string[],
+  ) {
+    const currentPermissionKeys = request.admin?.permissionKeys ?? [];
+
+    if (
+      currentPermissionKeys.includes(ADMIN_PERMISSION_WILDCARD) ||
+      permissionKeys.some((permissionKey) =>
+        currentPermissionKeys.includes(permissionKey),
+      )
+    ) {
+      return;
+    }
+
+    throw new BizError({
+      code: 'ADMIN_AUTH_FORBIDDEN',
+      message: 'insufficient admin permissions',
+      status: 403,
+    });
   }
 }

@@ -39,7 +39,19 @@ async function createCollectionsHttpApp(
     ],
   })
     .overrideGuard(AdminAccessGuard)
-    .useValue({ canActivate: () => true })
+    .useValue({
+      canActivate: (context: { switchToHttp: () => { getRequest: () => { admin?: unknown } } }) => {
+        const request = context.switchToHttp().getRequest();
+        request.admin = {
+          id: 'admin_1',
+          username: 'admin',
+          accountNo: 'ADMIN-001',
+          authzVersion: 1,
+          permissionKeys: ['*'],
+        };
+        return true;
+      },
+    })
     .compile();
 
   const app = moduleRef.createNestApplication();

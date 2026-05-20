@@ -10,8 +10,11 @@ export const ADMIN_PERMISSION_ADMIN_USERS_ASSIGN_ROLES =
 export const ADMIN_PERMISSION_ROLES_READ = 'roles.read'
 export const ADMIN_PERMISSION_ROLES_ASSIGN_PERMISSIONS =
   'roles.assign_permissions'
+export const ADMIN_PERMISSION_PERMISSIONS_READ = 'permissions.read'
 export const ADMIN_PERMISSION_PERMISSION_GROUPS_READ =
   'permission_groups.read'
+export const ADMIN_PERMISSION_PERMISSION_GROUPS_UPDATE =
+  'permission_groups.update'
 export const ADMIN_PERMISSION_MENUS_READ = 'menus.read'
 export const ADMIN_PERMISSION_MENUS_UPDATE = 'menus.update'
 export const ADMIN_PERMISSION_WILDCARD = '*'
@@ -36,11 +39,25 @@ export const ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES_GENERATE =
   'issuance.activation_codes.generate'
 export const ADMIN_PERMISSION_ISSUANCE_ACTIVATION_CODES_VOID =
   'issuance.activation_codes.void'
-export const ADMIN_PERMISSION_COLLECTIONS_MANAGE = 'collections.manage'
-export const ADMIN_PERMISSION_COLLECTION_REVIEWS_MANAGE =
-  'collection_reviews.manage'
-export const ADMIN_PERMISSION_COLLECTION_COMMENTS_MANAGE =
-  'collection_comments.manage'
+export const ADMIN_PERMISSION_COLLECTIONS_READ = 'collections.read'
+export const ADMIN_PERMISSION_COLLECTIONS_TOGGLE_STATUS =
+  'collections.toggle_status'
+export const ADMIN_PERMISSION_COLLECTION_REVIEWS_READ =
+  'collection_reviews.read'
+export const ADMIN_PERMISSION_COLLECTION_REVIEWS_APPROVE =
+  'collection_reviews.approve'
+export const ADMIN_PERMISSION_COLLECTION_REVIEWS_REJECT =
+  'collection_reviews.reject'
+export const ADMIN_PERMISSION_COLLECTION_REVIEWS_TAKEDOWN =
+  'collection_reviews.takedown'
+export const ADMIN_PERMISSION_COLLECTION_COMMENTS_READ =
+  'collection_comments.read'
+export const ADMIN_PERMISSION_COLLECTION_COMMENTS_APPROVE =
+  'collection_comments.approve'
+export const ADMIN_PERMISSION_COLLECTION_COMMENTS_REJECT =
+  'collection_comments.reject'
+export const ADMIN_PERMISSION_COLLECTION_COMMENTS_BLOCK =
+  'collection_comments.block'
 export const ADMIN_PERMISSION_NOTIFICATIONS_READ = 'notifications.read'
 export const ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_CREATE =
   'notifications.template.create'
@@ -50,15 +67,14 @@ export const ADMIN_PERMISSION_NOTIFICATIONS_TEMPLATE_TOGGLE_STATUS =
   'notifications.template.toggle_status'
 export const ADMIN_PERMISSION_NOTIFICATIONS_DISPATCH_RETRY =
   'notifications.dispatch.retry'
-export const ADMIN_PERMISSION_NOTIFICATIONS_MANAGE = 'notifications.manage'
 export const ADMIN_PERMISSION_TRANSFERS_READ = 'transfers.read'
 export const ADMIN_PERMISSION_TRANSFERS_COMPLETE = 'transfers.complete'
 export const ADMIN_PERMISSION_TRANSFERS_ROLLBACK = 'transfers.rollback'
 export const ADMIN_PERMISSION_TRANSFERS_EXPIRE = 'transfers.expire'
 export const ADMIN_PERMISSION_TRANSFERS_SYNC_OWNER = 'transfers.sync_owner'
-export const ADMIN_PERMISSION_TRANSFERS_MANAGE = 'transfers.manage'
 export const ADMIN_PERMISSION_MEMBERS_READ = 'members.read'
-export const ADMIN_PERMISSION_MEMBERS_MANAGE = 'members.manage'
+export const ADMIN_PERMISSION_MEMBERS_FREEZE = 'members.freeze'
+export const ADMIN_PERMISSION_MEMBERS_UNFREEZE = 'members.unfreeze'
 
 /**
  * 判断是否具备单个后台权限点；`*` 视为全量命中。

@@ -8,7 +8,9 @@ import {
   listCollectionCommentReviews,
   rejectCollectionComment,
 } from '@/apis/comments/collection-comments'
+import { AdminReadOnlyNotice } from '@/components/admin/admin-readonly-notice'
 import { DataListIntro } from '@/components/data-table'
+import { useAdminPermission } from '@/hooks/use-admin-permission'
 import { PageLayout } from '@/components/layout/page-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,6 +42,11 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { ApiError } from '@/lib/api-error'
 import {
+  ADMIN_PERMISSION_COLLECTION_COMMENTS_APPROVE,
+  ADMIN_PERMISSION_COLLECTION_COMMENTS_BLOCK,
+  ADMIN_PERMISSION_COLLECTION_COMMENTS_REJECT,
+} from '@/lib/admin-route-access'
+import {
   buildCollectionCommentReviewsQueryParams,
   COMMENT_STATUS_OPTIONS,
   formatCollectionCommentReviewSource,
@@ -56,6 +63,12 @@ import {
 
 export function CommentReviewsPage() {
   const queryClient = useQueryClient()
+  const { hasAnyPermissions } = useAdminPermission()
+  const canApproveComments = hasAnyPermissions([ADMIN_PERMISSION_COLLECTION_COMMENTS_APPROVE])
+  const canRejectComments = hasAnyPermissions([ADMIN_PERMISSION_COLLECTION_COMMENTS_REJECT])
+  const canBlockComments = hasAnyPermissions([ADMIN_PERMISSION_COLLECTION_COMMENTS_BLOCK])
+  const canOperateComments =
+    canApproveComments || canRejectComments || canBlockComments
   const [reviewStatus, setReviewStatus] = useState('PENDING_MANUAL')
   const [page, setPage] = useState(1)
   const pageSize = 20
@@ -216,6 +229,10 @@ export function CommentReviewsPage() {
               ]}
             />
 
+            {!canOperateComments ? (
+              <AdminReadOnlyNotice description='当前账号仅具备评论查看权限，人工通过、驳回与屏蔽动作已隐藏。' />
+            ) : null}
+
             <div
               role='toolbar'
               className='flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between'
@@ -310,7 +327,16 @@ export function CommentReviewsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {items.map((row) => (
+                      {items.map((row) => {
+                        const mayBlock = rowMayBlockComment(row)
+                        const mayApproveOrReject = rowMayApproveOrRejectCommentReview(row)
+                        const showBlockAction = canBlockComments && mayBlock
+                        const showApproveAction = canApproveComments && mayApproveOrReject
+                        const showRejectAction = canRejectComments && mayApproveOrReject
+                        const showAnyAction =
+                          showBlockAction || showApproveAction || showRejectAction
+
+                        return (
                         <TableRow key={row.commentId}>
                           <TableCell className='font-medium'>{row.commentId}</TableCell>
                           <TableCell>{row.collectionNo}</TableCell>
@@ -354,7 +380,7 @@ export function CommentReviewsPage() {
                           </TableCell>
                           <TableCell className='text-end'>
                             <div className='flex flex-wrap justify-end gap-2'>
-                              {rowMayBlockComment(row) ? (
+                              {showBlockAction ? (
                                 <Button
                                   size='sm'
                                   variant='secondary'
@@ -368,40 +394,43 @@ export function CommentReviewsPage() {
                                   屏蔽评论
                                 </Button>
                               ) : null}
-                              {rowMayApproveOrRejectCommentReview(row) ? (
+                              {mayApproveOrReject ? (
                                 <>
-                                  <Button
-                                    size='sm'
-                                    variant='default'
-                                    disabled={isMutating}
-                                    onClick={() => {
-                                      setApproveTarget(row)
-                                      setApproveComment('')
-                                    }}
-                                  >
-                                    人工通过
-                                  </Button>
-                                  <Button
-                                    size='sm'
-                                    variant='destructive'
-                                    disabled={isMutating}
-                                    onClick={() => {
-                                      setRejectTarget(row)
-                                      setRejectReason('')
-                                    }}
-                                  >
-                                    人工驳回
-                                  </Button>
+                                  {showApproveAction ? (
+                                    <Button
+                                      size='sm'
+                                      variant='default'
+                                      disabled={isMutating}
+                                      onClick={() => {
+                                        setApproveTarget(row)
+                                        setApproveComment('')
+                                      }}
+                                    >
+                                      人工通过
+                                    </Button>
+                                  ) : null}
+                                  {showRejectAction ? (
+                                    <Button
+                                      size='sm'
+                                      variant='destructive'
+                                      disabled={isMutating}
+                                      onClick={() => {
+                                        setRejectTarget(row)
+                                        setRejectReason('')
+                                      }}
+                                    >
+                                      人工驳回
+                                    </Button>
+                                  ) : null}
                                 </>
                               ) : null}
-                              {!rowMayBlockComment(row) &&
-                              !rowMayApproveOrRejectCommentReview(row) ? (
+                              {!showAnyAction ? (
                                 <span className='text-xs text-muted-foreground'>—</span>
                               ) : null}
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      )})}
                     </TableBody>
                   </Table>
                 </div>
